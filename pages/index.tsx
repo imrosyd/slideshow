@@ -2,6 +2,32 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 
 const SLIDE_DURATION_MS = 12_000;
 const KEEP_ALIVE_INTERVAL_MS = 30_000;
+const LANGUAGE_SWAP_INTERVAL_MS = 15_000;
+
+type Language = "en" | "ko";
+
+const translations = {
+  loading: {
+    en: "Loading images…",
+    ko: "이미지를 불러오는 중…",
+  },
+  noSlides: {
+    en: "No images are available yet.",
+    ko: "아직 사용할 수 있는 이미지가 없습니다.",
+  },
+  fetchError: {
+    en: "Unable to load images. Please try refreshing the display.",
+    ko: "이미지를 불러올 수 없습니다. 화면을 새로 고침해 보세요.",
+  },
+  unknownError: {
+    en: "An unexpected error occurred.",
+    ko: "알 수 없는 오류가 발생했습니다.",
+  },
+} as const;
+
+type AppError =
+  | { kind: "fetch"; detail?: string }
+  | { kind: "unknown"; detail?: string };
 
 type Slide = {
   name: string;
@@ -63,12 +89,21 @@ function areSlidesEqual(previous: Slide[], next: Slide[]): boolean {
 
   return true;
 }
+const getErrorMessage = (appError: AppError, language: Language) => {
+  const base =
+    appError.kind === "fetch"
+      ? translations.fetchError[language]
+      : translations.unknownError[language];
+  return appError.detail ? `${base} (${appError.detail})` : base;
+};
+
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
   const [displayedSlide, setDisplayedSlide] = useState<Slide | null>(FALLBACK_SLIDE);
   const [fetchState, setFetchState] = useState<FetchState>("loading");
+  const [language, setLanguage] = useState<Language>("en");
   const preloadedUrlsRef = useRef<Set<string>>(new Set());
   const slidesSnapshotRef = useRef<Slide[]>([]);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
@@ -93,6 +128,20 @@ export default function Home() {
   };
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setLanguage((current) => (current === "en" ? "ko" : "en"));
+    }, LANGUAGE_SWAP_INTERVAL_MS);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
     slidesSnapshotRef.current = slides;
   }, [slides]);
 
@@ -108,7 +157,7 @@ export default function Home() {
           cache: "no-store"
         });
         if (!response.ok) {
-          throw new Error(`Gagal memuat daftar gambar: ${response.statusText}`);
+          throw new Error(`Failed to load image list: ${response.statusText}`);
         }
         const payload: { images: string[] } = await response.json();
 
@@ -137,9 +186,8 @@ export default function Home() {
         }
       } catch (err) {
         if (isMounted) {
-          const message =
-            err instanceof Error ? err.message : "Terjadi kesalahan tidak diketahui.";
-          setError(message);
+          const detail = err instanceof Error ? err.message : undefined;
+          setError({ kind: "fetch", detail });
           setFetchState("error");
         }
       }
@@ -313,7 +361,7 @@ export default function Home() {
   if (fetchState === "loading" && !displayedSlide) {
     return (
       <main style={styles.container}>
-        <p style={styles.message}>Memuat gambar…</p>
+        <p style={styles.message}>{translations.loading[language]}</p>
       </main>
     );
   }
@@ -321,7 +369,7 @@ export default function Home() {
   if (error) {
     return (
       <main style={styles.container}>
-        <p style={styles.message}>{error}</p>
+        <p style={styles.message}>{getErrorMessage(error, language)}</p>
       </main>
     );
   }
@@ -329,7 +377,7 @@ export default function Home() {
   if (slides.length === 0) {
     return (
       <main style={styles.container}>
-        <p style={styles.message}>Belum ada gambar di folder root proyek.</p>
+        <p style={styles.message}>{translations.noSlides[language]}</p>
       </main>
     );
   }

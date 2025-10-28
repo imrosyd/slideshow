@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import formidable from "formidable";
-import { promises as fs } from "fs"; // Keep fs for reading temp file
+import type { File as FormidableFile, Files, Fields } from "formidable";
+import { promises as fs } from "fs";
+import { createReadStream } from "fs";
 import { supabaseServiceRole } from "../../lib/supabase";
 
 const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
@@ -8,13 +10,14 @@ const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
 export const config = {
   api: {
     bodyParser: false,
-    sizeLimit: "100mb",
+    sizeLimit: "500mb",
   },
 };
 
 type SuccessResponse = {
   message: string;
   filenames?: string[];
+  failed?: string[];
 };
 
 type ErrorResponse = {
@@ -27,6 +30,42 @@ const sanitizeFilename = (filename: string): string => {
   return filename.replace(/[^a-zA-Z0-9_.-]/g, "_");
 };
 
+// Limit simultaneous storage writes to avoid timeouts while keeping throughput high.
+const MAX_CONCURRENT_UPLOADS = 5;
+
+const parseForm = (req: NextApiRequest, form: ReturnType<typeof formidable>) =>
+  new Promise<Files>((resolve, reject) => {
+    form.parse(req, (err: any, _fields: Fields, files: Files) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(files);
+    });
+  });
+
+const uploadSingleFile = async (file: FormidableFile, bucket: string) => {
+  const originalFilename = file.originalFilename;
+  if (!originalFilename) {
+    throw new Error("File tidak memiliki nama asli.");
+  }
+
+  const sanitizedFilename = sanitizeFilename(originalFilename);
+  const stream = createReadStream(file.filepath);
+  const { error } = await supabaseServiceRole.storage
+    .from(bucket)
+    .upload(sanitizedFilename, stream, {
+      contentType: file.mimetype || undefined,
+      upsert: true,
+    });
+
+  if (error) {
+    throw new Error(error.message || "Gagal mengunggah ke Supabase.");
+  }
+
+  return sanitizedFilename;
+};
+
 const handlePostRequest = async (
   req: NextApiRequest,
   res: NextApiResponse<SuccessResponse | ErrorResponse>
@@ -36,17 +75,14 @@ const handlePostRequest = async (
     maxFileSize: 100 * 1024 * 1024, // 100 MB per file
     maxTotalFileSize: 500 * 1024 * 1024, // 500 MB total per request
   });
-  
-  form.parse(req, async (err, fields, files) => {
-    if (err) {
-      console.error("Error parsing form:", err);
-      return res.status(500).json({ error: "Gagal memproses unggahan." });
-    }
+
+  try {
+    const files = await parseForm(req, form);
 
     const uploadedFiles = Array.isArray(files.file)
-      ? (files.file as formidable.File[])
+      ? (files.file as FormidableFile[])
       : files.file
-        ? [files.file as formidable.File]
+        ? [files.file as FormidableFile]
         : [];
 
     if (uploadedFiles.length === 0) {
@@ -58,46 +94,58 @@ const handlePostRequest = async (
       return res.status(500).json({ error: "Konfigurasi server salah: Supabase bucket tidak diatur." });
     }
 
-    const uploadedFilenames: string[] = [];
-    for (const file of uploadedFiles as formidable.File[]) {
-      const originalFilename = file.originalFilename;
-      if (!originalFilename) {
-        console.warn("File tanpa nama asli dilewati.");
-        continue;
-      }
+    const successfulUploads: string[] = [];
+    const uploadErrors: string[] = [];
 
-      const sanitizedFilename = sanitizeFilename(originalFilename);
-      
-      try {
-        const fileContent = await fs.readFile(file.filepath);
-        const { data, error: uploadError } = await supabaseServiceRole.storage
-          .from(SUPABASE_STORAGE_BUCKET)
-          .upload(sanitizedFilename, fileContent, {
-            contentType: file.mimetype || undefined,
-            upsert: true, // Overwrite if file exists
-          });
-
-        if (uploadError) {
-          console.error(`Error uploading ${sanitizedFilename} to Supabase:`, uploadError);
-          // Continue with other files even if one fails
-        } else {
-          uploadedFilenames.push(sanitizedFilename);
+    let index = 0;
+    const worker = async () => {
+      while (index < uploadedFiles.length) {
+        const currentIndex = index;
+        index += 1;
+        const file = uploadedFiles[currentIndex];
+        try {
+          const name = await uploadSingleFile(file, SUPABASE_STORAGE_BUCKET);
+          successfulUploads.push(name);
+        } catch (uploadErr: any) {
+          const message = uploadErr?.message || "Gagal mengunggah file.";
+          console.error(`Error processing file ${file.originalFilename}:`, uploadErr);
+          uploadErrors.push(`${file.originalFilename || "(tanpa nama)"}: ${message}`);
+        } finally {
+          if (file.filepath) {
+            try {
+              await fs.unlink(file.filepath);
+            } catch (cleanupErr) {
+              console.error("Error deleting temp file:", cleanupErr);
+            }
+          }
         }
-      } catch (uploadErr) {
-        console.error(`Error processing file ${originalFilename}:`, uploadErr);
-        // Continue with other files even if one fails
-      } finally {
-        // Clean up the temporary file
-        try { await fs.unlink(file.filepath); } catch (e) { console.error("Error deleting temp file:", e); }
       }
+    };
+
+    const workerCount = Math.min(MAX_CONCURRENT_UPLOADS, uploadedFiles.length);
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+    if (successfulUploads.length === 0) {
+      const combinedError = uploadErrors.join("; ") || "Tidak ada file yang berhasil diunggah ke Supabase.";
+      return res.status(500).json({ error: combinedError });
     }
 
-    if (uploadedFilenames.length === 0) {
-        return res.status(500).json({ error: "Tidak ada file yang berhasil diunggah ke Supabase." });
+    if (uploadErrors.length > 0) {
+      return res.status(207).json({
+        message: `${successfulUploads.length} file berhasil diunggah, tetapi ${uploadErrors.length} gagal.`,
+        filenames: successfulUploads,
+        failed: uploadErrors,
+      });
     }
 
-    res.status(200).json({ message: `${uploadedFilenames.length} file berhasil diunggah ke Supabase.`, filenames: uploadedFilenames });
-  });
+    return res.status(200).json({
+      message: `${successfulUploads.length} file berhasil diunggah ke Supabase.`,
+      filenames: successfulUploads,
+    });
+  } catch (err) {
+    console.error("Error parsing form:", err);
+    return res.status(500).json({ error: "Gagal memproses unggahan." });
+  }
 };
 
 const handleDeleteRequest = async (
