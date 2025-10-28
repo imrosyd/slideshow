@@ -81,7 +81,6 @@ const styles: Record<string, CSSProperties> = {
   },
   noSlidesMessage: {
     fontSize: "1.5rem",
-    fontWeight: 600,
     letterSpacing: "-0.01em"
   }
 } as const;
