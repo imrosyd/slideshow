@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 const SLIDE_DURATION_MS = 60_000;
 
@@ -7,11 +7,25 @@ type Slide = {
   url: string;
 };
 
+type WakeLockSentinel = {
+  released: boolean;
+  release: () => Promise<void>;
+  addEventListener?: (type: "release", listener: () => void) => void;
+  removeEventListener?: (type: "release", listener: () => void) => void;
+};
+
+type WakeLockNavigator = Navigator & {
+  wakeLock?: {
+    request: (type: "screen") => Promise<WakeLockSentinel>;
+  };
+};
+
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -66,6 +80,60 @@ export default function Home() {
   }, [slides]);
 
   const activeSlide = useMemo(() => slides[activeIndex], [slides, activeIndex]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined") {
+      return;
+    }
+
+    const nav = navigator as WakeLockNavigator;
+    const wakeLockAPI = nav.wakeLock;
+
+    if (!wakeLockAPI) {
+      return;
+    }
+
+    let releasedByComponent = false;
+
+    const requestWakeLock = async () => {
+      try {
+        const sentinel = await wakeLockAPI.request("screen");
+        wakeLockRef.current?.removeEventListener?.("release", handleRelease);
+        wakeLockRef.current = sentinel;
+        wakeLockRef.current.addEventListener?.("release", handleRelease);
+      } catch (err) {
+        console.warn("Gagal mengaktifkan screen wake lock:", err);
+      }
+    };
+
+    const handleRelease = () => {
+      wakeLockRef.current = null;
+      if (!releasedByComponent && document.visibilityState === "visible") {
+        void requestWakeLock();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void requestWakeLock();
+      } else {
+        releasedByComponent = true;
+        void wakeLockRef.current?.release();
+        releasedByComponent = false;
+      }
+    };
+
+    void requestWakeLock();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      releasedByComponent = true;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      wakeLockRef.current?.removeEventListener?.("release", handleRelease);
+      void wakeLockRef.current?.release();
+      wakeLockRef.current = null;
+    };
+  }, []);
 
   if (isLoading) {
     return (
