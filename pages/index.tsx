@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 const SLIDE_DURATION_MS = 10_000;
 
@@ -25,6 +25,7 @@ export default function Home() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [displayedSlide, setDisplayedSlide] = useState<Slide | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export default function Home() {
           }));
           setSlides(nextSlides);
           setActiveIndex(0);
+          setDisplayedSlide(nextSlides[0] ?? null);
         }
       } catch (err) {
         if (isMounted) {
@@ -79,7 +81,44 @@ export default function Home() {
     };
   }, [slides]);
 
-  const activeSlide = useMemo(() => slides[activeIndex], [slides, activeIndex]);
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (!slides.length) {
+      return;
+    }
+
+    const targetSlide = slides[activeIndex];
+    if (!targetSlide) {
+      return;
+    }
+
+    if (displayedSlide?.url === targetSlide.url) {
+      return;
+    }
+
+    let isCancelled = false;
+    const preloader = new window.Image();
+    preloader.src = targetSlide.url;
+
+    preloader.onload = () => {
+      if (!isCancelled) {
+        setDisplayedSlide(targetSlide);
+      }
+    };
+
+    preloader.onerror = () => {
+      if (!isCancelled) {
+        setDisplayedSlide(targetSlide);
+      }
+    };
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [slides, activeIndex, displayedSlide]);
 
   useEffect(() => {
     if (typeof navigator === "undefined") {
@@ -162,9 +201,9 @@ export default function Home() {
   return (
     <main style={styles.container}>
       <img
-        key={activeSlide?.name ?? "placeholder"}
-        src={activeSlide?.url}
-        alt={activeSlide?.name ?? "Slide"}
+        key={displayedSlide?.name ?? "placeholder"}
+        src={displayedSlide?.url}
+        alt={displayedSlide?.name ?? "Slide"}
         style={styles.image}
       />
     </main>
