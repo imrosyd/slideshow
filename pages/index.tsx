@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
-const SLIDE_DURATION_MS = 10_000;
+const SLIDE_DURATION_MS = 30_000;
 
 type Slide = {
   name: string;
