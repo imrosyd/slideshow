@@ -1,1 +1,13 @@
+# Build
+.next/
+out/
+
+# Dependencies
 node_modules/
+
+# Environment
+.env*
+!.env.example
+
+# Cache
+*.tsbuildinfo
