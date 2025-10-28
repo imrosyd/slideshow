@@ -18,11 +18,6 @@ const nextConfig = {
       "/api/image/[name]": imageGlobs
     }
   },
-  api: {
-    bodyParser: {
-      sizeLimit: '500mb',
-    },
-  },
 };
 
 module.exports = nextConfig;

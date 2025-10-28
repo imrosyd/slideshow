@@ -1,63 +1,4 @@
-// ...existing code...
-  const handleFilesSelected = (fileList: FileList | null) => {
-    if (fileList && fileList.length > 0) {
-      setFilesToUpload(fileList);
-      setError(null);
-      // langsung mulai upload setelah file dipilih
-      void uploadFiles(fileList);
-    } else {
-      setFilesToUpload(null);
-    }
-  };
-
-  // ganti handleUpload (form submit) dengan fungsi yang menerima FileList langsung
-  const uploadFiles = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) {
-      setError("Select at least one file to upload.");
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    const formData = new FormData();
-    const totalFiles = fileList.length;
-    for (let index = 0; index < fileList.length; index += 1) {
-      formData.append("file", fileList[index]);
-    }
-
-    try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${password}`,
-        },
-        body: formData,
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Failed to upload files.");
-      handleFilesSelected(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      await fetchImagesAndConfig(); // Refresh list and config
-      const uploadedCount = Array.isArray(result.filenames) ? result.filenames.length : totalFiles;
-      const successMessage =
-        uploadedCount === 1 ? "Uploaded 1 image successfully." : `Uploaded ${uploadedCount} images successfully.`;
-      showToast(successMessage, "success");
-    } catch (err: any) {
-      setError(err.message);
-      showToast("Failed to upload files.", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    handleFilesSelected(files);
-  };
-
-  // ...existing code...import { useState, useEffect, useRef, useCallback, type FormEvent, type CSSProperties, type DragEvent, type ChangeEvent } from "react";
+import { useState, useEffect, useRef, useCallback, type FormEvent, type CSSProperties, type DragEvent, type ChangeEvent } from "react";
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -680,6 +621,47 @@ export default function Admin() {
     });
   };
 
+  const uploadFiles = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) {
+      setError("Select at least one file to upload.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    const formData = new FormData();
+    const totalFiles = fileList.length;
+    for (let index = 0; index < fileList.length; index += 1) {
+      formData.append("file", fileList[index]);
+    }
+
+    try {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${password}`,
+        },
+        body: formData,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to upload files.");
+      handleFilesSelected(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      await fetchImagesAndConfig(); // Refresh list and config
+      const uploadedCount = Array.isArray(result.filenames) ? result.filenames.length : totalFiles;
+      const successMessage =
+        uploadedCount === 1 ? "Uploaded 1 image successfully." : `Uploaded ${uploadedCount} images successfully.`;
+      showToast(successMessage, "success");
+    } catch (err: any) {
+      setError(err.message);
+      showToast("Failed to upload files.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleFilesSelected = (fileList: FileList | null) => {
     if (fileList && fileList.length > 0) {
       setFilesToUpload(fileList);
@@ -754,48 +736,6 @@ export default function Admin() {
     } catch (err: any) {
       setError(err.message);
       showToast("Failed to delete files.", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUpload = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!filesToUpload || filesToUpload.length === 0) {
-      setError("Select at least one file to upload.");
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    const formData = new FormData();
-    const totalFiles = filesToUpload.length;
-    for (let index = 0; index < filesToUpload.length; index += 1) {
-      formData.append("file", filesToUpload[index]);
-    }
-
-    try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${password}`,
-        },
-        body: formData,
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Failed to upload files.");
-      handleFilesSelected(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      await fetchImagesAndConfig(); // Refresh list and config
-      const uploadedCount = Array.isArray(result.filenames) ? result.filenames.length : totalFiles;
-      const successMessage =
-        uploadedCount === 1 ? "Uploaded 1 image successfully." : `Uploaded ${uploadedCount} images successfully.`;
-      showToast(successMessage, "success");
-    } catch (err: any) {
-      setError(err.message);
-      showToast("Failed to upload files.", "error");
     } finally {
       setIsLoading(false);
     }
