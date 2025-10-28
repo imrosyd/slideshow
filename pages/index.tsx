@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
-const SLIDE_DURATION_MS = 10_000;
+const SLIDE_DURATION_MS = 12_000;
 const KEEP_ALIVE_INTERVAL_MS = 10 * 60_000;
 
 type Slide = {
@@ -21,20 +21,91 @@ type WakeLockNavigator = Navigator & {
   };
 };
 
+type FetchState = "loading" | "ready" | "error";
+
+const FALLBACK_SLIDE: Slide | null = null;
+
+const styles: Record<string, CSSProperties> = {
+  container: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100vh",
+    width: "100vw",
+    backgroundColor: "#000"
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    backgroundColor: "#000"
+  },
+  message: {
+    fontSize: "1.1rem",
+    textAlign: "center",
+    maxWidth: "30rem",
+    lineHeight: 1.6,
+    color: "#e2e8f0"
+  }
+} as const;
+
+function areSlidesEqual(previous: Slide[], next: Slide[]): boolean {
+  if (previous.length !== next.length) {
+    return false;
+  }
+
+  for (let index = 0; index < previous.length; index += 1) {
+    if (previous[index]?.name !== next[index]?.name) {
+      return false;
+    }
+  }
+
+  return true;
+}
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [displayedSlide, setDisplayedSlide] = useState<Slide | null>(null);
+  const [displayedSlide, setDisplayedSlide] = useState<Slide | null>(FALLBACK_SLIDE);
+  const [fetchState, setFetchState] = useState<FetchState>("loading");
+  const preloadedUrlsRef = useRef<Set<string>>(new Set());
+  const slidesSnapshotRef = useRef<Slide[]>([]);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
+  const queuePreload = (url: string) => {
+    if (!url || typeof window === "undefined") {
+      return;
+    }
+
+    if (preloadedUrlsRef.current.has(url)) {
+      return;
+    }
+
+    const image = new window.Image();
+    image.decoding = "async";
+    image.src = url;
+    const finalize = () => {
+      preloadedUrlsRef.current.add(url);
+    };
+    image.onload = finalize;
+    image.onerror = finalize;
+  };
+
   useEffect(() => {
+    slidesSnapshotRef.current = slides;
+  }, [slides]);
+
+  useEffect(() => {
+    const controller = new AbortController();
     let isMounted = true;
 
     const fetchSlides = async () => {
       try {
-        const response = await fetch("/api/images");
+        setFetchState("loading");
+        const response = await fetch("/api/images", {
+          signal: controller.signal,
+          cache: "no-store"
+        });
         if (!response.ok) {
           throw new Error(`Gagal memuat daftar gambar: ${response.statusText}`);
         }
@@ -44,27 +115,31 @@ export default function Home() {
             name: filename,
             url: `/api/image/${encodeURIComponent(filename)}`
           }));
-          setSlides(nextSlides);
-          setActiveIndex(0);
-          setDisplayedSlide(nextSlides[0] ?? null);
+          const hasChanged = !areSlidesEqual(slidesSnapshotRef.current, nextSlides);
+          if (hasChanged) {
+            slidesSnapshotRef.current = nextSlides;
+            setSlides(nextSlides);
+            setActiveIndex(0);
+            setDisplayedSlide(nextSlides[0] ?? FALLBACK_SLIDE);
+          }
+          setError(null);
+          setFetchState("ready");
         }
       } catch (err) {
         if (isMounted) {
           const message =
             err instanceof Error ? err.message : "Terjadi kesalahan tidak diketahui.";
           setError(message);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
+          setFetchState("error");
         }
       }
     };
 
-    fetchSlides();
+    void fetchSlides();
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, []);
 
@@ -80,46 +155,62 @@ export default function Home() {
     return () => {
       clearInterval(timer);
     };
-  }, [slides]);
+  }, [slides.length]);
+
+  const currentSlide = useMemo(
+    () => (slides.length ? slides[activeIndex % slides.length] ?? null : null),
+    [slides, activeIndex]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    if (!slides.length) {
+    if (!currentSlide) {
       return;
     }
 
-    const targetSlide = slides[activeIndex];
-    if (!targetSlide) {
-      return;
-    }
-
-    if (displayedSlide?.url === targetSlide.url) {
+    if (displayedSlide?.url === currentSlide.url) {
       return;
     }
 
     let isCancelled = false;
     const preloader = new window.Image();
-    preloader.src = targetSlide.url;
+    preloader.decoding = "async";
+    preloader.loading = "eager";
+    preloader.src = currentSlide.url;
 
-    preloader.onload = () => {
+    const finalize = () => {
       if (!isCancelled) {
-        setDisplayedSlide(targetSlide);
+        preloadedUrlsRef.current.add(currentSlide.url);
+        setDisplayedSlide(currentSlide);
       }
     };
 
-    preloader.onerror = () => {
-      if (!isCancelled) {
-        setDisplayedSlide(targetSlide);
-      }
-    };
+    preloader.onload = finalize;
+    preloader.onerror = finalize;
 
     return () => {
       isCancelled = true;
     };
-  }, [slides, activeIndex, displayedSlide]);
+  }, [currentSlide, displayedSlide]);
+
+  useEffect(() => {
+    if (!slides.length) {
+      return;
+    }
+
+    const nextIndex = (activeIndex + 1) % slides.length;
+    if (nextIndex === activeIndex) {
+      return;
+    }
+    const nextSlide = slides[nextIndex];
+    if (!nextSlide) {
+      return;
+    }
+    queuePreload(nextSlide.url);
+  }, [activeIndex, slides]);
 
   useEffect(() => {
     if (typeof navigator === "undefined") {
@@ -209,7 +300,7 @@ export default function Home() {
     };
   }, []);
 
-  if (isLoading) {
+  if (fetchState === "loading" && !displayedSlide) {
     return (
       <main style={styles.container}>
         <p style={styles.message}>Memuat gambar…</p>
@@ -236,35 +327,12 @@ export default function Home() {
   return (
     <main style={styles.container}>
       <img
-        key={displayedSlide?.name ?? "placeholder"}
-        src={displayedSlide?.url}
+        src={displayedSlide?.url ?? ""}
         alt={displayedSlide?.name ?? "Slide"}
+        decoding="async"
+        loading="eager"
         style={styles.image}
       />
     </main>
   );
 }
-
-const styles: Record<string, CSSProperties> = {
-  container: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-    width: "100vw",
-    backgroundColor: "#000"
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-    backgroundColor: "#000"
-  },
-  message: {
-    fontSize: "1.1rem",
-    textAlign: "center",
-    maxWidth: "30rem",
-    lineHeight: 1.6,
-    color: "#e2e8f0"
-  }
-};

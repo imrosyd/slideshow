@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
+import { promises as fsPromises, createReadStream } from "fs";
 import path from "path";
 import mime from "mime-types";
 
@@ -14,7 +14,20 @@ const ALLOWED_EXTENSIONS = new Set([
   ".avif"
 ]);
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+async function resolveFilePath(filename: string): Promise<string | null> {
+  try {
+    const filePath = path.join(process.cwd(), filename);
+    const stats = await fsPromises.stat(filePath);
+    if (!stats.isFile()) {
+      return null;
+    }
+    return filePath;
+  } catch {
+    return null;
+  }
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { name } = req.query;
 
   if (typeof name !== "string") {
@@ -30,9 +43,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     return;
   }
 
-  const filePath = path.join(process.cwd(), filename);
-
-  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+  const filePath = await resolveFilePath(filename);
+  if (!filePath) {
     res.status(404).json({ error: "Gambar tidak ditemukan." });
     return;
   }
@@ -41,10 +53,21 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader("Content-Type", mimeType);
   res.setHeader("Cache-Control", "public, max-age=60");
 
-  const stream = fs.createReadStream(filePath);
-  stream.on("error", (err) => {
-    console.error(err);
-    res.status(500).end("Gagal membaca file gambar.");
+  const stream = createReadStream(filePath);
+
+  await new Promise<void>((resolve, reject) => {
+    stream.on("error", (err) => {
+      console.error(err);
+      if (!res.headersSent) {
+        res.status(500).end("Gagal membaca file gambar.");
+      } else {
+        res.end();
+      }
+      reject(err);
+    });
+    stream.on("end", () => {
+      resolve();
+    });
+    stream.pipe(res);
   });
-  stream.pipe(res);
 }
