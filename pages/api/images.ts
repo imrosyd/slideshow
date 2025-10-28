@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabaseServiceRole } from "../../lib/supabase";
+import { getSupabaseServiceRoleClient } from "../../lib/supabase";
 import path from "path"; // Keep path for extension checking
 
 const IMAGE_EXTENSIONS = new Set([
@@ -24,6 +24,7 @@ async function readImageList(): Promise<string[]> {
     throw new Error("SUPABASE_STORAGE_BUCKET is not set.");
   }
 
+  const supabaseServiceRole = getSupabaseServiceRoleClient();
   const { data, error } = await supabaseServiceRole.storage
     .from(SUPABASE_STORAGE_BUCKET)
     .list('', {

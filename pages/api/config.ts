@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabaseServiceRole } from "../../lib/supabase";
+import { getSupabaseServiceRoleClient } from "../../lib/supabase";
 
 type Config = {
   [filename: string]: number; // filename -> duration in ms
@@ -29,6 +29,7 @@ export default async function handler(
 
   if (req.method === "GET") {
     try {
+      const supabaseServiceRole = getSupabaseServiceRoleClient();
       const { data, error } = await supabaseServiceRole
         .from(SUPABASE_DURATIONS_TABLE)
         .select('filename, duration_ms');
@@ -53,6 +54,7 @@ export default async function handler(
   if (req.method === "POST") {
     try {
       const newConfig: Config = req.body;
+      const supabaseServiceRole = getSupabaseServiceRoleClient();
 
       // Clear existing durations
       const { error: deleteError } = await supabaseServiceRole

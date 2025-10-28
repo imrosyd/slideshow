@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabaseServiceRole } from "../../../lib/supabase";
+import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
 
 export default async function handler(
   req: NextApiRequest,
@@ -20,6 +20,7 @@ export default async function handler(
 
   try {
     // Get the public URL for the image
+    const supabaseServiceRole = getSupabaseServiceRoleClient();
     const { data, error } = await supabaseServiceRole.storage
       .from(SUPABASE_STORAGE_BUCKET)
       .createSignedUrl(name, 60); // link valid for 60 seconds

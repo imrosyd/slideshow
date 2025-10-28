@@ -2,26 +2,31 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 
 const SLIDE_DURATION_MS = 12_000;
 const KEEP_ALIVE_INTERVAL_MS = 30_000;
-const LANGUAGE_SWAP_INTERVAL_MS = 15_000;
+const LANGUAGE_SWAP_INTERVAL_MS = 1_000;
 
-type Language = "en" | "ko";
+type Language = "en" | "ko" | "id";
+const LANGUAGE_SEQUENCE: Language[] = ["en", "ko", "id"];
 
 const translations = {
   loading: {
     en: "Loading images…",
     ko: "이미지를 불러오는 중…",
+    id: "Memuat gambar...",
   },
   noSlides: {
-    en: "No images are available yet.",
-    ko: "아직 사용할 수 있는 이미지가 없습니다.",
+    en: "No dashboards are being displayed yet.",
+    ko: "현재 표시되는 대시보드가 없습니다.",
+    id: "Belum ada dashboard yang di tampilkan.",
   },
   fetchError: {
     en: "Unable to load images. Please try refreshing the display.",
     ko: "이미지를 불러올 수 없습니다. 화면을 새로 고침해 보세요.",
+    id: "Tidak dapat memuat gambar. Coba segarkan tampilan.",
   },
   unknownError: {
     en: "An unexpected error occurred.",
     ko: "알 수 없는 오류가 발생했습니다.",
+    id: "Terjadi kesalahan yang tidak terduga.",
   },
 } as const;
 
@@ -73,6 +78,11 @@ const styles: Record<string, CSSProperties> = {
     maxWidth: "30rem",
     lineHeight: 1.6,
     color: "#e2e8f0"
+  },
+  noSlidesMessage: {
+    fontSize: "1.5rem",
+    fontWeight: 600,
+    letterSpacing: "-0.01em"
   }
 } as const;
 
@@ -132,8 +142,10 @@ export default function Home() {
       return;
     }
 
+    let nextIndex = 0;
     const intervalId = window.setInterval(() => {
-      setLanguage((current) => (current === "en" ? "ko" : "en"));
+      nextIndex = (nextIndex + 1) % LANGUAGE_SEQUENCE.length;
+      setLanguage(LANGUAGE_SEQUENCE[nextIndex]);
     }, LANGUAGE_SWAP_INTERVAL_MS);
 
     return () => {
@@ -377,7 +389,9 @@ export default function Home() {
   if (slides.length === 0) {
     return (
       <main style={styles.container}>
-        <p style={styles.message}>{translations.noSlides[language]}</p>
+        <p style={{ ...styles.message, ...styles.noSlidesMessage }}>
+          {translations.noSlides[language]}
+        </p>
       </main>
     );
   }

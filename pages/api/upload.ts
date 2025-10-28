@@ -2,8 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import formidable from "formidable";
 import type { File as FormidableFile, Files, Fields } from "formidable";
 import { promises as fs } from "fs";
-import { createReadStream } from "fs";
-import { supabaseServiceRole } from "../../lib/supabase";
+import { getSupabaseServiceRoleClient } from "../../lib/supabase";
 
 const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
 
@@ -51,10 +50,11 @@ const uploadSingleFile = async (file: FormidableFile, bucket: string) => {
   }
 
   const sanitizedFilename = sanitizeFilename(originalFilename);
-  const stream = createReadStream(file.filepath);
+  const supabaseServiceRole = getSupabaseServiceRoleClient();
+  const fileBuffer = await fs.readFile(file.filepath); // Read file into memory to avoid Node fetch duplex issues
   const { error } = await supabaseServiceRole.storage
     .from(bucket)
-    .upload(sanitizedFilename, stream, {
+    .upload(sanitizedFilename, fileBuffer, {
       contentType: file.mimetype || undefined,
       upsert: true,
     });
@@ -165,6 +165,7 @@ const handleDeleteRequest = async (
     }
 
     const sanitizedFilenames = filenames.map(sanitizeFilename);
+    const supabaseServiceRole = getSupabaseServiceRoleClient();
     const { data, error: deleteError } = await supabaseServiceRole.storage
       .from(SUPABASE_STORAGE_BUCKET)
       .remove(sanitizedFilenames);

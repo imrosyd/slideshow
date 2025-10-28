@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FormEvent, type CSSProperties, type DragEvent, type ChangeEvent } from "react";
+import { useState, useEffect, useRef, useCallback, type FormEvent, type CSSProperties, type DragEvent, type ChangeEvent } from "react";
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -289,11 +289,27 @@ const styles: Record<string, CSSProperties> = {
     transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
     borderRadius: '16px',
   },
+  fileListItemSelected: {
+    borderColor: 'var(--primary-accent)',
+    boxShadow: '0 22px 42px -30px var(--primary-accent)',
+  },
   fileInfoRow: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
     width: '100%',
+    cursor: 'pointer',
+    padding: '6px 8px',
+    borderRadius: '12px',
+    transition: 'background-color 0.2s ease',
+    userSelect: 'none',
+  },
+  fileInfoRowSelected: {
+    backgroundColor: 'var(--accent-chip)',
+  },
+  fileCheckbox: {
+    width: '18px',
+    height: '18px',
   },
   fileMeta: {
     display: 'flex',
@@ -363,6 +379,61 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 500,
     border: '1px solid rgba(248, 113, 113, 0.2)',
   },
+  toastWrapper: {
+    position: 'fixed',
+    top: '28px',
+    left: 0,
+    right: 0,
+    display: 'flex',
+    justifyContent: 'center',
+    pointerEvents: 'none',
+    zIndex: 1000,
+  },
+  toast: {
+    minWidth: '240px',
+    maxWidth: '360px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '14px 20px',
+    borderRadius: '14px',
+    fontSize: '0.95rem',
+    fontWeight: 500,
+    boxShadow: '0 24px 60px -32px rgba(15, 23, 42, 0.45)',
+    border: '1px solid transparent',
+    pointerEvents: 'auto',
+    transition: 'transform 0.2s ease, opacity 0.2s ease',
+  },
+  toastSuccess: {
+    backgroundColor: '#dbe3ff',
+    borderColor: '#aac0ff',
+    color: '#1e3a8a',
+  },
+  toastError: {
+    backgroundColor: '#ffe4e6',
+    borderColor: '#fda4af',
+    color: '#991b1b',
+  },
+  toastIcon: {
+    fontSize: '1.2rem',
+    lineHeight: 1,
+  },
+  toastMessage: {
+    flex: 1,
+    margin: 0,
+  },
+  toastDismissButton: {
+    border: 'none',
+    background: 'transparent',
+    color: 'inherit',
+    fontSize: '1.2rem',
+    cursor: 'pointer',
+    padding: 0,
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 };
 
 export default function Admin() {
@@ -391,6 +462,33 @@ export default function Admin() {
   const [resolvedThemeName, setResolvedThemeName] = useState<'light' | 'dark'>('light');
   const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [toast, setToast] = useState<{ message: string; variant: "success" | "error" } | null>(null);
+
+  const dismissToast = useCallback(() => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = null;
+    }
+    setToast(null);
+  }, []);
+
+  const showToast = useCallback((message: string, variant: "success" | "error" = "success") => {
+    dismissToast();
+    setToast({ message, variant });
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimeoutRef.current = null;
+    }, 3500);
+  }, [dismissToast]);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Apply theme on mount and when currentTheme changes
   useEffect(() => {
@@ -574,6 +672,7 @@ export default function Admin() {
 
     setIsLoading(true);
     setError(null);
+    const filenamesToDelete = Array.from(selectedImages);
     try {
       const response = await fetch("/api/upload", {
         method: "DELETE",
@@ -581,13 +680,19 @@ export default function Admin() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${password}`,
         },
-        body: JSON.stringify({ filenames: Array.from(selectedImages) }),
+        body: JSON.stringify({ filenames: filenamesToDelete }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Failed to delete files.");
       await fetchImagesAndConfig(); // Refresh list and config
+      setSelectedImages(new Set());
+      const deletedCount = Array.isArray(result.filenames) ? result.filenames.length : filenamesToDelete.length;
+      const successMessage =
+        deletedCount === 1 ? "Deleted 1 image." : `Deleted ${deletedCount} images.`;
+      showToast(successMessage, "success");
     } catch (err: any) {
       setError(err.message);
+      showToast("Failed to delete files.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -603,8 +708,9 @@ export default function Admin() {
     setIsLoading(true);
     setError(null);
     const formData = new FormData();
-    for (let i = 0; i < filesToUpload.length; i++) {
-      formData.append("file", filesToUpload[i]);
+    const totalFiles = filesToUpload.length;
+    for (let index = 0; index < filesToUpload.length; index += 1) {
+      formData.append("file", filesToUpload[index]);
     }
 
     try {
@@ -622,8 +728,13 @@ export default function Admin() {
         fileInputRef.current.value = '';
       }
       await fetchImagesAndConfig(); // Refresh list and config
+      const uploadedCount = Array.isArray(result.filenames) ? result.filenames.length : totalFiles;
+      const successMessage =
+        uploadedCount === 1 ? "Uploaded 1 image successfully." : `Uploaded ${uploadedCount} images successfully.`;
+      showToast(successMessage, "success");
     } catch (err: any) {
       setError(err.message);
+      showToast("Failed to upload files.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -660,9 +771,10 @@ export default function Admin() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Failed to save durations.");
-      alert("Durations saved successfully!");
+      showToast("Durations saved successfully!", "success");
     } catch (err: any) {
       setError(err.message);
+      showToast("Failed to save durations.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -683,8 +795,31 @@ export default function Admin() {
         ? 'System'
         : 'Light';
 
+  const toastStyle = toast
+    ? toast.variant === "success"
+      ? { ...styles.toast, ...styles.toastSuccess }
+      : { ...styles.toast, ...styles.toastError }
+    : null;
+  const toastIcon = toast?.variant === "success" ? "✅" : "⚠️";
+
   return (
     <div style={styles.fullPageContainer}>
+      {toast && toastStyle && (
+        <div style={styles.toastWrapper}>
+          <div style={toastStyle}>
+            <span style={styles.toastIcon}>{toastIcon}</span>
+            <p style={styles.toastMessage}>{toast.message}</p>
+            <button
+              type="button"
+              style={styles.toastDismissButton}
+              onClick={dismissToast}
+              aria-label="Dismiss notification"
+            >
+              x
+            </button>
+          </div>
+        </div>
+      )}
       <div style={styles.surface}>
         <div style={styles.headerBar}>
           <div style={styles.headerContent}>
@@ -797,20 +932,32 @@ export default function Admin() {
                   </div>
 
                   <ul style={styles.fileList}>
-                    {images.map((image) => (
-                      <li key={image} style={styles.fileListItem}>
-                        <div style={styles.fileInfoRow}>
-                          <input
-                            type="checkbox"
-                            checked={selectedImages.has(image)}
-                            onChange={() => handleToggleSelect(image)}
-                            disabled={isLoading}
-                          />
-                          <img src={`/api/image/${encodeURIComponent(image)}`} alt={image} style={styles.imagePreview} />
-                          <div style={styles.fileMeta}>
-                            <span style={styles.fileNameText}>{image}</span>
-                          </div>
-                        </div>
+                    {images.map((image, index) => {
+                      const checkboxId = `image-checkbox-${index}`;
+                      const isSelected = selectedImages.has(image);
+                      const itemStyle = isSelected
+                        ? { ...styles.fileListItem, ...styles.fileListItemSelected }
+                        : styles.fileListItem;
+                      const infoRowStyle = isSelected
+                        ? { ...styles.fileInfoRow, ...styles.fileInfoRowSelected }
+                        : styles.fileInfoRow;
+
+                      return (
+                        <li key={image} style={itemStyle}>
+                          <label htmlFor={checkboxId} style={infoRowStyle}>
+                            <input
+                              id={checkboxId}
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelect(image)}
+                              disabled={isLoading}
+                              style={styles.fileCheckbox}
+                            />
+                            <img src={`/api/image/${encodeURIComponent(image)}`} alt={image} style={styles.imagePreview} />
+                            <div style={styles.fileMeta}>
+                              <span style={styles.fileNameText}>{image}</span>
+                            </div>
+                          </label>
                         <div style={styles.durationControl}>
                           <span style={styles.durationLabel}>Display duration</span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -826,8 +973,9 @@ export default function Admin() {
                             <span>seconds</span>
                           </div>
                         </div>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </>
               ) : (
