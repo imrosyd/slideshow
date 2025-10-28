@@ -49,6 +49,7 @@ export default function handler(
       .map((entry) => entry.name)
       .sort((a, b) => a.localeCompare(b, "id"));
 
+    res.setHeader("Cache-Control", "no-store");
     res.status(200).json({ images });
   } catch (error) {
     console.error(error);
