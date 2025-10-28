@@ -8,6 +8,7 @@ const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
 export const config = {
   api: {
     bodyParser: false,
+    sizeLimit: "100mb",
   },
 };
 
@@ -30,7 +31,11 @@ const handlePostRequest = async (
   req: NextApiRequest,
   res: NextApiResponse<SuccessResponse | ErrorResponse>
 ) => {
-  const form = formidable({});
+  const form = formidable({
+    multiples: true,
+    maxFileSize: 100 * 1024 * 1024, // 100 MB per file
+    maxTotalFileSize: 500 * 1024 * 1024, // 500 MB total per request
+  });
   
   form.parse(req, async (err, fields, files) => {
     if (err) {
@@ -38,9 +43,13 @@ const handlePostRequest = async (
       return res.status(500).json({ error: "Gagal memproses unggahan." });
     }
 
-    const uploadedFiles = files.file; // formidable returns an array for multiple files
+    const uploadedFiles = Array.isArray(files.file)
+      ? (files.file as formidable.File[])
+      : files.file
+        ? [files.file as formidable.File]
+        : [];
 
-    if (!uploadedFiles || uploadedFiles.length === 0) {
+    if (uploadedFiles.length === 0) {
       return res.status(400).json({ error: "Tidak ada file yang ditemukan untuk diunggah." });
     }
 
