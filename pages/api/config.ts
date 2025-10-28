@@ -35,7 +35,7 @@ export default async function handler(
     try {
       const supabaseServiceRole = getSupabaseServiceRoleClient();
       const { data, error } = await supabaseServiceRole
-        .from<DurationRow>(SUPABASE_DURATIONS_TABLE)
+        .from(SUPABASE_DURATIONS_TABLE)
         .select("filename, duration_ms");
 
       if (error) {
@@ -49,7 +49,7 @@ export default async function handler(
       }
 
       const config: Config = {};
-      data.forEach(row => {
+      (data as DurationRow[]).forEach(row => {
         config[row.filename] = row.duration_ms;
       });
 
