@@ -1,12 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getSupabaseServiceRoleClient } from "../../lib/supabase";
+import { Database } from "../../lib/database.types"; // Only import Database
+import { SupabaseClient } from "@supabase/supabase-js"; // Import SupabaseClient
 
 type Config = {
   [filename: string]: number; // filename -> duration in ms
 };
 
 type Data = Config | { message: string } | { error: string };
-type DurationRow = {
+type DurationRow = { // Keep this local
   filename: string;
   duration_ms: number;
 };
@@ -33,9 +35,9 @@ export default async function handler(
 
   if (req.method === "GET") {
     try {
-      const supabaseServiceRole = getSupabaseServiceRoleClient();
+      const supabaseServiceRole: SupabaseClient<Database> = getSupabaseServiceRoleClient(); // Explicitly type here
       const { data, error } = await supabaseServiceRole
-        .from(SUPABASE_DURATIONS_TABLE)
+        .from('image_durations')
         .select("filename, duration_ms");
 
       if (error) {
@@ -63,11 +65,11 @@ export default async function handler(
   if (req.method === "POST") {
     try {
       const newConfig: Config = req.body;
-      const supabaseServiceRole = getSupabaseServiceRoleClient();
+      const supabaseServiceRole: SupabaseClient<Database> = getSupabaseServiceRoleClient(); // Explicitly type here
 
       // Clear existing durations
       const { error: deleteError } = await supabaseServiceRole
-        .from(SUPABASE_DURATIONS_TABLE)
+        .from('image_durations')
         .delete()
         .neq('filename', '' /* delete all */);
 
@@ -84,8 +86,8 @@ export default async function handler(
 
       if (durationsToInsert.length > 0) {
         const { error: insertError } = await supabaseServiceRole
-          .from(SUPABASE_DURATIONS_TABLE)
-          .insert(durationsToInsert);
+          .from('image_durations')
+          .insert(durationsToInsert as any);
 
         if (insertError) {
           console.error("Error inserting new durations:", insertError);

@@ -1,4 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js"; // Keep SupabaseClient import
+import { Database } from "./database.types"; // Import the Database type
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -8,11 +9,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Client for public access (e.g., fetching images for slideshow)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey); // Add <Database>
 
-let supabaseServiceRoleSingleton:
-  | ReturnType<typeof createClient>
-  | null = null;
+let supabaseServiceRoleSingleton: SupabaseClient<Database> | null = null; // Explicitly type here
 
 export const getSupabaseServiceRoleClient = () => {
   if (!supabaseServiceRoleSingleton) {
@@ -21,7 +20,7 @@ export const getSupabaseServiceRoleClient = () => {
       throw new Error("Missing Supabase service role environment variable");
     }
 
-    supabaseServiceRoleSingleton = createClient(
+    supabaseServiceRoleSingleton = createClient<Database>( // Add <Database>
       supabaseUrl,
       supabaseServiceRoleKey,
       {
@@ -32,5 +31,5 @@ export const getSupabaseServiceRoleClient = () => {
     );
   }
 
-  return supabaseServiceRoleSingleton;
+  return supabaseServiceRoleSingleton; // No cast needed
 };
