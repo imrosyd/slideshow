@@ -6,6 +6,10 @@ type Config = {
 };
 
 type Data = Config | { message: string } | { error: string };
+type DurationRow = {
+  filename: string;
+  duration_ms: number;
+};
 
 export default async function handler(
   req: NextApiRequest,
@@ -31,11 +35,16 @@ export default async function handler(
     try {
       const supabaseServiceRole = getSupabaseServiceRoleClient();
       const { data, error } = await supabaseServiceRole
-        .from(SUPABASE_DURATIONS_TABLE)
-        .select('filename, duration_ms');
+        .from<DurationRow>(SUPABASE_DURATIONS_TABLE)
+        .select("filename, duration_ms");
 
       if (error) {
         console.error("Error fetching durations from Supabase:", error);
+        return res.status(500).json({ error: "Gagal membaca durasi dari Supabase." });
+      }
+
+      if (!data) {
+        console.error("No duration data returned from Supabase");
         return res.status(500).json({ error: "Gagal membaca durasi dari Supabase." });
       }
 
