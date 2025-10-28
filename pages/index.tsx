@@ -93,24 +93,12 @@ export default function Home() {
 
   return (
     <main style={styles.container}>
-      <figure style={styles.figure}>
-        <img
-          key={activeSlide?.name ?? "placeholder"}
-          src={activeSlide?.url}
-          alt={activeSlide?.name ?? "Slide"}
-          style={styles.image}
-        />
-        <figcaption style={styles.caption}>{activeSlide?.name}</figcaption>
-      </figure>
-      <div style={styles.progressWrapper}>
-        <div
-          style={{
-            ...styles.progressBar,
-            animationDuration: `${SLIDE_DURATION_MS}ms`
-          }}
-          key={activeSlide?.name}
-        />
-      </div>
+      <img
+        key={activeSlide?.name ?? "placeholder"}
+        src={activeSlide?.url}
+        alt={activeSlide?.name ?? "Slide"}
+        style={styles.image}
+      />
     </main>
   );
 }
@@ -118,37 +106,17 @@ export default function Home() {
 const styles: Record<string, CSSProperties> = {
   container: {
     display: "flex",
-    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: "100%",
-    padding: "2rem",
-    gap: "1rem"
-  },
-  figure: {
-    maxWidth: "90vw",
-    maxHeight: "80vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "0.75rem",
-    backgroundColor: "rgba(15, 23, 42, 0.35)",
-    padding: "1.5rem",
-    borderRadius: "1rem",
-    boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.7)"
+    height: "100vh",
+    width: "100vw",
+    backgroundColor: "#000"
   },
   image: {
-    maxWidth: "100%",
-    maxHeight: "70vh",
+    width: "100%",
+    height: "100%",
     objectFit: "contain",
-    borderRadius: "0.5rem",
-    background: "#020617"
-  },
-  caption: {
-    fontSize: "1rem",
-    letterSpacing: "0.05em",
-    textTransform: "uppercase",
-    color: "#cbd5f5"
+    backgroundColor: "#000"
   },
   message: {
     fontSize: "1.1rem",
@@ -156,22 +124,5 @@ const styles: Record<string, CSSProperties> = {
     maxWidth: "30rem",
     lineHeight: 1.6,
     color: "#e2e8f0"
-  },
-  progressWrapper: {
-    width: "min(600px, 80vw)",
-    height: "6px",
-    background: "rgba(148, 163, 184, 0.2)",
-    borderRadius: "999px",
-    overflow: "hidden"
-  },
-  progressBar: {
-    width: "100%",
-    height: "100%",
-    background: "linear-gradient(90deg, #38bdf8, #818cf8)",
-    transformOrigin: "left",
-    animationName: "progress",
-    animationDuration: `${SLIDE_DURATION_MS}ms`,
-    animationTimingFunction: "linear",
-    animationIterationCount: 1
   }
 };
