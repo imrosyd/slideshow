@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 const SLIDE_DURATION_MS = 10_000;
+const KEEP_ALIVE_INTERVAL_MS = 10 * 60_000;
 
 type Slide = {
   name: string;
@@ -171,6 +172,40 @@ export default function Home() {
       wakeLockRef.current?.removeEventListener?.("release", handleRelease);
       void wakeLockRef.current?.release();
       wakeLockRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const emitSyntheticMovement = () => {
+      const target = document.body ?? document.documentElement;
+      if (!target) {
+        return;
+      }
+
+      const now = Date.now();
+      const event = new MouseEvent("mousemove", {
+        bubbles: true,
+        cancelable: false,
+        clientX: (now % window.innerWidth) || 1,
+        clientY: (now % window.innerHeight) || 1,
+        movementX: 1,
+        movementY: 1,
+        screenX: 0,
+        screenY: 0
+      });
+
+      target.dispatchEvent(event);
+    };
+
+    const intervalId = window.setInterval(emitSyntheticMovement, KEEP_ALIVE_INTERVAL_MS);
+    emitSyntheticMovement();
+
+    return () => {
+      clearInterval(intervalId);
     };
   }, []);
 
