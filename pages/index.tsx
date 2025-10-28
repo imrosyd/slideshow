@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 const SLIDE_DURATION_MS = 12_000;
-const KEEP_ALIVE_INTERVAL_MS = 10 * 60_000;
+const KEEP_ALIVE_INTERVAL_MS = 30_000;
 
 type Slide = {
   name: string;
   url: string;
+  duration: number;
 };
 
 type WakeLockSentinel = {
@@ -110,10 +111,19 @@ export default function Home() {
           throw new Error(`Gagal memuat daftar gambar: ${response.statusText}`);
         }
         const payload: { images: string[] } = await response.json();
+
+        // Fetch durations
+        const configResponse = await fetch("/api/config");
+        let imageDurations: Record<string, number> = {};
+        if (configResponse.ok) {
+          imageDurations = await configResponse.json();
+        }
+
         if (isMounted) {
           const nextSlides = payload.images.map((filename) => ({
             name: filename,
-            url: `/api/image/${encodeURIComponent(filename)}`
+            url: `/api/image/${encodeURIComponent(filename)}`,
+            duration: imageDurations[filename] || SLIDE_DURATION_MS,
           }));
           const hasChanged = !areSlidesEqual(slidesSnapshotRef.current, nextSlides);
           if (hasChanged) {
@@ -143,24 +153,24 @@ export default function Home() {
     };
   }, []);
 
+  const currentSlide = useMemo(
+    () => (slides.length ? slides[activeIndex % slides.length] ?? null : null),
+    [slides, activeIndex]
+  );
+
   useEffect(() => {
-    if (slides.length <= 1) {
+    if (slides.length <= 1 || !currentSlide) {
       return;
     }
 
     const timer = setInterval(() => {
       setActiveIndex((index) => (index + 1) % slides.length);
-    }, SLIDE_DURATION_MS);
+    }, currentSlide.duration);
 
     return () => {
       clearInterval(timer);
     };
-  }, [slides.length]);
-
-  const currentSlide = useMemo(
-    () => (slides.length ? slides[activeIndex % slides.length] ?? null : null),
-    [slides, activeIndex]
-  );
+  }, [currentSlide, slides.length]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -326,6 +336,16 @@ export default function Home() {
 
   return (
     <main style={styles.container}>
+      <video
+        src="/dummy-video.mp4"
+        autoPlay
+        loop
+        muted
+        playsInline
+        width="1"
+        height="1"
+        style={{ position: 'absolute', opacity: 0 }}
+      />
       <img
         src={displayedSlide?.url ?? ""}
         alt={displayedSlide?.name ?? "Slide"}

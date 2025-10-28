@@ -1,73 +1,38 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { promises as fsPromises, createReadStream } from "fs";
-import path from "path";
-import mime from "mime-types";
+import { supabaseServiceRole } from "../../../lib/supabase";
 
-const ALLOWED_EXTENSIONS = new Set([
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".webp",
-  ".bmp",
-  ".svg",
-  ".avif"
-]);
-
-async function resolveFilePath(filename: string): Promise<string | null> {
-  try {
-    const filePath = path.join(process.cwd(), filename);
-    const stats = await fsPromises.stat(filePath);
-    if (!stats.isFile()) {
-      return null;
-    }
-    return filePath;
-  } catch {
-    return null;
-  }
-}
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   const { name } = req.query;
 
-  if (typeof name !== "string") {
-    res.status(400).json({ error: "Nama file tidak valid." });
-    return;
+  if (!name || typeof name !== "string") {
+    return res.status(400).json({ error: "Nama file tidak valid." });
   }
 
-  const filename = path.basename(name);
-  const extension = path.extname(filename).toLowerCase();
+  const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
 
-  if (!ALLOWED_EXTENSIONS.has(extension)) {
-    res.status(404).json({ error: "Format file tidak didukung." });
-    return;
+  if (!SUPABASE_STORAGE_BUCKET) {
+    console.error("SUPABASE_STORAGE_BUCKET is not set.");
+    return res.status(500).json({ error: "Konfigurasi server salah: Supabase bucket tidak diatur." });
   }
 
-  const filePath = await resolveFilePath(filename);
-  if (!filePath) {
-    res.status(404).json({ error: "Gambar tidak ditemukan." });
-    return;
+  try {
+    // Get the public URL for the image
+    const { data, error } = await supabaseServiceRole.storage
+      .from(SUPABASE_STORAGE_BUCKET)
+      .createSignedUrl(name, 60); // link valid for 60 seconds
+
+    if (error || !data?.signedUrl) {
+      console.error("Error creating signed URL for image:", error);
+      return res.status(404).json({ error: "Image not found in Supabase Storage." });
+    }
+
+    // Redirect to the signed URL
+    res.redirect(307, data.signedUrl);
+  } catch (error) {
+    console.error("Error fetching image from Supabase:", error);
+    res.status(500).json({ error: "Failed to fetch image from Supabase Storage." });
   }
-
-  const mimeType = mime.lookup(extension) || "application/octet-stream";
-  res.setHeader("Content-Type", mimeType);
-  res.setHeader("Cache-Control", "public, max-age=60");
-
-  const stream = createReadStream(filePath);
-
-  await new Promise<void>((resolve, reject) => {
-    stream.on("error", (err) => {
-      console.error(err);
-      if (!res.headersSent) {
-        res.status(500).end("Gagal membaca file gambar.");
-      } else {
-        res.end();
-      }
-      reject(err);
-    });
-    stream.on("end", () => {
-      resolve();
-    });
-    stream.pipe(res);
-  });
 }

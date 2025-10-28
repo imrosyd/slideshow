@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { promises as fs } from "fs";
-import path from "path";
+import { supabaseServiceRole } from "../../lib/supabase";
+import path from "path"; // Keep path for extension checking
 
 const IMAGE_EXTENSIONS = new Set([
   ".png",
@@ -13,46 +13,39 @@ const IMAGE_EXTENSIONS = new Set([
   ".avif"
 ]);
 
-const EXCLUDED_FILES = new Set([
-  ".DS_Store",
-  "package.json",
-  "package-lock.json",
-  "yarn.lock",
-  "pnpm-lock.yaml"
-]);
-
-const CACHE_TTL_MS = 5_000;
-
 type Data =
   | { images: string[] }
   | { error: string };
 
-type CacheEntry = {
-  images: string[];
-  expiresAt: number;
-};
-
-let cache: CacheEntry | null = null;
-
 async function readImageList(): Promise<string[]> {
-  const cwd = process.cwd();
-  const dirEntries = await fs.readdir(cwd, { withFileTypes: true });
+  const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
 
-  return dirEntries
-    .filter((entry) => {
-      if (!entry.isFile()) {
-        return false;
-      }
+  if (!SUPABASE_STORAGE_BUCKET) {
+    throw new Error("SUPABASE_STORAGE_BUCKET is not set.");
+  }
 
-      if (EXCLUDED_FILES.has(entry.name)) {
-        return false;
-      }
+  const { data, error } = await supabaseServiceRole.storage
+    .from(SUPABASE_STORAGE_BUCKET)
+    .list('', {
+      limit: 1000,
+      sortBy: { column: 'name', order: 'asc' },
+    });
 
-      const extension = path.extname(entry.name).toLowerCase();
+  if (error) {
+    console.error("Error listing files from Supabase Storage:", error);
+    throw new Error("Failed to list images from Supabase Storage.");
+  }
+
+  return data
+    .filter((file) => {
+      // Supabase list() returns files and folders, filter for files
+      if (file.id === null) return false; // This indicates a folder
+
+      const extension = path.extname(file.name).toLowerCase();
       return IMAGE_EXTENSIONS.has(extension);
     })
-    .map((entry) => entry.name)
-    .sort((a, b) => a.localeCompare(b, "id"));
+    .map((file) => file.name)
+    .sort((a, b) => a.localeCompare(b));
 }
 
 export default async function handler(
@@ -60,25 +53,14 @@ export default async function handler(
   res: NextApiResponse<Data>
 ) {
   try {
-    const now = Date.now();
-    if (cache && cache.expiresAt > now) {
-      res.setHeader("Cache-Control", "public, max-age=5, stale-while-revalidate=30");
-      res.status(200).json({ images: cache.images.slice() });
-      return;
-    }
-
     const images = await readImageList();
-    cache = {
-      images,
-      expiresAt: now + CACHE_TTL_MS
-    };
 
-    res.setHeader("Cache-Control", "public, max-age=5, stale-while-revalidate=30");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.status(200).json({ images: images.slice() });
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
     res
       .status(500)
-      .json({ error: "Tidak dapat membaca daftar gambar dari folder root." });
-  }
+      .json({ error: error.message || "Unable to read image list." });
+}
 }
