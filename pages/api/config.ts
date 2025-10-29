@@ -37,7 +37,7 @@ export default async function handler(
     try {
       const supabaseServiceRole: SupabaseClient<Database> = getSupabaseServiceRoleClient(); // Explicitly type here
       const { data, error } = await supabaseServiceRole
-        .from('image_durations')
+        .from(SUPABASE_DURATIONS_TABLE)
         .select("filename, duration_ms");
 
       if (error) {
@@ -69,7 +69,7 @@ export default async function handler(
 
       // Clear existing durations
       const { error: deleteError } = await supabaseServiceRole
-        .from('image_durations')
+        .from(SUPABASE_DURATIONS_TABLE)
         .delete()
         .neq('filename', '' /* delete all */);
 
@@ -86,7 +86,7 @@ export default async function handler(
 
       if (durationsToInsert.length > 0) {
         const { error: insertError } = await supabaseServiceRole
-          .from('image_durations')
+          .from(SUPABASE_DURATIONS_TABLE)
           .insert(durationsToInsert as any);
 
         if (insertError) {

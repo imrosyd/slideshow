@@ -20,9 +20,6 @@ export default function handler(
   const { password } = req.body;
   const adminPassword = process.env.ADMIN_PASSWORD;
 
-  console.log("Server ADMIN_PASSWORD:", adminPassword);
-  console.log("Received password:", password);
-
   if (!adminPassword) {
     console.error("ADMIN_PASSWORD tidak diatur di environment variables.");
     return res.status(500).json({ error: "Konfigurasi server salah." });

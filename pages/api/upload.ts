@@ -9,7 +9,7 @@ const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
 export const config = {
   api: {
     bodyParser: false,
-    sizeLimit: "1000mb",
+    sizeLimit: "25mb",
   },
 };
 
@@ -72,8 +72,8 @@ const handlePostRequest = async (
 ) => {
   const form = formidable({
     multiples: true,
-    maxFileSize: 1000 * 1024 * 1024, // 1000 MB per file
-    maxTotalFileSize: 1000 * 1024 * 1024, // 1000 MB total per request
+    maxFileSize: 25 * 1024 * 1024, // 25 MB per file
+    maxTotalFileSize: 100 * 1024 * 1024, // 100 MB total per request
   });
 
   try {
