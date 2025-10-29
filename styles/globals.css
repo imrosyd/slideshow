@@ -11,6 +11,28 @@ body {
   transition: background-color 0.3s ease; /* Smooth theme transition */
 }
 
+/* Ensure images are displayed in full quality without any compression or blur */
+img {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  image-rendering: pixelated;
+}
+
+/* For high-quality photo display, use high-quality rendering */
+main img {
+  image-rendering: high-quality;
+  image-rendering: -webkit-optimize-contrast;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
 .report-page-inner {
   background-color: transparent;
+}
+
+.visual-card {
+  background-color: transparent !important;
 }

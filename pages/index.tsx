@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
 const SLIDE_DURATION_MS = 12_000;
-const KEEP_ALIVE_INTERVAL_MS = 30_000;
 const LANGUAGE_SWAP_INTERVAL_MS = 1_000;
 
 type Language = "en" | "ko" | "id";
@@ -40,23 +39,6 @@ type Slide = {
   duration: number;
 };
 
-type WakeLockSentinel = {
-  released: boolean;
-  release: () => Promise<void>;
-  addEventListener?: (type: "release", listener: () => void) => void;
-  removeEventListener?: (type: "release", listener: () => void) => void;
-};
-
-type WakeLockNavigator = Navigator & {
-  wakeLock?: {
-    request: (type: "screen") => Promise<WakeLockSentinel>;
-  };
-};
-
-type FetchState = "loading" | "ready" | "error";
-
-const FALLBACK_SLIDE: Slide | null = null;
-
 const styles: Record<string, CSSProperties> = {
   container: {
     display: "flex",
@@ -64,14 +46,21 @@ const styles: Record<string, CSSProperties> = {
     justifyContent: "center",
     height: "100vh",
     width: "100vw",
-    backgroundColor: "#000"
+    backgroundColor: "#000",
+    position: "relative",
+    overflow: "hidden"
   },
   image: {
     width: "100%",
     height: "100%",
     objectFit: "contain",
     backgroundColor: "#000",
-    position: "absolute"
+    imageRendering: "crisp-edges" as const,
+    WebkitFontSmoothing: "none" as const,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    transition: "opacity 0.8s ease-in-out",
   },
   message: {
     fontSize: "1.5rem",
@@ -86,19 +75,6 @@ const styles: Record<string, CSSProperties> = {
   }
 } as const;
 
-function areSlidesEqual(previous: Slide[], next: Slide[]): boolean {
-  if (previous.length !== next.length) {
-    return false;
-  }
-
-  for (let index = 0; index < previous.length; index += 1) {
-    if (previous[index]?.name !== next[index]?.name) {
-      return false;
-    }
-  }
-
-  return true;
-}
 const getErrorMessage = (appError: AppError, language: Language) => {
   const base =
     appError.kind === "fetch"
@@ -109,67 +85,23 @@ const getErrorMessage = (appError: AppError, language: Language) => {
 
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [nextIndex, setNextIndex] = useState(1);
   const [error, setError] = useState<AppError | null>(null);
-  const [image1, setImage1] = useState<{ slide: Slide | null; opacity: number; loaded: boolean; }>({ slide: FALLBACK_SLIDE, opacity: 1, loaded: false });
-  const [image2, setImage2] = useState<{ slide: Slide | null; opacity: number; loaded: boolean; }>({ slide: null, opacity: 0, loaded: false });
-  const [isImage1Active, setIsImage1Active] = useState(true);
-  const [fetchState, setFetchState] = useState<FetchState>("loading");
+  const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<Language>("en");
-  const preloadedUrlsRef = useRef<Set<string>>(new Set());
-  const slidesSnapshotRef = useRef<Slide[]>([]);
-  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const [currentImageLoaded, setCurrentImageLoaded] = useState(false);
+  const [nextImageLoaded, setNextImageLoaded] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(true);
 
-  const queuePreload = (url: string) => {
-    if (!url || typeof window === "undefined") {
-      return;
-    }
-
-    if (preloadedUrlsRef.current.has(url)) {
-      return;
-    }
-
-    const image = new window.Image();
-    image.decoding = "async";
-    image.src = url;
-    const finalize = () => {
-      preloadedUrlsRef.current.add(url);
-    };
-    image.onload = finalize;
-    image.onerror = finalize;
-  };
-
+  // Fetch slides from API
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    let nextIndex = 0;
-    const intervalId = window.setInterval(() => {
-      nextIndex = (nextIndex + 1) % LANGUAGE_SEQUENCE.length;
-      setLanguage(LANGUAGE_SEQUENCE[nextIndex]);
-    }, LANGUAGE_SWAP_INTERVAL_MS);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, []);
-
-  useEffect(() => {
-    slidesSnapshotRef.current = slides;
-  }, [slides]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let isMounted = true;
-
     const fetchSlides = async () => {
       try {
-        setFetchState("loading");
-        const response = await fetch("/api/images", {
-          signal: controller.signal,
-          cache: "no-store"
-        });
+        setLoading(true);
+        
+        // Fetch image list
+        const response = await fetch("/api/images", { cache: "no-store" });
         if (!response.ok) {
           throw new Error(`Failed to load image list: ${response.statusText}`);
         }
@@ -182,207 +114,83 @@ export default function Home() {
           imageDurations = await configResponse.json();
         }
 
-        if (isMounted) {
-          const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
-          const nextSlides = payload.images.map((filename) => ({
-            name: filename,
-            url: `/api/image/${encodeURIComponent(filename)}?w=${screenWidth}&q=75`,
-            duration: imageDurations[filename] || SLIDE_DURATION_MS,
-          }));
-          const hasChanged = !areSlidesEqual(slidesSnapshotRef.current, nextSlides);
-          if (hasChanged) {
-            slidesSnapshotRef.current = nextSlides;
-            setSlides(nextSlides);
-            setActiveIndex(0);
-            setImage1({ slide: nextSlides[0] ?? FALLBACK_SLIDE, opacity: 1, loaded: false });
-            setImage2({ slide: null, opacity: 0, loaded: false });
-            setIsImage1Active(true);
-          }
-          setError(null);
-          setFetchState("ready");
-        }
+        const fetchedSlides = payload.images.map((filename) => ({
+          name: filename,
+          url: `/api/image/${encodeURIComponent(filename)}`,
+          duration: imageDurations[filename] || SLIDE_DURATION_MS,
+        }));
+
+        console.log(`✅ Fetched ${fetchedSlides.length} slides:`, fetchedSlides);
+        
+        setSlides(fetchedSlides);
+        setCurrentIndex(0);
+        setNextIndex(fetchedSlides.length > 1 ? 1 : 0);
+        setError(null);
       } catch (err) {
-        if (isMounted) {
-          const detail = err instanceof Error ? err.message : undefined;
-          setError({ kind: "fetch", detail });
-          setFetchState("error");
-        }
+        console.error("❌ Error fetching slides:", err);
+        const detail = err instanceof Error ? err.message : undefined;
+        setError({ kind: "fetch", detail });
+      } finally {
+        setLoading(false);
       }
     };
 
-    void fetchSlides();
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
+    fetchSlides();
   }, []);
 
-  const currentSlide = useMemo(
-    () => (slides.length ? slides[activeIndex % slides.length] ?? null : null),
-    [slides, activeIndex]
-  );
-
+  // Auto-rotate slides with preloading
   useEffect(() => {
-    if (slides.length <= 1 || !currentSlide) {
+    if (slides.length <= 1) {
+      console.log(`⏸️ Not rotating: ${slides.length} slide(s)`);
       return;
     }
 
-    const timer = setInterval(() => {
-      const nextIndex = (activeIndex + 1) % slides.length;
-      setActiveIndex(nextIndex);
+    const currentSlide = slides[currentIndex];
+    if (!currentSlide) return;
+
+    // Only start timer when next image is loaded
+    if (!nextImageLoaded) {
+      console.log(`⏳ Waiting for next image to load...`);
+      return;
+    }
+
+    console.log(`⏱️ Timer set for ${currentSlide.duration}ms (slide ${currentIndex + 1}/${slides.length}: ${currentSlide.name})`);
+
+    const timer = setTimeout(() => {
+      const newNextIndex = (currentIndex + 2) % slides.length;
+      console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}`);
+      
+      // Fade transition
+      setShowCurrent(false);
+      
+      // After fade, update indices
+      setTimeout(() => {
+        setCurrentIndex(nextIndex);
+        setNextIndex(newNextIndex);
+        setShowCurrent(true);
+        setNextImageLoaded(false); // Reset for next preload
+      }, 800); // Match transition duration
+      
     }, currentSlide.duration);
 
     return () => {
-      clearInterval(timer);
+      clearTimeout(timer);
     };
-  }, [currentSlide, slides.length]);
+  }, [slides, currentIndex, nextIndex, nextImageLoaded]);
 
+  // Rotate language
   useEffect(() => {
-    if (!currentSlide || !slides.length) {
-      return;
-    }
+    let index = 0;
+    const interval = setInterval(() => {
+      index = (index + 1) % LANGUAGE_SEQUENCE.length;
+      setLanguage(LANGUAGE_SEQUENCE[index]);
+    }, LANGUAGE_SWAP_INTERVAL_MS);
 
-    // Determine which image is inactive and load the new slide
-    if (isImage1Active) {
-      if (image1.slide?.url !== currentSlide.url) {
-        setImage2({ slide: currentSlide, opacity: 0, loaded: false });
-      }
-    } else {
-      if (image2.slide?.url !== currentSlide.url) {
-        setImage1({ slide: currentSlide, opacity: 0, loaded: false });
-      }
-    }
-  }, [currentSlide, slides, isImage1Active]);
-
-  const handleImageLoad = (imageNumber: 1 | 2) => {
-    if (imageNumber === 1) {
-      setImage1(img => ({ ...img, loaded: true }));
-    } else {
-      setImage2(img => ({ ...img, loaded: true }));
-    }
-  };
-
-  useEffect(() => {
-    // Transition when the inactive image has loaded
-    if (isImage1Active && image2.loaded && image2.slide) {
-      setImage1(img => ({ ...img, opacity: 0 }));
-      setImage2(img => ({ ...img, opacity: 1 }));
-      setIsImage1Active(false);
-    } else if (!isImage1Active && image1.loaded && image1.slide) {
-      setImage2(img => ({ ...img, opacity: 0 }));
-      setImage1(img => ({ ...img, opacity: 1 }));
-      setIsImage1Active(true);
-    }
-  }, [image1.loaded, image2.loaded, isImage1Active]);
-
-  useEffect(() => {
-    if (!slides.length) {
-      return;
-    }
-
-    for (let i = 1; i <= 3; i += 1) {
-      const nextIndex = (activeIndex + i) % slides.length;
-      if (nextIndex === activeIndex) {
-        continue;
-      }
-      const nextSlide = slides[nextIndex];
-      if (!nextSlide) {
-        continue;
-      }
-      queuePreload(nextSlide.url);
-    }
-  }, [activeIndex, slides]);
-
-  useEffect(() => {
-    if (typeof navigator === "undefined") {
-      return;
-    }
-
-    const nav = navigator as WakeLockNavigator;
-    const wakeLockAPI = nav.wakeLock;
-
-    if (!wakeLockAPI) {
-      return;
-    }
-
-    let releasedByComponent = false;
-
-    const requestWakeLock = async () => {
-      try {
-        const sentinel = await wakeLockAPI.request("screen");
-        wakeLockRef.current?.removeEventListener?.("release", handleRelease);
-        wakeLockRef.current = sentinel;
-        wakeLockRef.current.addEventListener?.("release", handleRelease);
-      } catch (err) {
-        console.warn("Gagal mengaktifkan screen wake lock:", err);
-      }
-    };
-
-    const handleRelease = () => {
-      wakeLockRef.current = null;
-      if (!releasedByComponent && document.visibilityState === "visible") {
-        void requestWakeLock();
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        void requestWakeLock();
-      } else {
-        releasedByComponent = true;
-        void wakeLockRef.current?.release();
-        releasedByComponent = false;
-      }
-    };
-
-    void requestWakeLock();
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      releasedByComponent = true;
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      wakeLockRef.current?.removeEventListener?.("release", handleRelease);
-      void wakeLockRef.current?.release();
-      wakeLockRef.current = null;
-    };
+    return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const emitSyntheticMovement = () => {
-      const target = document.body ?? document.documentElement;
-      if (!target) {
-        return;
-      }
-
-      const now = Date.now();
-      const event = new MouseEvent("mousemove", {
-        bubbles: true,
-        cancelable: false,
-        clientX: (now % window.innerWidth) || 1,
-        clientY: (now % window.innerHeight) || 1,
-        movementX: 1,
-        movementY: 1,
-        screenX: 0,
-        screenY: 0
-      });
-
-      target.dispatchEvent(event);
-    };
-
-    const intervalId = window.setInterval(emitSyntheticMovement, KEEP_ALIVE_INTERVAL_MS);
-    emitSyntheticMovement();
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, []);
-
-  if (fetchState === "loading" && !image1.slide) {
+  // Loading state
+  if (loading) {
     return (
       <main style={styles.container}>
         <p style={styles.message}>{translations.loading[language]}</p>
@@ -390,6 +198,7 @@ export default function Home() {
     );
   }
 
+  // Error state
   if (error) {
     return (
       <main style={styles.container}>
@@ -398,6 +207,7 @@ export default function Home() {
     );
   }
 
+  // No slides
   if (slides.length === 0) {
     return (
       <main style={styles.container}>
@@ -408,26 +218,49 @@ export default function Home() {
     );
   }
 
+  // Display current slide
+  const currentSlide = slides[currentIndex];
+  const nextSlide = slides[nextIndex];
+
   return (
     <main style={styles.container}>
-      {image1.slide && (
+      {/* Current visible image */}
+      {currentSlide && (
         <img
-          src={image1.slide.url}
-          alt={image1.slide.name}
-          decoding="async"
+          src={currentSlide.url}
+          alt={currentSlide.name}
+          style={{
+            ...styles.image,
+            opacity: showCurrent ? 1 : 0,
+            zIndex: showCurrent ? 2 : 1,
+          }}
           loading="eager"
-          style={{ ...styles.image, opacity: image1.opacity, transition: 'opacity 0.5s ease-in-out' }}
-          onLoad={() => handleImageLoad(1)}
+          decoding="sync"
+          onLoad={() => {
+            setCurrentImageLoaded(true);
+            console.log(`🖼️ Current loaded: ${currentSlide.name}`);
+          }}
+          onError={(e) => console.error(`❌ Failed to load: ${currentSlide.name}`, e)}
         />
       )}
-      {image2.slide && (
+      
+      {/* Next image (preloading in background) */}
+      {nextSlide && slides.length > 1 && (
         <img
-          src={image2.slide.url}
-          alt={image2.slide.name}
-          decoding="async"
+          src={nextSlide.url}
+          alt={nextSlide.name}
+          style={{
+            ...styles.image,
+            opacity: showCurrent ? 0 : 1,
+            zIndex: showCurrent ? 1 : 2,
+          }}
           loading="eager"
-          style={{ ...styles.image, opacity: image2.opacity, transition: 'opacity 0.5s ease-in-out' }}
-          onLoad={() => handleImageLoad(2)}
+          decoding="sync"
+          onLoad={() => {
+            setNextImageLoaded(true);
+            console.log(`� Next preloaded: ${nextSlide.name}`);
+          }}
+          onError={(e) => console.error(`❌ Failed to preload: ${nextSlide.name}`, e)}
         />
       )}
     </main>
