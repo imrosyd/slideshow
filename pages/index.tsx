@@ -70,7 +70,8 @@ const styles: Record<string, CSSProperties> = {
     width: "100%",
     height: "100%",
     objectFit: "contain",
-    backgroundColor: "#000"
+    backgroundColor: "#000",
+    position: "absolute"
   },
   message: {
     fontSize: "1.5rem",
@@ -110,7 +111,9 @@ export default function Home() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [error, setError] = useState<AppError | null>(null);
-  const [displayedSlide, setDisplayedSlide] = useState<Slide | null>(FALLBACK_SLIDE);
+  const [image1, setImage1] = useState<{ slide: Slide | null; opacity: number; loaded: boolean; }>({ slide: FALLBACK_SLIDE, opacity: 1, loaded: false });
+  const [image2, setImage2] = useState<{ slide: Slide | null; opacity: number; loaded: boolean; }>({ slide: null, opacity: 0, loaded: false });
+  const [isImage1Active, setIsImage1Active] = useState(true);
   const [fetchState, setFetchState] = useState<FetchState>("loading");
   const [language, setLanguage] = useState<Language>("en");
   const preloadedUrlsRef = useRef<Set<string>>(new Set());
@@ -181,9 +184,10 @@ export default function Home() {
         }
 
         if (isMounted) {
+          const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
           const nextSlides = payload.images.map((filename) => ({
             name: filename,
-            url: `/api/image/${encodeURIComponent(filename)}`,
+            url: `/api/image/${encodeURIComponent(filename)}?w=${screenWidth}&q=75`,
             duration: imageDurations[filename] || SLIDE_DURATION_MS,
           }));
           const hasChanged = !areSlidesEqual(slidesSnapshotRef.current, nextSlides);
@@ -191,7 +195,9 @@ export default function Home() {
             slidesSnapshotRef.current = nextSlides;
             setSlides(nextSlides);
             setActiveIndex(0);
-            setDisplayedSlide(nextSlides[0] ?? FALLBACK_SLIDE);
+            setImage1({ slide: nextSlides[0] ?? FALLBACK_SLIDE, opacity: 1, loaded: false });
+            setImage2({ slide: null, opacity: 0, loaded: false });
+            setIsImage1Active(true);
           }
           setRefreshKey(0);
           setError(null);
@@ -238,38 +244,42 @@ export default function Home() {
   }, [currentSlide, slides.length]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (!currentSlide || !slides.length) {
       return;
     }
 
-    if (!currentSlide) {
-      return;
-    }
-
-    if (displayedSlide?.url === currentSlide.url) {
-      return;
-    }
-
-    let isCancelled = false;
-    const preloader = new window.Image();
-    preloader.decoding = "async";
-    preloader.loading = "eager";
-    preloader.src = currentSlide.url;
-
-    const finalize = () => {
-      if (!isCancelled) {
-        preloadedUrlsRef.current.add(currentSlide.url);
-        setDisplayedSlide(currentSlide);
+    // Determine which image is inactive and load the new slide
+    if (isImage1Active) {
+      if (image1.slide?.url !== currentSlide.url) {
+        setImage2({ slide: currentSlide, opacity: 0, loaded: false });
       }
-    };
+    } else {
+      if (image2.slide?.url !== currentSlide.url) {
+        setImage1({ slide: currentSlide, opacity: 0, loaded: false });
+      }
+    }
+  }, [currentSlide, slides, isImage1Active]);
 
-    preloader.onload = finalize;
-    preloader.onerror = finalize;
+  const handleImageLoad = (imageNumber: 1 | 2) => {
+    if (imageNumber === 1) {
+      setImage1(img => ({ ...img, loaded: true }));
+    } else {
+      setImage2(img => ({ ...img, loaded: true }));
+    }
+  };
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [currentSlide, displayedSlide]);
+  useEffect(() => {
+    // Transition when the inactive image has loaded
+    if (isImage1Active && image2.loaded && image2.slide) {
+      setImage1(img => ({ ...img, opacity: 0 }));
+      setImage2(img => ({ ...img, opacity: 1 }));
+      setIsImage1Active(false);
+    } else if (!isImage1Active && image1.loaded && image1.slide) {
+      setImage2(img => ({ ...img, opacity: 0 }));
+      setImage1(img => ({ ...img, opacity: 1 }));
+      setIsImage1Active(true);
+    }
+  }, [image1.loaded, image2.loaded, isImage1Active]);
 
   useEffect(() => {
     if (!slides.length) {
@@ -377,7 +387,7 @@ export default function Home() {
     };
   }, []);
 
-  if (fetchState === "loading" && !displayedSlide) {
+  if (fetchState === "loading" && !image1.slide) {
     return (
       <main style={styles.container}>
         <p style={styles.message}>{translations.loading[language]}</p>
@@ -405,14 +415,26 @@ export default function Home() {
 
   return (
     <main style={styles.container}>
-
-      <img
-        src={displayedSlide?.url ?? ""}
-        alt={displayedSlide?.name ?? "Slide"}
-        decoding="async"
-        loading="eager"
-        style={styles.image}
-      />
+      {image1.slide && (
+        <img
+          src={image1.slide.url}
+          alt={image1.slide.name}
+          decoding="async"
+          loading="eager"
+          style={{ ...styles.image, opacity: image1.opacity, transition: 'opacity 0.5s ease-in-out' }}
+          onLoad={() => handleImageLoad(1)}
+        />
+      )}
+      {image2.slide && (
+        <img
+          src={image2.slide.url}
+          alt={image2.slide.name}
+          decoding="async"
+          loading="eager"
+          style={{ ...styles.image, opacity: image2.opacity, transition: 'opacity 0.5s ease-in-out' }}
+          onLoad={() => handleImageLoad(2)}
+        />
+      )}
     </main>
   );
 }

@@ -5,11 +5,15 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { name } = req.query;
+  const { name, w, h, q } = req.query;
 
   if (!name || typeof name !== "string") {
     return res.status(400).json({ error: "Nama file tidak valid." });
   }
+
+  const width = w && typeof w === 'string' ? parseInt(w, 10) : 1920;
+  const height = h && typeof h === 'string' ? parseInt(h, 10) : 1080;
+  const quality = q && typeof q === 'string' ? parseInt(q, 10) : 75;
 
   const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
 
@@ -25,10 +29,10 @@ export default async function handler(
       .from(SUPABASE_STORAGE_BUCKET)
       .createSignedUrl(name, 60, {
         transform: {
-          width: 1920,
-          height: 1080,
+          width,
+          height,
           resize: 'contain',
-          quality: 75,
+          quality,
         },
       }); // link valid for 60 seconds
 
