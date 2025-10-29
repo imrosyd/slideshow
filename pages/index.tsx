@@ -193,6 +193,7 @@ export default function Home() {
             setActiveIndex(0);
             setDisplayedSlide(nextSlides[0] ?? FALLBACK_SLIDE);
           }
+          setRefreshKey(0);
           setError(null);
           setFetchState("ready");
         }
@@ -224,13 +225,11 @@ export default function Home() {
     }
 
     const timer = setInterval(() => {
-      setActiveIndex((index) => {
-        const nextIndex = (index + 1) % slides.length;
-        if (nextIndex === 0) {
-          setRefreshKey(k => k + 1);
-        }
-        return nextIndex;
-      });
+      const nextIndex = (activeIndex + 1) % slides.length;
+      if (nextIndex === 0) {
+        setRefreshKey(k => k + 1);
+      }
+      setActiveIndex(nextIndex);
     }, currentSlide.duration);
 
     return () => {
@@ -277,15 +276,17 @@ export default function Home() {
       return;
     }
 
-    const nextIndex = (activeIndex + 1) % slides.length;
-    if (nextIndex === activeIndex) {
-      return;
+    for (let i = 1; i <= 3; i += 1) {
+      const nextIndex = (activeIndex + i) % slides.length;
+      if (nextIndex === activeIndex) {
+        continue;
+      }
+      const nextSlide = slides[nextIndex];
+      if (!nextSlide) {
+        continue;
+      }
+      queuePreload(nextSlide.url);
     }
-    const nextSlide = slides[nextIndex];
-    if (!nextSlide) {
-      return;
-    }
-    queuePreload(nextSlide.url);
   }, [activeIndex, slides]);
 
   useEffect(() => {
