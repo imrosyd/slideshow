@@ -2,7 +2,6 @@ import { useEffect, useState, type CSSProperties } from "react";
 
 const SLIDE_DURATION_MS = 12_000;
 const LANGUAGE_SWAP_INTERVAL_MS = 1_000;
-const FADE_DURATION_MS = 1000;
 
 type Language = "en" | "ko" | "id";
 const LANGUAGE_SEQUENCE: Language[] = ["en", "ko", "id"];
@@ -51,24 +50,17 @@ const styles: Record<string, CSSProperties> = {
     position: "relative",
     overflow: "hidden"
   },
-  imageWrapper: {
+  image: {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    backgroundColor: "#000",
+    imageRendering: "crisp-edges" as const,
+    WebkitFontSmoothing: "none" as const,
     position: "absolute",
     top: 0,
     left: 0,
-    width: "100%",
-    height: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  image: {
-    maxWidth: "100%",
-    maxHeight: "100%",
-    width: "auto",
-    height: "auto",
-    objectFit: "contain",
-    backgroundColor: "#000",
-    imageRendering: "high-quality" as any,
+    transition: "opacity 0.8s ease-in-out",
   },
   message: {
     fontSize: "1.5rem",
@@ -94,10 +86,13 @@ const getErrorMessage = (appError: AppError, language: Language) => {
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [nextIndex, setNextIndex] = useState(1);
   const [error, setError] = useState<AppError | null>(null);
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<Language>("en");
-  const [fadeIn, setFadeIn] = useState(true);
+  const [currentImageLoaded, setCurrentImageLoaded] = useState(false);
+  const [nextImageLoaded, setNextImageLoaded] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(true);
 
   // Fetch slides from API
   useEffect(() => {
@@ -127,18 +122,9 @@ export default function Home() {
 
         console.log(`✅ Fetched ${fetchedSlides.length} slides:`, fetchedSlides);
         
-        // Preload first image
-        if (fetchedSlides.length > 0) {
-          const img = new Image();
-          img.src = fetchedSlides[0].url;
-          await new Promise((resolve) => {
-            img.onload = resolve;
-            img.onerror = resolve;
-          });
-        }
-        
         setSlides(fetchedSlides);
         setCurrentIndex(0);
+        setNextIndex(fetchedSlides.length > 1 ? 1 : 0);
         setError(null);
       } catch (err) {
         console.error("❌ Error fetching slides:", err);
@@ -152,7 +138,7 @@ export default function Home() {
     fetchSlides();
   }, []);
 
-  // Auto-rotate slides with smooth fade
+  // Auto-rotate slides with preloading
   useEffect(() => {
     if (slides.length <= 1) {
       console.log(`⏸️ Not rotating: ${slides.length} slide(s)`);
@@ -162,45 +148,35 @@ export default function Home() {
     const currentSlide = slides[currentIndex];
     if (!currentSlide) return;
 
+    // Only start timer when next image is loaded
+    if (!nextImageLoaded) {
+      console.log(`⏳ Waiting for next image to load...`);
+      return;
+    }
+
     console.log(`⏱️ Timer set for ${currentSlide.duration}ms (slide ${currentIndex + 1}/${slides.length}: ${currentSlide.name})`);
 
     const timer = setTimeout(() => {
-      const nextIndex = (currentIndex + 1) % slides.length;
-      const nextSlide = slides[nextIndex];
+      const newNextIndex = (currentIndex + 2) % slides.length;
+      console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}`);
       
-      console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}: ${nextSlide?.name}`);
+      // Fade transition
+      setShowCurrent(false);
       
-      // Preload next image before transition
-      if (nextSlide) {
-        const img = new Image();
-        img.src = nextSlide.url;
-        img.onload = () => {
-          console.log(`🔄 Preloaded: ${nextSlide.name}`);
-          // Fade out current
-          setFadeIn(false);
-          
-          // After fade out, switch image and fade in
-          setTimeout(() => {
-            setCurrentIndex(nextIndex);
-            setFadeIn(true);
-          }, FADE_DURATION_MS);
-        };
-        img.onerror = () => {
-          // If preload fails, just switch anyway
-          console.error(`❌ Failed to preload: ${nextSlide.name}`);
-          setFadeIn(false);
-          setTimeout(() => {
-            setCurrentIndex(nextIndex);
-            setFadeIn(true);
-          }, FADE_DURATION_MS);
-        };
-      }
+      // After fade, update indices
+      setTimeout(() => {
+        setCurrentIndex(nextIndex);
+        setNextIndex(newNextIndex);
+        setShowCurrent(true);
+        setNextImageLoaded(false); // Reset for next preload
+      }, 800); // Match transition duration
+      
     }, currentSlide.duration);
 
     return () => {
       clearTimeout(timer);
     };
-  }, [slides, currentIndex]);
+  }, [slides, currentIndex, nextIndex, nextImageLoaded]);
 
   // Rotate language
   useEffect(() => {
@@ -244,27 +220,49 @@ export default function Home() {
 
   // Display current slide
   const currentSlide = slides[currentIndex];
+  const nextSlide = slides[nextIndex];
 
   return (
     <main style={styles.container}>
-      <div 
-        style={{
-          ...styles.imageWrapper,
-          opacity: fadeIn ? 1 : 0,
-          transition: `opacity ${FADE_DURATION_MS}ms ease-in-out`,
-        }}
-      >
-        {currentSlide && (
-          <img
-            key={currentSlide.url}
-            src={currentSlide.url}
-            alt={currentSlide.name}
-            style={styles.image}
-            onLoad={() => console.log(`🖼️ Displayed: ${currentSlide.name}`)}
-            onError={(e) => console.error(`❌ Failed to display: ${currentSlide.name}`, e)}
-          />
-        )}
-      </div>
+      {/* Current visible image */}
+      {currentSlide && (
+        <img
+          src={currentSlide.url}
+          alt={currentSlide.name}
+          style={{
+            ...styles.image,
+            opacity: showCurrent ? 1 : 0,
+            zIndex: showCurrent ? 2 : 1,
+          }}
+          loading="eager"
+          decoding="sync"
+          onLoad={() => {
+            setCurrentImageLoaded(true);
+            console.log(`🖼️ Current loaded: ${currentSlide.name}`);
+          }}
+          onError={(e) => console.error(`❌ Failed to load: ${currentSlide.name}`, e)}
+        />
+      )}
+      
+      {/* Next image (preloading in background) */}
+      {nextSlide && slides.length > 1 && (
+        <img
+          src={nextSlide.url}
+          alt={nextSlide.name}
+          style={{
+            ...styles.image,
+            opacity: showCurrent ? 0 : 1,
+            zIndex: showCurrent ? 1 : 2,
+          }}
+          loading="eager"
+          decoding="sync"
+          onLoad={() => {
+            setNextImageLoaded(true);
+            console.log(`� Next preloaded: ${nextSlide.name}`);
+          }}
+          onError={(e) => console.error(`❌ Failed to preload: ${nextSlide.name}`, e)}
+        />
+      )}
     </main>
   );
 }

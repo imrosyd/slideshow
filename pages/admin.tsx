@@ -434,6 +434,26 @@ const styles: Record<string, CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  progressBarContainer: {
+    width: '100%',
+    height: '6px',
+    backgroundColor: 'var(--section-color)',
+    borderRadius: '6px',
+    overflow: 'hidden',
+    border: '1px solid var(--border-color)',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: 'var(--primary-color)',
+    transition: 'width 0.3s ease',
+    borderRadius: '6px',
+  },
+  progressText: {
+    fontSize: '0.875rem',
+    color: 'var(--secondary-text)',
+    textAlign: 'center' as const,
+    marginTop: '8px',
+  },
 };
 
 export default function Admin() {
@@ -457,6 +477,8 @@ export default function Admin() {
   const [filesToUpload, setFilesToUpload] = useState<FileList | null>(null);
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
   const [imageDurations, setImageDurations] = useState<Record<string, number>>({});
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [resolvedThemeIcon, setResolvedThemeIcon] = useState<string>('');
   const [resolvedThemeName, setResolvedThemeName] = useState<'light' | 'dark'>('light');
@@ -628,7 +650,10 @@ export default function Admin() {
     }
 
     setIsLoading(true);
+    setIsUploading(true);
+    setUploadProgress(0);
     setError(null);
+    
     const formData = new FormData();
     const totalFiles = fileList.length;
     for (let index = 0; index < fileList.length; index += 1) {
@@ -636,15 +661,52 @@ export default function Admin() {
     }
 
     try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${password}`,
-        },
-        body: formData,
+      // Use XMLHttpRequest for progress tracking
+      const result = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        // Track upload progress
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress(percentComplete);
+          }
+        });
+
+        // Handle completion
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const response = JSON.parse(xhr.responseText);
+              resolve(response);
+            } catch (e) {
+              reject(new Error('Failed to parse response'));
+            }
+          } else {
+            try {
+              const errorResponse = JSON.parse(xhr.responseText);
+              reject(new Error(errorResponse.error || 'Upload failed'));
+            } catch (e) {
+              reject(new Error(`Upload failed with status ${xhr.status}`));
+            }
+          }
+        });
+
+        // Handle errors
+        xhr.addEventListener('error', () => {
+          reject(new Error('Network error occurred'));
+        });
+
+        xhr.addEventListener('abort', () => {
+          reject(new Error('Upload cancelled'));
+        });
+
+        // Open connection and send
+        xhr.open('POST', '/api/upload');
+        xhr.setRequestHeader('Authorization', `Bearer ${password}`);
+        xhr.send(formData);
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Failed to upload files.");
+
       handleFilesSelected(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -659,6 +721,8 @@ export default function Admin() {
       showToast("Failed to upload files.", "error");
     } finally {
       setIsLoading(false);
+      setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -897,6 +961,23 @@ export default function Admin() {
                     style={{ display: 'none' }}
                   />
                 </div>
+                
+                {/* Upload Progress Bar */}
+                {isUploading && (
+                  <div style={{ marginTop: '20px' }}>
+                    <div style={styles.progressBarContainer}>
+                      <div 
+                        style={{
+                          ...styles.progressBar,
+                          width: `${uploadProgress}%`
+                        }}
+                      />
+                    </div>
+                    <p style={styles.progressText}>
+                      Uploading... {uploadProgress}%
+                    </p>
+                  </div>
+                )}
               </div>
             </section>
 
