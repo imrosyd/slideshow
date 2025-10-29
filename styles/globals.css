@@ -4,11 +4,29 @@ html, body, #__next {
   margin: 0;
   padding: 0;
   overflow-x: hidden; /* Prevent horizontal scroll */
+  /* Prevent screen dimming/sleep */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background-color: var(--bg-color); /* Apply theme background */
   transition: background-color 0.3s ease; /* Smooth theme transition */
+  /* Keep screen active */
+  touch-action: none;
+}
+
+/* Prevent all sleep/screensaver modes */
+* {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 /* Ensure images are displayed in full quality without any compression or blur */
@@ -17,6 +35,8 @@ img {
   image-rendering: crisp-edges;
   -ms-interpolation-mode: nearest-neighbor;
   image-rendering: pixelated;
+  /* Prevent context menu that might trigger sleep */
+  pointer-events: none;
 }
 
 /* For high-quality photo display, use high-quality rendering */

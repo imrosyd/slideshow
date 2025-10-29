@@ -7,6 +7,14 @@ export default function App({ Component, pageProps }: AppProps) {
     <>
       <Head>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        {/* Prevent screen sleep on various devices */}
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        {/* LG webOS specific */}
+        <meta name="webos-app-id" content="slideshow" />
+        <meta name="webos-app-type" content="web" />
       </Head>
       <Component {...pageProps} />
     </>

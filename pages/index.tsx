@@ -3,6 +3,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 const SLIDE_DURATION_MS = 12_000;
 const LANGUAGE_SWAP_INTERVAL_MS = 1_000;
 const FADE_DURATION_MS = 1000;
+const AUTO_REFRESH_INTERVAL_MS = 60_000; // Check for new images every 60 seconds
 
 type Language = "en" | "ko" | "id";
 const LANGUAGE_SEQUENCE: Language[] = ["en", "ko", "id"];
@@ -99,36 +100,49 @@ export default function Home() {
   const [language, setLanguage] = useState<Language>("en");
   const [fadeIn, setFadeIn] = useState(true);
 
-  // Fetch slides from API
-  useEffect(() => {
-    const fetchSlides = async () => {
-      try {
+  // Fetch slides from API (reusable function)
+  const fetchSlides = async (isAutoRefresh = false) => {
+    try {
+      if (!isAutoRefresh) {
         setLoading(true);
-        
-        // Fetch image list
-        const response = await fetch("/api/images", { cache: "no-store" });
-        if (!response.ok) {
-          throw new Error(`Failed to load image list: ${response.statusText}`);
+      }
+      
+      // Fetch image list
+      const response = await fetch("/api/images", { 
+        cache: "no-store",
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         }
-        const payload: { images: string[] } = await response.json();
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to load image list: ${response.statusText}`);
+      }
+      const payload: { images: string[] } = await response.json();
 
-        // Fetch durations
-        const configResponse = await fetch("/api/config");
-        let imageDurations: Record<string, number> = {};
-        if (configResponse.ok) {
-          imageDurations = await configResponse.json();
-        }
+      // Fetch durations
+      const configResponse = await fetch("/api/config");
+      let imageDurations: Record<string, number> = {};
+      if (configResponse.ok) {
+        imageDurations = await configResponse.json();
+      }
 
-        const fetchedSlides = payload.images.map((filename) => ({
-          name: filename,
-          url: `/api/image/${encodeURIComponent(filename)}`,
-          duration: imageDurations[filename] || SLIDE_DURATION_MS,
-        }));
+      const fetchedSlides = payload.images.map((filename) => ({
+        name: filename,
+        url: `/api/image/${encodeURIComponent(filename)}`,
+        duration: imageDurations[filename] || SLIDE_DURATION_MS,
+      }));
 
-        console.log(`✅ Fetched ${fetchedSlides.length} slides:`, fetchedSlides);
+      // Check if slides have changed
+      const slidesChanged = 
+        slides.length !== fetchedSlides.length ||
+        !slides.every((slide, index) => slide.name === fetchedSlides[index]?.name);
+
+      if (slidesChanged) {
+        console.log(`${isAutoRefresh ? '🔄 Auto-refresh:' : '✅'} Fetched ${fetchedSlides.length} slides${slidesChanged && isAutoRefresh ? ' (UPDATED!)' : ''}`, fetchedSlides.map(s => s.name));
         
-        // Preload first image
-        if (fetchedSlides.length > 0) {
+        // Preload first image only on initial load
+        if (!isAutoRefresh && fetchedSlides.length > 0) {
           const img = new Image();
           img.src = fetchedSlides[0].url;
           await new Promise((resolve) => {
@@ -138,19 +152,53 @@ export default function Home() {
         }
         
         setSlides(fetchedSlides);
-        setCurrentIndex(0);
+        
+        // Only reset index if new slides list is different
+        if (isAutoRefresh) {
+          // If current index is out of bounds, reset to 0
+          if (currentIndex >= fetchedSlides.length) {
+            setCurrentIndex(0);
+          }
+        } else {
+          setCurrentIndex(0);
+        }
+        
         setError(null);
-      } catch (err) {
-        console.error("❌ Error fetching slides:", err);
-        const detail = err instanceof Error ? err.message : undefined;
+      } else if (isAutoRefresh) {
+        console.log(`🔄 Auto-refresh: No changes detected (${fetchedSlides.length} slides)`);
+      }
+      
+      return fetchedSlides;
+    } catch (err) {
+      console.error("❌ Error fetching slides:", err);
+      const detail = err instanceof Error ? err.message : undefined;
+      if (!isAutoRefresh) {
         setError({ kind: "fetch", detail });
-      } finally {
+      }
+      return null;
+    } finally {
+      if (!isAutoRefresh) {
         setLoading(false);
       }
-    };
+    }
+  };
 
-    fetchSlides();
+  // Initial fetch on mount
+  useEffect(() => {
+    fetchSlides(false);
   }, []);
+
+  // Auto-refresh: Check for new images periodically
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      console.log('🔄 Checking for new images...');
+      fetchSlides(true);
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => {
+      clearInterval(refreshInterval);
+    };
+  }, [slides, currentIndex]); // Re-create interval when slides change
 
   // Auto-rotate slides with smooth fade
   useEffect(() => {
@@ -211,6 +259,102 @@ export default function Home() {
     }, LANGUAGE_SWAP_INTERVAL_MS);
 
     return () => clearInterval(interval);
+  }, []);
+
+  // Keep screen awake - prevent screensaver on Smart TV
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    let wakeLock: any = null;
+
+    // 1. Wake Lock API (modern browsers and some Smart TVs)
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+          console.log('🔒 Screen Wake Lock activated');
+          
+          wakeLock.addEventListener('release', () => {
+            console.log('🔓 Wake Lock released, re-requesting...');
+            requestWakeLock();
+          });
+        }
+      } catch (err) {
+        console.log('⚠️ Wake Lock not supported, using fallback methods');
+      }
+    };
+
+    // 2. Prevent sleep with video element trick (works on many Smart TVs)
+    const createNoSleepVideo = () => {
+      const video = document.createElement('video');
+      video.setAttribute('loop', '');
+      video.setAttribute('muted', '');
+      video.setAttribute('playsinline', '');
+      video.style.position = 'absolute';
+      video.style.width = '1px';
+      video.style.height = '1px';
+      video.style.opacity = '0.01';
+      video.style.pointerEvents = 'none';
+      
+      // Minimal WebM video (1 second, black frame)
+      const webmData = 'data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwH/////////FUmpZpkq17GDD0JATYCGQ2hyb21lV0GGQ2hyb21lFlSua7+uvdeBAXPFh1WGQ2hyb2lztLYBAAAAAAUKAAAAAAABAWVibWKHg/////91AA4GhgeBAJFhEACEgQFVsIRVuYEBElTrEAAAAAAAZp+BAAAAAAAq17GDD0JATYCGQ2hyb21lV0GGQ2hyb21lFlSua7+uvdeBAXPFhJFg////0kFRN0BGVP///////wAAAAADL/////qGgP////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGa1Eg3ERMiWjkBInAr+DIgeISLAqJ0SCBAULnBIQjNKAAAAAAAz4PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWc+2RuZJ2WPeTPdMjeqt7lOmR1XNubXeNeHcmutVQIJRBwIKJFsEJRQSCCdN9P+hETAdL4aDUAAAAAAAAADXXq87qWuK7KQ7oSoZowjmj7MV0V2Hud9FqLPjFWr+7I4AAAAA';
+      
+      video.src = webmData;
+      document.body.appendChild(video);
+      
+      const playVideo = () => {
+        video.play().catch(() => {
+          // Retry on user interaction
+          document.addEventListener('click', () => video.play(), { once: true });
+        });
+      };
+      
+      playVideo();
+      return video;
+    };
+
+    // 3. Periodic activity simulation (fallback for older Smart TVs)
+    const simulateActivity = () => {
+      // Trigger mousemove event every 30 seconds
+      const event = new MouseEvent('mousemove', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        clientX: Math.random() * window.innerWidth,
+        clientY: Math.random() * window.innerHeight,
+      });
+      document.dispatchEvent(event);
+    };
+
+    // 4. Prevent visibility change sleep
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        requestWakeLock();
+      }
+    };
+
+    // Initialize all methods
+    const noSleepVideo = createNoSleepVideo();
+    requestWakeLock();
+    
+    // Simulate activity every 30 seconds
+    const activityInterval = setInterval(simulateActivity, 30000);
+    
+    // Re-request wake lock on visibility change
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup
+    return () => {
+      if (wakeLock) {
+        wakeLock.release();
+      }
+      if (noSleepVideo && noSleepVideo.parentNode) {
+        noSleepVideo.pause();
+        noSleepVideo.parentNode.removeChild(noSleepVideo);
+      }
+      clearInterval(activityInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // Loading state
