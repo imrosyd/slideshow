@@ -23,7 +23,14 @@ export default async function handler(
     const supabaseServiceRole = getSupabaseServiceRoleClient();
     const { data, error } = await supabaseServiceRole.storage
       .from(SUPABASE_STORAGE_BUCKET)
-      .createSignedUrl(name, 60); // link valid for 60 seconds
+      .createSignedUrl(name, 60, {
+        transform: {
+          width: 1920,
+          height: 1080,
+          resize: 'contain',
+          quality: 75,
+        },
+      }); // link valid for 60 seconds
 
     if (error || !data?.signedUrl) {
       console.error("Error creating signed URL for image:", error);

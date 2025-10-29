@@ -405,16 +405,7 @@ export default function Home() {
 
   return (
     <main style={styles.container}>
-      <video
-        src="/dummy-video.mp4"
-        autoPlay
-        loop
-        muted
-        playsInline
-        width="1"
-        height="1"
-        style={{ position: 'absolute', opacity: 0 }}
-      />
+
       <img
         src={displayedSlide?.url ?? ""}
         alt={displayedSlide?.name ?? "Slide"}
