@@ -10,3 +10,7 @@ body {
   background-color: var(--bg-color); /* Apply theme background */
   transition: background-color 0.3s ease; /* Smooth theme transition */
 }
+
+.report-page-inner {
+  background-color: transparent;
+}

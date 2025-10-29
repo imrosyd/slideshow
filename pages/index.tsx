@@ -119,7 +119,6 @@ export default function Home() {
   const preloadedUrlsRef = useRef<Set<string>>(new Set());
   const slidesSnapshotRef = useRef<Slide[]>([]);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const queuePreload = (url: string) => {
     if (!url || typeof window === "undefined") {
@@ -199,7 +198,6 @@ export default function Home() {
             setImage2({ slide: null, opacity: 0, loaded: false });
             setIsImage1Active(true);
           }
-          setRefreshKey(0);
           setError(null);
           setFetchState("ready");
         }
@@ -218,7 +216,7 @@ export default function Home() {
       isMounted = false;
       controller.abort();
     };
-  }, [refreshKey]);
+  }, []);
 
   const currentSlide = useMemo(
     () => (slides.length ? slides[activeIndex % slides.length] ?? null : null),
@@ -232,9 +230,6 @@ export default function Home() {
 
     const timer = setInterval(() => {
       const nextIndex = (activeIndex + 1) % slides.length;
-      if (nextIndex === 0) {
-        setRefreshKey(k => k + 1);
-      }
       setActiveIndex(nextIndex);
     }, currentSlide.duration);
 
