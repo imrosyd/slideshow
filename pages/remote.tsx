@@ -10,10 +10,11 @@ export default function RemoteControl() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [transitionEffect, setTransitionEffect] = useState<TransitionEffect>("fade");
+  const [channel, setChannel] = useState<any>(null);
 
   useEffect(() => {
     // Subscribe to slideshow status
-    const channel = supabase
+    const remoteChannel = supabase
       .channel('remote-control')
       .on('broadcast', { event: 'slideshow-status' }, (payload) => {
         console.log('Status update:', payload);
@@ -26,9 +27,11 @@ export default function RemoteControl() {
       })
       .subscribe();
 
+    setChannel(remoteChannel);
+
     // Request initial status
     setTimeout(() => {
-      channel.send({
+      remoteChannel.send({
         type: 'broadcast',
         event: 'request-status',
         payload: { timestamp: Date.now() }
@@ -46,19 +49,23 @@ export default function RemoteControl() {
       .catch(err => console.error('Failed to load settings:', err));
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(remoteChannel);
     };
   }, []);
 
   const sendCommand = useCallback((command: string, data?: any) => {
-    const channel = supabase.channel('remote-control');
+    if (!channel) {
+      console.error('Channel not ready');
+      return;
+    }
+    
     channel.send({
       type: 'broadcast',
       event: 'remote-command',
       payload: { command, data, timestamp: Date.now() }
     });
     console.log('Sent command:', command, data);
-  }, []);
+  }, [channel]);
 
   const saveTransitionEffect = useCallback(async (effect: TransitionEffect) => {
     try {
