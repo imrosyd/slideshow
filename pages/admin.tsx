@@ -51,6 +51,8 @@ const AdminContent = () => {
   } = useImages(authToken);
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [hiddenImages, setHiddenImages] = useState<Set<string>>(new Set());
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
   const galleryStats = useMemo(() => {
     const totalSize = images.reduce((sum, image) => sum + (image.size || 0), 0);
@@ -150,6 +152,41 @@ const AdminContent = () => {
   const handleDragEnd = useCallback(() => {
     setDraggedIndex(null);
   }, []);
+
+  const toggleHideImage = useCallback((filename: string) => {
+    setHiddenImages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(filename)) {
+        newSet.delete(filename);
+      } else {
+        newSet.add(filename);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const openFullscreen = useCallback((filename: string) => {
+    setFullscreenImage(filename);
+  }, []);
+
+  const closeFullscreen = useCallback(() => {
+    setFullscreenImage(null);
+  }, []);
+
+  // Close fullscreen with Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && fullscreenImage) {
+        closeFullscreen();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fullscreenImage, closeFullscreen]);
+
+  const visibleImages = useMemo(() => {
+    return images.filter(img => !hiddenImages.has(img.name));
+  }, [images, hiddenImages]);
 
   return (
     <div className="relative w-full min-h-screen bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
@@ -254,6 +291,14 @@ const AdminContent = () => {
                   <span className="font-semibold text-white">{images.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
+                  <span className="text-white/60">Hidden</span>
+                  <span className="font-semibold text-amber-300">{hiddenImages.size}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/60">Visible</span>
+                  <span className="font-semibold text-emerald-300">{images.length - hiddenImages.size}</span>
+                </div>
+                <div className="flex items-center justify-between">
                   <span className="text-white/60">Uploading</span>
                   <span className="font-semibold text-white">{uploadTasks.filter(t => t.status === 'uploading').length}</span>
                 </div>
@@ -319,6 +364,9 @@ const AdminContent = () => {
                         onChange={updateMetadataDraft}
                         onReset={resetMetadataDraft}
                         onDelete={(filename) => setConfirmTarget(filename)}
+                        onToggleHide={toggleHideImage}
+                        onPreview={openFullscreen}
+                        isHidden={hiddenImages.has(image.name)}
                       />
                     </div>
                   ))}
@@ -345,6 +393,34 @@ const AdminContent = () => {
           }
         }}
       />
+
+      {/* Fullscreen preview modal */}
+      {fullscreenImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm"
+          onClick={closeFullscreen}
+        >
+          <button
+            type="button"
+            onClick={closeFullscreen}
+            className="absolute right-6 top-6 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
+            title="Close preview"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <div className="absolute left-6 top-6 z-10 rounded-full bg-white/10 px-4 py-2 backdrop-blur-sm">
+            <span className="text-sm font-medium text-white">{fullscreenImage}</span>
+          </div>
+          <img
+            src={images.find(img => img.name === fullscreenImage)?.previewUrl}
+            alt={fullscreenImage}
+            className="max-h-[90vh] max-w-[90vw] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 };
