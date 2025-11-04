@@ -2,14 +2,11 @@ import { useEffect, useState, useCallback } from "react";
 import Head from "next/head";
 import { supabase } from "../lib/supabase";
 
-type TransitionEffect = "fade" | "slide" | "zoom" | "none";
-
 export default function RemoteControl() {
   const [isConnected, setIsConnected] = useState(false);
   const [slideCount, setSlideCount] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [transitionEffect, setTransitionEffect] = useState<TransitionEffect>("fade");
   const [channel, setChannel] = useState<any>(null);
 
   useEffect(() => {
@@ -37,16 +34,6 @@ export default function RemoteControl() {
         payload: { timestamp: Date.now() }
       });
     }, 500);
-    
-    // Load transition effect from settings
-    fetch('/api/settings')
-      .then(res => res.json())
-      .then(data => {
-        if (data.transitionEffect) {
-          setTransitionEffect(data.transitionEffect);
-        }
-      })
-      .catch(err => console.error('Failed to load settings:', err));
 
     return () => {
       supabase.removeChannel(remoteChannel);
@@ -66,28 +53,6 @@ export default function RemoteControl() {
     });
     console.log('Sent command:', command, data);
   }, [channel]);
-
-  const saveTransitionEffect = useCallback(async (effect: TransitionEffect) => {
-    try {
-      const response = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transitionEffect: effect }),
-      });
-      
-      if (response.ok) {
-        setTransitionEffect(effect);
-        console.log('✅ Transition effect saved:', effect);
-        
-        // Send broadcast command to update slideshow immediately
-        sendCommand('change-transition', { effect });
-      } else {
-        console.error('Failed to save transition effect');
-      }
-    } catch (error) {
-      console.error('Failed to save transition effect:', error);
-    }
-  }, [sendCommand]);
 
   const handlePrevious = () => sendCommand('previous');
   const handleNext = () => sendCommand('next');
@@ -151,26 +116,6 @@ export default function RemoteControl() {
             >
               {isPaused ? '▶️ Play' : '⏸️ Pause'}
             </button>
-          </div>
-        </div>
-
-        {/* Slideshow Settings */}
-        <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-lg">
-          <h2 className="mb-4 text-sm font-semibold text-white/70">Transition Effect</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {(['fade', 'slide', 'zoom', 'none'] as TransitionEffect[]).map((effect) => (
-              <button
-                key={effect}
-                onClick={() => saveTransitionEffect(effect)}
-                className={`rounded-xl px-4 py-3 text-sm font-medium transition-all active:scale-95 ${
-                  transitionEffect === effect
-                    ? 'bg-sky-500 text-white border-2 border-sky-400'
-                    : 'border border-white/20 bg-white/5 text-white/80'
-                }`}
-              >
-                {effect.charAt(0).toUpperCase() + effect.slice(1)}
-              </button>
-            ))}
           </div>
         </div>
 

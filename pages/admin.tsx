@@ -207,7 +207,10 @@ const AdminContent = () => {
     setDraggedIndex(null);
   }, []);
 
-  const toggleHideImage = useCallback((filename: string) => {
+  const toggleHideImage = useCallback(async (filename: string) => {
+    // Check current state before toggle
+    const wasHidden = hiddenImages.has(filename);
+    
     toggleImageHidden(filename);
     
     // Also update local hiddenImages set for immediate UI feedback
@@ -220,7 +223,18 @@ const AdminContent = () => {
       }
       return newSet;
     });
-  }, [toggleImageHidden]);
+    
+    // Auto-save metadata after toggle
+    setTimeout(async () => {
+      const success = await saveMetadata();
+      if (success) {
+        pushToast({ 
+          variant: "success", 
+          description: `Image ${wasHidden ? 'shown' : 'hidden'} successfully` 
+        });
+      }
+    }, 100); // Small delay to ensure state is updated
+  }, [hiddenImages, toggleImageHidden, saveMetadata, pushToast]);
 
   const openFullscreen = useCallback((filename: string) => {
     setFullscreenImage(filename);
