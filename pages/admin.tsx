@@ -54,6 +54,14 @@ const AdminContent = () => {
   const [hiddenImages, setHiddenImages] = useState<Set<string>>(new Set());
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [isForceRefreshing, setIsForceRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "visible" | "hidden">("all");
+  const [sortBy, setSortBy] = useState<"order" | "name" | "size" | "date">("order");
+  
+  // Bulk actions
+  const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
+  const [bulkDuration, setBulkDuration] = useState("");
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   const galleryStats = useMemo(() => {
     const totalSize = images.reduce((sum, image) => sum + (image.size || 0), 0);
@@ -206,6 +214,104 @@ const AdminContent = () => {
     setFullscreenImage(null);
   }, []);
 
+  // Bulk action handlers
+  const toggleSelectImage = useCallback((imageName: string) => {
+    setSelectedImages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(imageName)) {
+        newSet.delete(imageName);
+      } else {
+        newSet.add(imageName);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const selectAllFiltered = useCallback((imageNames: string[]) => {
+    const allNames = new Set(imageNames);
+    setSelectedImages(allNames);
+  }, []);
+
+  const deselectAll = useCallback(() => {
+    setSelectedImages(new Set());
+  }, []);
+
+  const bulkHideImages = useCallback(() => {
+    setHiddenImages(prev => {
+      const newSet = new Set(prev);
+      selectedImages.forEach(name => newSet.add(name));
+      return newSet;
+    });
+    pushToast({ variant: "success", description: `Hidden ${selectedImages.size} image${selectedImages.size !== 1 ? 's' : ''}` });
+    setSelectedImages(new Set());
+  }, [selectedImages, pushToast]);
+
+  const bulkShowImages = useCallback(() => {
+    setHiddenImages(prev => {
+      const newSet = new Set(prev);
+      selectedImages.forEach(name => newSet.delete(name));
+      return newSet;
+    });
+    pushToast({ variant: "success", description: `Showed ${selectedImages.size} image${selectedImages.size !== 1 ? 's' : ''}` });
+    setSelectedImages(new Set());
+  }, [selectedImages, pushToast]);
+
+  const bulkSetDuration = useCallback(async () => {
+    const durationMs = parseInt(bulkDuration);
+    if (!durationMs || durationMs < 1000) {
+      pushToast({ variant: "error", description: "Please enter a valid duration (minimum 1 second)" });
+      return;
+    }
+
+    try {
+      const updates: Record<string, number> = {};
+      selectedImages.forEach(name => {
+        updates[name] = durationMs;
+      });
+
+      const response = await fetch("/api/admin/metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ durations: updates }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update durations");
+
+      pushToast({ variant: "success", description: `Updated duration for ${selectedImages.size} image${selectedImages.size !== 1 ? 's' : ''}` });
+      setSelectedImages(new Set());
+      setBulkDuration("");
+      await refresh();
+    } catch (error) {
+      console.error("Bulk duration update error:", error);
+      pushToast({ variant: "error", description: "Failed to update durations" });
+    }
+  }, [bulkDuration, selectedImages, pushToast, refresh]);
+
+  const bulkDeleteImages = useCallback(async () => {
+    if (!confirm(`Are you sure you want to delete ${selectedImages.size} image${selectedImages.size !== 1 ? 's' : ''}? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const deletePromises = Array.from(selectedImages).map(async (filename) => {
+        const response = await fetch("/api/images", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename }),
+        });
+        if (!response.ok) throw new Error(`Failed to delete ${filename}`);
+      });
+
+      await Promise.all(deletePromises);
+      pushToast({ variant: "success", description: `Deleted ${selectedImages.size} image${selectedImages.size !== 1 ? 's' : ''}` });
+      setSelectedImages(new Set());
+      await refresh();
+    } catch (error) {
+      console.error("Bulk delete error:", error);
+      pushToast({ variant: "error", description: "Failed to delete some images" });
+    }
+  }, [selectedImages, pushToast, refresh]);
+
   // Close fullscreen with Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -220,6 +326,47 @@ const AdminContent = () => {
   const visibleImages = useMemo(() => {
     return images.filter(img => !hiddenImages.has(img.name));
   }, [images, hiddenImages]);
+
+  const filteredImages = useMemo(() => {
+    let filtered = [...images];
+
+    // Apply search filter
+    if (searchQuery) {
+      filtered = filtered.filter(img => 
+        img.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Apply status filter
+    if (filterStatus === "visible") {
+      filtered = filtered.filter(img => !hiddenImages.has(img.name));
+    } else if (filterStatus === "hidden") {
+      filtered = filtered.filter(img => hiddenImages.has(img.name));
+    }
+
+    // Apply sorting
+    switch (sortBy) {
+      case "name":
+        filtered.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "size":
+        filtered.sort((a, b) => (b.size || 0) - (a.size || 0));
+        break;
+      case "date":
+        filtered.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        break;
+      case "order":
+      default:
+        // Keep original order (already sorted by API)
+        break;
+    }
+
+    return filtered;
+  }, [images, searchQuery, filterStatus, hiddenImages, sortBy]);
 
   return (
     <div className="relative w-full min-h-screen bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
@@ -370,63 +517,249 @@ const AdminContent = () => {
           {/* Main gallery area */}
           <main className="lg:col-span-8 xl:col-span-9">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg sm:p-8">
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-white">Image Gallery</h2>
-                  <p className="text-sm text-white/60">
-                    {images.length === 0 ? "No images yet" : `${images.length} image${images.length !== 1 ? "s" : ""} • Drag to reorder`}
-                  </p>
+              <div className="mb-6 flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Image Gallery</h2>
+                    <p className="text-sm text-white/60">
+                      {filteredImages.length === 0 ? "No images match your filters" : `${filteredImages.length} of ${images.length} image${images.length !== 1 ? "s" : ""}`}
+                    </p>
+                  </div>
+                  {isLoading && (
+                    <div className="flex items-center gap-2 text-sm text-white/60">
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+                      Loading...
+                    </div>
+                  )}
                 </div>
-                {isLoading && (
-                  <div className="flex items-center gap-2 text-sm text-white/60">
-                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
-                    Loading...
+
+                {/* Search and Filter Controls */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  {/* Search Box */}
+                  <div className="relative flex-1">
+                    <svg className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                      type="text"
+                      placeholder="Search images..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full rounded-lg border border-white/20 bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/40 focus:border-sky-400/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filter Status */}
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as any)}
+                    className="rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm text-white focus:border-sky-400/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                  >
+                    <option value="all">All Images</option>
+                    <option value="visible">Visible Only</option>
+                    <option value="hidden">Hidden Only</option>
+                  </select>
+
+                  {/* Sort By */}
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm text-white focus:border-sky-400/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                  >
+                    <option value="order">Sort: Order</option>
+                    <option value="name">Sort: Name</option>
+                    <option value="size">Sort: Size</option>
+                    <option value="date">Sort: Date</option>
+                  </select>
+
+                  {/* Bulk Actions Toggle */}
+                  <button
+                    onClick={() => setShowBulkActions(!showBulkActions)}
+                    className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
+                      showBulkActions
+                        ? "border-violet-400/50 bg-violet-500/20 text-violet-200"
+                        : "border-white/20 bg-white/5 text-white hover:border-violet-400/30 hover:bg-violet-500/10"
+                    }`}
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                    </svg>
+                    Bulk
+                  </button>
+                </div>
+
+                {/* Bulk Actions Panel */}
+                {showBulkActions && (
+                  <div className="rounded-lg border border-violet-400/30 bg-violet-500/10 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-violet-200">
+                          {selectedImages.size} selected
+                        </span>
+                        <button
+                          onClick={() => selectAllFiltered(filteredImages.map(img => img.name))}
+                          className="text-xs text-violet-300 hover:text-violet-100 underline"
+                        >
+                          Select all ({filteredImages.length})
+                        </button>
+                        {selectedImages.size > 0 && (
+                          <button
+                            onClick={deselectAll}
+                            className="text-xs text-violet-300 hover:text-violet-100 underline"
+                          >
+                            Deselect all
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {selectedImages.size > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={bulkShowImages}
+                          className="flex items-center gap-1.5 rounded-lg border border-green-400/30 bg-green-500/20 px-3 py-1.5 text-xs font-medium text-green-200 transition-all hover:bg-green-500/30"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          Show
+                        </button>
+
+                        <button
+                          onClick={bulkHideImages}
+                          className="flex items-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-200 transition-all hover:bg-amber-500/30"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                          Hide
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            placeholder="Duration (ms)"
+                            value={bulkDuration}
+                            onChange={(e) => setBulkDuration(e.target.value)}
+                            className="w-32 rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white placeholder:text-white/40 focus:border-sky-400/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                          />
+                          <button
+                            onClick={bulkSetDuration}
+                            disabled={!bulkDuration}
+                            className="flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-500/20 px-3 py-1.5 text-xs font-medium text-sky-200 transition-all hover:bg-sky-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Set Duration
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={bulkDeleteImages}
+                          className="ml-auto flex items-center gap-1.5 rounded-lg border border-red-400/30 bg-red-500/20 px-3 py-1.5 text-xs font-medium text-red-200 transition-all hover:bg-red-500/30"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {images.length === 0 ? (
+              {filteredImages.length === 0 ? (
                 <div className="flex min-h-[400px] flex-col items-center justify-center gap-6 rounded-xl border-2 border-dashed border-white/20 bg-white/5 p-12 text-center">
                   <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/20 to-violet-500/20 text-5xl text-white/40">
-                    +
+                    {searchQuery || filterStatus !== "all" ? "🔍" : "+"}
                   </div>
                   <div>
-                    <h3 className="mb-2 text-xl font-semibold text-white">No Images Yet</h3>
+                    <h3 className="mb-2 text-xl font-semibold text-white">
+                      {searchQuery || filterStatus !== "all" ? "No Images Found" : "No Images Yet"}
+                    </h3>
                     <p className="max-w-md text-sm text-white/60">
-                      Start by uploading your first image using the upload panel on the left
+                      {searchQuery || filterStatus !== "all" 
+                        ? "Try adjusting your search or filter criteria"
+                        : "Start by uploading your first image using the upload panel on the left"
+                      }
                     </p>
                   </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                  {images.map((image, index) => (
-                    <div
-                      key={image.name}
-                      className="relative cursor-move transition-all duration-200"
-                      draggable
-                      onDragStart={() => handleDragStart(index)}
-                      onDragOver={(e) => handleDragOver(e, index)}
-                      onDrop={(e) => handleDrop(e, index)}
-                      onDragEnd={handleDragEnd}
-                      style={{
-                        opacity: draggedIndex === index ? 0.5 : 1,
-                        transform: draggedIndex === index ? 'scale(0.95)' : 'scale(1)',
-                      }}
-                    >
-                      <div className="absolute -left-2 -top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 text-sm font-bold text-white shadow-lg">
-                        {index + 1}
+                  {filteredImages.map((image, index) => {
+                    const originalIndex = images.findIndex(img => img.name === image.name);
+                    const isSelected = selectedImages.has(image.name);
+                    return (
+                      <div
+                        key={image.name}
+                        className="relative cursor-move transition-all duration-200"
+                        draggable={sortBy === "order" && !showBulkActions}
+                        onDragStart={() => sortBy === "order" && !showBulkActions && handleDragStart(originalIndex)}
+                        onDragOver={(e) => sortBy === "order" && !showBulkActions && handleDragOver(e, originalIndex)}
+                        onDrop={(e) => sortBy === "order" && !showBulkActions && handleDrop(e, originalIndex)}
+                        onDragEnd={handleDragEnd}
+                        style={{
+                          opacity: draggedIndex === originalIndex ? 0.5 : 1,
+                          transform: draggedIndex === originalIndex ? 'scale(0.95)' : 'scale(1)',
+                          cursor: sortBy === "order" && !showBulkActions ? "move" : "default",
+                        }}
+                      >
+                        {/* Selection Checkbox */}
+                        {showBulkActions && (
+                          <div className="absolute -left-2 -top-2 z-20">
+                            <button
+                              onClick={() => toggleSelectImage(image.name)}
+                              className={`flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all shadow-lg ${
+                                isSelected
+                                  ? "border-violet-400 bg-violet-500 text-white"
+                                  : "border-white/30 bg-slate-800/90 text-white/60 hover:border-violet-400/50 hover:bg-violet-500/20"
+                              }`}
+                            >
+                              {isSelected && (
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Order Number */}
+                        {!showBulkActions && (
+                          <div className="absolute -left-2 -top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 text-sm font-bold text-white shadow-lg">
+                            {originalIndex + 1}
+                          </div>
+                        )}
+
+                        {/* Image Card with Selection Highlight */}
+                        <div className={`transition-all ${isSelected ? 'ring-4 ring-violet-400/50 rounded-xl' : ''}`}>
+                          <ImageCard
+                            image={image}
+                            onChange={updateMetadataDraft}
+                            onReset={resetMetadataDraft}
+                            onDelete={(filename) => setConfirmTarget(filename)}
+                            onToggleHide={toggleHideImage}
+                            onPreview={openFullscreen}
+                            isHidden={hiddenImages.has(image.name)}
+                          />
+                        </div>
                       </div>
-                      <ImageCard
-                        image={image}
-                        onChange={updateMetadataDraft}
-                        onReset={resetMetadataDraft}
-                        onDelete={(filename) => setConfirmTarget(filename)}
-                        onToggleHide={toggleHideImage}
-                        onPreview={openFullscreen}
-                        isHidden={hiddenImages.has(image.name)}
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
