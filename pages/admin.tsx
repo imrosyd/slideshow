@@ -126,98 +126,208 @@ const AdminContent = () => {
   }, [isLoggingOut, pushToast, router]);
 
   return (
-    <div className="relative min-h-screen w-full bg-slate-950 text-white touch-auto select-text">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.25)_0,_transparent_55%)]"></div>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom,_rgba(14,165,233,0.2)_0,_transparent_60%)]"></div>
-      <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-10 px-6 py-12 sm:px-10 lg:px-12">
-        <header className="flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium tracking-[0.2em] text-white/60">Admin dashboard</span>
-            <h1 className="text-4xl font-semibold tracking-tight text-white">Slideshow Control Center</h1>
-            <p className="max-w-3xl text-sm text-white/60">
-              Manage your slideshow collection with a modern control panel: upload new images, fine-tune metadata, and monitor status in real time.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-white/60">
-            <span className="rounded-full border border-white/20 bg-white/5 px-4 py-1.5 text-white/70">
-              {galleryStats.total} images
-            </span>
-            <span className="rounded-full border border-white/20 bg-white/5 px-4 py-1.5 text-white/70">
-              {galleryStats.formattedSize}
-            </span>
-            <div className="ml-auto flex items-center gap-3">
+    <div className="relative min-h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
+      {/* Animated background gradient */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,_rgba(59,130,246,0.15)_0,_transparent_50%)]"></div>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,_rgba(14,165,233,0.15)_0,_transparent_50%)]"></div>
+      
+      {/* Main container */}
+      <div className="relative z-10 mx-auto flex w-full max-w-[1600px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
+        
+        {/* Header */}
+        <header className="flex flex-col gap-6 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 shadow-lg">
+                  <span className="text-2xl">🎬</span>
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight text-white">Slideshow Manager</h1>
+                  <p className="text-sm text-white/60">Control Center</p>
+                </div>
+              </div>
+              <p className="max-w-2xl text-sm leading-relaxed text-white/70">
+                Upload images, customize durations, and manage your slideshow presentation
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => refresh()}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:bg-white/10"
+                className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/90 transition hover:border-white/30 hover:bg-white/10 active:scale-95"
               >
-                ↻ Refresh
+                <span className="text-lg">↻</span>
+                Refresh
               </button>
               <button
                 type="button"
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition hover:border-red-500/50 hover:bg-red-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isLoggingOut ? "Signing out…" : "Logout"}
+                <span className="text-lg">🚪</span>
+                {isLoggingOut ? "Logging out..." : "Logout"}
               </button>
             </div>
           </div>
+
+          {/* Stats bar */}
+          <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2">
+              <span className="text-xl">📊</span>
+              <span className="text-sm font-semibold text-emerald-200">{galleryStats.total} Images</span>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2">
+              <span className="text-xl">💾</span>
+              <span className="text-sm font-semibold text-blue-200">{galleryStats.formattedSize}</span>
+            </div>
+            {dirtyCount > 0 && (
+              <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 animate-pulse">
+                <span className="text-xl">⚠️</span>
+                <span className="text-sm font-semibold text-amber-200">{dirtyCount} Unsaved Changes</span>
+              </div>
+            )}
+          </div>
         </header>
 
-        <section className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          <div className="flex flex-col gap-8 lg:col-span-1">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-glass">
-              <h2 className="mb-4 text-lg font-semibold text-white">Upload images</h2>
+        {/* Main content grid */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          
+          {/* Left sidebar - Upload & Actions */}
+          <aside className="flex flex-col gap-6 lg:col-span-4 xl:col-span-3">
+            
+            {/* Upload section */}
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-400 to-pink-500">
+                  <span className="text-xl">📤</span>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Upload Images</h2>
+                  <p className="text-xs text-white/60">Drag & drop or click</p>
+                </div>
+              </div>
               <UploadBox isUploading={isUploading} uploadTasks={uploadTasks} onFilesSelected={handleUpload} />
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-glass">
-              <h2 className="text-lg font-semibold text-white">Metadata</h2>
-              <p className="mt-2 text-sm text-white/60">
-                Set a custom duration per slide and add captions that will be displayed on the slideshow screen.
+
+            {/* Metadata save section */}
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-sky-400 to-cyan-500">
+                  <span className="text-xl">⚙️</span>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Metadata Settings</h2>
+                  <p className="text-xs text-white/60">Duration & captions</p>
+                </div>
+              </div>
+              <p className="mb-6 text-sm leading-relaxed text-white/70">
+                Customize how long each slide displays and add optional captions
               </p>
               <button
                 type="button"
                 onClick={handleSaveMetadata}
                 disabled={dirtyCount === 0 || isSavingMetadata}
-                className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-sky-500 via-sky-400 to-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/30 transition hover:shadow-sky-500/50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-500 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/30 transition-all hover:shadow-xl hover:shadow-sky-500/50 active:scale-98 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
               >
-                {isSavingMetadata ? "Saving…" : dirtyCount > 0 ? `Save ${dirtyCount} change${dirtyCount > 1 ? "s" : ""}` : "No pending changes"}
+                <span className="relative z-10 flex items-center justify-center gap-2">
+                  {isSavingMetadata ? (
+                    <>
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                      Saving...
+                    </>
+                  ) : dirtyCount > 0 ? (
+                    <>
+                      💾 Save {dirtyCount} Change{dirtyCount > 1 ? "s" : ""}
+                    </>
+                  ) : (
+                    <>✓ All Saved</>
+                  )}
+                </span>
+                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full"></div>
               </button>
             </div>
-          </div>
 
-          <div className="lg:col-span-2">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Image Gallery</h2>
-              {isLoading && <span className="text-xs tracking-wide text-white/60">Loading…</span>}
+            {/* Quick stats */}
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
+              <h3 className="mb-4 text-sm font-semibold text-white/80">Quick Stats</h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/60">Total Images</span>
+                  <span className="font-semibold text-white">{images.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/60">Uploading</span>
+                  <span className="font-semibold text-white">{uploadTasks.filter(t => t.status === 'uploading').length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/60">Storage Used</span>
+                  <span className="font-semibold text-white">{galleryStats.formattedSize}</span>
+                </div>
+              </div>
             </div>
-            {images.length === 0 ? (
-              <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-white/15 bg-white/5 text-center text-white/60">
-                <span className="text-2xl">🌌</span>
-                <p className="max-w-sm text-sm">No images uploaded yet. Start by adding files through the upload panel.</p>
+          </aside>
+
+          {/* Main gallery area */}
+          <main className="lg:col-span-8 xl:col-span-9">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl sm:p-8">
+              <div className="mb-6 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-rose-500">
+                    <span className="text-xl">🖼️</span>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Image Gallery</h2>
+                    <p className="text-xs text-white/60">
+                      {images.length === 0 ? "No images yet" : `${images.length} image${images.length !== 1 ? "s" : ""}`}
+                    </p>
+                  </div>
+                </div>
+                {isLoading && (
+                  <div className="flex items-center gap-2 text-sm text-white/60">
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+                    Loading...
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {images.map((image) => (
-                  <ImageCard
-                    key={image.name}
-                    image={image}
-                    onChange={updateMetadataDraft}
-                    onReset={resetMetadataDraft}
-                    onDelete={(filename) => setConfirmTarget(filename)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
+
+              {images.length === 0 ? (
+                <div className="flex min-h-[400px] flex-col items-center justify-center gap-6 rounded-xl border-2 border-dashed border-white/20 bg-white/5 p-12 text-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20">
+                    <span className="text-5xl">🌌</span>
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xl font-semibold text-white">No Images Yet</h3>
+                    <p className="max-w-md text-sm text-white/60">
+                      Start by uploading your first image using the upload panel on the left
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  {images.map((image) => (
+                    <ImageCard
+                      key={image.name}
+                      image={image}
+                      onChange={updateMetadataDraft}
+                      onReset={resetMetadataDraft}
+                      onDelete={(filename) => setConfirmTarget(filename)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
       </div>
 
+      {/* Confirm delete modal */}
       <ConfirmModal
         open={Boolean(confirmTarget)}
         title="Delete this image?"
-        description={confirmTarget ? `Image ${confirmTarget} will be permanently removed from storage.` : ""}
+        description={confirmTarget ? `"${confirmTarget}" will be permanently removed from storage. This action cannot be undone.` : ""}
         onCancel={() => setConfirmTarget(null)}
         isLoading={isDeleting}
         onConfirm={async () => {
