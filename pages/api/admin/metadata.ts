@@ -6,10 +6,12 @@ type ImageMetadata = {
   filename: string;
   duration_ms: number;
   caption?: string;
+  order?: number;
 };
 
 type MetadataStore = {
   images: Record<string, ImageMetadata>;
+  order: string[];
   updated_at: string;
 };
 
@@ -17,6 +19,7 @@ type MetadataPayload = {
   filename: string;
   durationMs: number | null;
   caption?: string | null;
+  order?: number;
 };
 
 const METADATA_FILE = "metadata.json";
@@ -43,7 +46,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       console.log(`[Metadata] Saving metadata for ${payload.length} images`);
 
-      let metadata: MetadataStore = { images: {}, updated_at: new Date().toISOString() };
+      let metadata: MetadataStore = { 
+        images: {}, 
+        order: [],
+        updated_at: new Date().toISOString() 
+      };
       
       const { data: existingData } = await supabase.storage
         .from(SUPABASE_STORAGE_BUCKET)
@@ -53,21 +60,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         try {
           const text = await existingData.text();
           metadata = JSON.parse(text);
+          // Ensure order array exists
+          if (!metadata.order) {
+            metadata.order = [];
+          }
         } catch (err) {
           console.log("[Metadata] Creating new metadata file");
         }
       }
 
-      payload.forEach(item => {
+      // Update metadata and build order array
+      const newOrder: string[] = [];
+      payload.forEach((item, index) => {
         if (item.filename && typeof item.durationMs === 'number') {
           metadata.images[item.filename] = {
             filename: item.filename,
             duration_ms: item.durationMs,
             caption: item.caption || undefined,
+            order: index,
           };
+          newOrder.push(item.filename);
         }
       });
       
+      metadata.order = newOrder;
       metadata.updated_at = new Date().toISOString();
 
       const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {

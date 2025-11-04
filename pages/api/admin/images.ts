@@ -19,10 +19,12 @@ type ImageMetadata = {
   filename: string;
   duration_ms: number;
   caption?: string;
+  order?: number;
 };
 
 type MetadataStore = {
   images: Record<string, ImageMetadata>;
+  order?: string[];
   updated_at: string;
 };
 
@@ -78,7 +80,8 @@ export default async function handler(
     const supabaseServiceRole = getSupabaseServiceRoleClient();
 
     // Load metadata from JSON file
-    const metadataMap = new Map<string, { duration_ms: number; caption: string | null }>();
+    const metadataMap = new Map<string, { duration_ms: number; caption: string | null; order: number }>();
+    let imageOrder: string[] = [];
     
     const { data: metadataFile } = await supabaseServiceRole.storage
       .from(SUPABASE_STORAGE_BUCKET)
@@ -89,14 +92,18 @@ export default async function handler(
         const text = await metadataFile.text();
         const metadata: MetadataStore = JSON.parse(text);
         
+        // Store order from metadata
+        imageOrder = metadata.order || [];
+        
         Object.values(metadata.images).forEach((img) => {
           metadataMap.set(img.filename, {
             duration_ms: img.duration_ms,
             caption: img.caption ?? null,
+            order: img.order ?? 999,
           });
         });
         
-        console.log(`[Admin Images] Loaded ${metadataMap.size} metadata entries from JSON`);
+        console.log(`[Admin Images] Loaded ${metadataMap.size} metadata entries from JSON, order: ${imageOrder.length} items`);
       } catch (err) {
         console.error("[Admin Images] Failed to parse metadata.json:", err);
       }
@@ -128,6 +135,26 @@ export default async function handler(
           caption: metadataEntry?.caption ?? null,
         };
       });
+
+    // Sort images based on saved order
+    if (imageOrder.length > 0) {
+      images.sort((a, b) => {
+        const orderA = imageOrder.indexOf(a.name);
+        const orderB = imageOrder.indexOf(b.name);
+        
+        // If both are in order, sort by their position
+        if (orderA !== -1 && orderB !== -1) {
+          return orderA - orderB;
+        }
+        
+        // Items not in order go to the end
+        if (orderA === -1) return 1;
+        if (orderB === -1) return -1;
+        
+        return 0;
+      });
+      console.log("[Admin Images] Sorted images based on saved order");
+    }
 
     console.log("[Admin Images] Total images returned:", images.length);
     console.log("[Admin Images] Images with duration:", images.filter(i => i.durationMs !== null).length);

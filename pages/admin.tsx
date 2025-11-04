@@ -47,7 +47,10 @@ const AdminContent = () => {
     updateMetadataDraft,
     resetMetadataDraft,
     saveMetadata,
+    reorderImages,
   } = useImages(authToken);
+
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const galleryStats = useMemo(() => {
     const totalSize = images.reduce((sum, image) => sum + (image.size || 0), 0);
@@ -125,6 +128,29 @@ const AdminContent = () => {
     }
   }, [isLoggingOut, pushToast, router]);
 
+  const handleDragStart = useCallback((index: number) => {
+    setDraggedIndex(index);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+  }, [draggedIndex]);
+
+  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      return;
+    }
+    reorderImages(draggedIndex, dropIndex);
+    setDraggedIndex(null);
+  }, [draggedIndex, reorderImages]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedIndex(null);
+  }, []);
+
   return (
     <div className="relative min-h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
       {/* Animated background gradient */}
@@ -138,27 +164,18 @@ const AdminContent = () => {
         <header className="flex flex-col gap-6 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 shadow-lg">
-                  <span className="text-2xl">🎬</span>
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight text-white">Slideshow Manager</h1>
-                  <p className="text-sm text-white/60">Control Center</p>
-                </div>
-              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-white">Slideshow Manager</h1>
               <p className="max-w-2xl text-sm leading-relaxed text-white/70">
                 Upload images, customize durations, and manage your slideshow presentation
               </p>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => refresh()}
                 className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/90 transition hover:border-white/30 hover:bg-white/10 active:scale-95"
               >
-                <span className="text-lg">↻</span>
                 Refresh
               </button>
               <button
@@ -167,7 +184,6 @@ const AdminContent = () => {
                 disabled={isLoggingOut}
                 className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition hover:border-red-500/50 hover:bg-red-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span className="text-lg">🚪</span>
                 {isLoggingOut ? "Logging out..." : "Logout"}
               </button>
             </div>
@@ -176,16 +192,13 @@ const AdminContent = () => {
           {/* Stats bar */}
           <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
             <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2">
-              <span className="text-xl">📊</span>
               <span className="text-sm font-semibold text-emerald-200">{galleryStats.total} Images</span>
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2">
-              <span className="text-xl">💾</span>
-              <span className="text-sm font-semibold text-blue-200">{galleryStats.formattedSize}</span>
+              <span className="text-sm font-semibold text-blue-200">Storage: {galleryStats.formattedSize}</span>
             </div>
             {dirtyCount > 0 && (
               <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 animate-pulse">
-                <span className="text-xl">⚠️</span>
                 <span className="text-sm font-semibold text-amber-200">{dirtyCount} Unsaved Changes</span>
               </div>
             )}
@@ -200,31 +213,15 @@ const AdminContent = () => {
             
             {/* Upload section */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-400 to-pink-500">
-                  <span className="text-xl">📤</span>
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-white">Upload Images</h2>
-                  <p className="text-xs text-white/60">Drag & drop or click</p>
-                </div>
-              </div>
+              <h2 className="mb-4 text-lg font-semibold text-white">Upload Images</h2>
               <UploadBox isUploading={isUploading} uploadTasks={uploadTasks} onFilesSelected={handleUpload} />
             </div>
 
             {/* Metadata save section */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-sky-400 to-cyan-500">
-                  <span className="text-xl">⚙️</span>
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-white">Metadata Settings</h2>
-                  <p className="text-xs text-white/60">Duration & captions</p>
-                </div>
-              </div>
+              <h2 className="mb-4 text-lg font-semibold text-white">Metadata Settings</h2>
               <p className="mb-6 text-sm leading-relaxed text-white/70">
-                Customize how long each slide displays and add optional captions
+                Customize slide duration and add optional captions for each image
               </p>
               <button
                 type="button"
@@ -239,11 +236,9 @@ const AdminContent = () => {
                       Saving...
                     </>
                   ) : dirtyCount > 0 ? (
-                    <>
-                      💾 Save {dirtyCount} Change{dirtyCount > 1 ? "s" : ""}
-                    </>
+                    <>Save {dirtyCount} Change{dirtyCount > 1 ? "s" : ""}</>
                   ) : (
-                    <>✓ All Saved</>
+                    <>All Saved</>
                   )}
                 </span>
                 <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full"></div>
@@ -252,7 +247,7 @@ const AdminContent = () => {
 
             {/* Quick stats */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
-              <h3 className="mb-4 text-sm font-semibold text-white/80">Quick Stats</h3>
+              <h3 className="mb-4 text-sm font-semibold text-white/90">Quick Stats</h3>
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-white/60">Total Images</span>
@@ -274,16 +269,11 @@ const AdminContent = () => {
           <main className="lg:col-span-8 xl:col-span-9">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl sm:p-8">
               <div className="mb-6 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-rose-500">
-                    <span className="text-xl">🖼️</span>
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white">Image Gallery</h2>
-                    <p className="text-xs text-white/60">
-                      {images.length === 0 ? "No images yet" : `${images.length} image${images.length !== 1 ? "s" : ""}`}
-                    </p>
-                  </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Image Gallery</h2>
+                  <p className="text-sm text-white/60">
+                    {images.length === 0 ? "No images yet" : `${images.length} image${images.length !== 1 ? "s" : ""} • Drag to reorder`}
+                  </p>
                 </div>
                 {isLoading && (
                   <div className="flex items-center gap-2 text-sm text-white/60">
@@ -295,8 +285,8 @@ const AdminContent = () => {
 
               {images.length === 0 ? (
                 <div className="flex min-h-[400px] flex-col items-center justify-center gap-6 rounded-xl border-2 border-dashed border-white/20 bg-white/5 p-12 text-center">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20">
-                    <span className="text-5xl">🌌</span>
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-5xl text-white/40">
+                    +
                   </div>
                   <div>
                     <h3 className="mb-2 text-xl font-semibold text-white">No Images Yet</h3>
@@ -307,14 +297,30 @@ const AdminContent = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                  {images.map((image) => (
-                    <ImageCard
+                  {images.map((image, index) => (
+                    <div
                       key={image.name}
-                      image={image}
-                      onChange={updateMetadataDraft}
-                      onReset={resetMetadataDraft}
-                      onDelete={(filename) => setConfirmTarget(filename)}
-                    />
+                      className="relative cursor-move transition-all duration-200"
+                      draggable
+                      onDragStart={() => handleDragStart(index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDrop={(e) => handleDrop(e, index)}
+                      onDragEnd={handleDragEnd}
+                      style={{
+                        opacity: draggedIndex === index ? 0.5 : 1,
+                        transform: draggedIndex === index ? 'scale(0.95)' : 'scale(1)',
+                      }}
+                    >
+                      <div className="absolute -left-2 -top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 text-sm font-bold text-white shadow-lg">
+                        {index + 1}
+                      </div>
+                      <ImageCard
+                        image={image}
+                        onChange={updateMetadataDraft}
+                        onReset={resetMetadataDraft}
+                        onDelete={(filename) => setConfirmTarget(filename)}
+                      />
+                    </div>
                   ))}
                 </div>
               )}

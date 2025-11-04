@@ -292,6 +292,15 @@ export const useImages = (authToken: string | null) => {
     [images]
   );
 
+  const reorderImages = useCallback((fromIndex: number, toIndex: number) => {
+    setImages((prev) => {
+      const newImages = [...prev];
+      const [movedImage] = newImages.splice(fromIndex, 1);
+      newImages.splice(toIndex, 0, movedImage);
+      return newImages;
+    });
+  }, []);
+
   return {
     images,
     isLoading,
@@ -305,5 +314,6 @@ export const useImages = (authToken: string | null) => {
     updateMetadataDraft,
     resetMetadataDraft,
     saveMetadata,
+    reorderImages,
   };
 };
