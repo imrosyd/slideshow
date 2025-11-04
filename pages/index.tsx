@@ -574,14 +574,27 @@ export default function Home() {
   // Save transition effect to settings
   const saveTransitionEffect = useCallback(async (effect: TransitionEffect) => {
     try {
-      await fetch('/api/settings', {
+      const response = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transitionEffect: effect }),
       });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to save transition effect:', errorText);
+        // Still update local state even if save fails
+        setTransitionEffect(effect);
+        return;
+      }
+      
+      const data = await response.json();
+      console.log('✅ Transition effect saved:', data);
       setTransitionEffect(effect);
     } catch (error) {
       console.error('Failed to save transition effect:', error);
+      // Still update local state even if save fails
+      setTransitionEffect(effect);
     }
   }, []);
 
@@ -1111,30 +1124,30 @@ export default function Home() {
                   fontSize: '0.8rem',
                   backgroundColor: transitionEffect === effect 
                     ? "rgba(96, 165, 250, 0.5)" 
-                    : "rgba(255, 255, 255, 0.15)",
+                    : "rgba(255, 255, 255, 0.9)",
                   borderColor: transitionEffect === effect
                     ? "rgba(96, 165, 250, 0.8)"
-                    : "rgba(255, 255, 255, 0.3)",
+                    : "rgba(255, 255, 255, 0.5)",
                   color: transitionEffect === effect
                     ? "#ffffff"
-                    : "rgba(255, 255, 255, 0.85)",
+                    : "#000000",
                   fontWeight: transitionEffect === effect ? 600 : 500,
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = transitionEffect === effect
                     ? "rgba(96, 165, 250, 0.6)"
-                    : "rgba(255, 255, 255, 0.25)";
+                    : "rgba(255, 255, 255, 1)";
                   e.currentTarget.style.borderColor = transitionEffect === effect
                     ? "rgba(96, 165, 250, 1)"
-                    : "rgba(255, 255, 255, 0.5)";
+                    : "rgba(255, 255, 255, 0.8)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = transitionEffect === effect
                     ? "rgba(96, 165, 250, 0.5)"
-                    : "rgba(255, 255, 255, 0.15)";
+                    : "rgba(255, 255, 255, 0.9)";
                   e.currentTarget.style.borderColor = transitionEffect === effect
                     ? "rgba(96, 165, 250, 0.8)"
-                    : "rgba(255, 255, 255, 0.3)";
+                    : "rgba(255, 255, 255, 0.5)";
                 }}
               >
                 {effect.charAt(0).toUpperCase() + effect.slice(1)}
