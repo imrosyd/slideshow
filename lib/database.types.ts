@@ -19,12 +19,12 @@ export type Database = {
         }
         Insert: {
           filename: string
-          duration_ms: number | null
+          duration_ms: number
           caption?: string | null
         }
         Update: {
           filename?: string
-          duration_ms?: number | null
+          duration_ms?: number
           caption?: string | null
         }
         Relationships: []
