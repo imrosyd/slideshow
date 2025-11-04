@@ -47,9 +47,9 @@ const translations = {
     id: "Slideshow siap",
   },
   loadingSubtext: {
-    en: "Checking Supabase storage for the latest dashboards. This screen refreshes automatically.",
+    en: "Checking database storage for the latest dashboards. This screen refreshes automatically.",
     ko: "최신 대시보드를 확인하고 있습니다. 이 화면은 자동으로 새로 고쳐집니다.",
-    id: "Memeriksa penyimpanan Supabase untuk dashboard terbaru. Tampilan ini akan diperbarui otomatis.",
+    id: "Memeriksa penyimpanan database untuk dashboard terbaru. Tampilan ini akan diperbarui otomatis.",
   },
   errorSubtext: {
     en: "Ensure the display is connected to the network. The system will retry shortly.",

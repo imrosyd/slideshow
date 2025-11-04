@@ -152,16 +152,16 @@ const AdminContent = () => {
   }, []);
 
   return (
-    <div className="relative min-h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
+    <div className="relative min-h-screen w-full bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
       {/* Animated background gradient */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,_rgba(59,130,246,0.15)_0,_transparent_50%)]"></div>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,_rgba(14,165,233,0.15)_0,_transparent_50%)]"></div>
+      <div className="pointer-events-none absolute -top-32 -right-24 h-96 w-96 rounded-full bg-sky-500/20 blur-3xl"></div>
+      <div className="pointer-events-none absolute -bottom-36 -left-20 h-[500px] w-[500px] rounded-full bg-violet-500/15 blur-3xl"></div>
       
       {/* Main container */}
       <div className="relative z-10 mx-auto flex w-full max-w-[1600px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
         
         {/* Header */}
-        <header className="flex flex-col gap-6 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+        <header className="flex flex-col gap-6 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-col gap-3">
               <h1 className="text-3xl font-bold tracking-tight text-white">Slideshow Manager</h1>
@@ -182,7 +182,7 @@ const AdminContent = () => {
                 type="button"
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition hover:border-red-500/50 hover:bg-red-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-rose-400/30 bg-rose-500/10 px-4 py-2.5 text-sm font-medium text-rose-200 transition hover:border-rose-400/50 hover:bg-rose-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isLoggingOut ? "Logging out..." : "Logout"}
               </button>
@@ -191,14 +191,14 @@ const AdminContent = () => {
 
           {/* Stats bar */}
           <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
-            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2">
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-4 py-2">
               <span className="text-sm font-semibold text-emerald-200">{galleryStats.total} Images</span>
             </div>
-            <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2">
-              <span className="text-sm font-semibold text-blue-200">Storage: {galleryStats.formattedSize}</span>
+            <div className="flex items-center gap-2 rounded-lg border border-sky-400/30 bg-sky-500/10 px-4 py-2">
+              <span className="text-sm font-semibold text-sky-200">Storage: {galleryStats.formattedSize}</span>
             </div>
             {dirtyCount > 0 && (
-              <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 animate-pulse">
+              <div className="flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-2 animate-pulse">
                 <span className="text-sm font-semibold text-amber-200">{dirtyCount} Unsaved Changes</span>
               </div>
             )}
@@ -212,13 +212,13 @@ const AdminContent = () => {
           <aside className="flex flex-col gap-6 lg:col-span-4 xl:col-span-3">
             
             {/* Upload section */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg">
               <h2 className="mb-4 text-lg font-semibold text-white">Upload Images</h2>
               <UploadBox isUploading={isUploading} uploadTasks={uploadTasks} onFilesSelected={handleUpload} />
             </div>
 
             {/* Metadata save section */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg">
               <h2 className="mb-4 text-lg font-semibold text-white">Metadata Settings</h2>
               <p className="mb-6 text-sm leading-relaxed text-white/70">
                 Customize slide duration and add optional captions for each image
@@ -227,7 +227,7 @@ const AdminContent = () => {
                 type="button"
                 onClick={handleSaveMetadata}
                 disabled={dirtyCount === 0 || isSavingMetadata}
-                className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-500 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/30 transition-all hover:shadow-xl hover:shadow-sky-500/50 active:scale-98 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-sky-500 via-sky-400 to-blue-500 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/30 transition-all hover:shadow-xl hover:shadow-sky-500/50 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-950 active:scale-98 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
               >
                 <span className="relative z-10 flex items-center justify-center gap-2">
                   {isSavingMetadata ? (
@@ -246,7 +246,7 @@ const AdminContent = () => {
             </div>
 
             {/* Quick stats */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg">
               <h3 className="mb-4 text-sm font-semibold text-white/90">Quick Stats</h3>
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
@@ -267,7 +267,7 @@ const AdminContent = () => {
 
           {/* Main gallery area */}
           <main className="lg:col-span-8 xl:col-span-9">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl sm:p-8">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg sm:p-8">
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-white">Image Gallery</h2>
@@ -285,7 +285,7 @@ const AdminContent = () => {
 
               {images.length === 0 ? (
                 <div className="flex min-h-[400px] flex-col items-center justify-center gap-6 rounded-xl border-2 border-dashed border-white/20 bg-white/5 p-12 text-center">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-5xl text-white/40">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/20 to-violet-500/20 text-5xl text-white/40">
                     +
                   </div>
                   <div>
