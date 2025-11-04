@@ -709,7 +709,7 @@ export default function Home() {
 
     // 3. Periodic activity simulation (fallback for older Smart TVs)
     const simulateActivity = () => {
-      // Trigger mousemove event every 30 seconds
+      // Trigger mousemove event to keep TV awake
       const event = new MouseEvent('mousemove', {
         bubbles: true,
         cancelable: true,
@@ -718,6 +718,7 @@ export default function Home() {
         clientY: Math.random() * window.innerHeight,
       });
       document.dispatchEvent(event);
+      console.log('🖱️ Activity simulation triggered to keep TV awake');
     };
 
     // 4. Prevent visibility change sleep
@@ -731,8 +732,8 @@ export default function Home() {
     const noSleepVideo = createNoSleepVideo();
     requestWakeLock();
     
-    // Simulate activity every 30 seconds
-    const activityInterval = setInterval(simulateActivity, 30000);
+    // Simulate activity every 45 minutes (2700000 ms)
+    const activityInterval = setInterval(simulateActivity, 2700000);
     
     // Re-request wake lock on visibility change
     document.addEventListener('visibilitychange', handleVisibilityChange);
