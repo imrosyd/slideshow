@@ -152,13 +152,13 @@ const AdminContent = () => {
   }, []);
 
   return (
-    <div className="relative w-full bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
+    <div className="relative w-full min-h-screen bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
       {/* Animated background gradient */}
-      <div className="pointer-events-none absolute -top-32 -right-24 h-96 w-96 rounded-full bg-sky-500/20 blur-3xl"></div>
-      <div className="pointer-events-none absolute -bottom-36 -left-20 h-[500px] w-[500px] rounded-full bg-violet-500/15 blur-3xl"></div>
+      <div className="pointer-events-none fixed -top-32 -right-24 h-96 w-96 rounded-full bg-sky-500/20 blur-3xl"></div>
+      <div className="pointer-events-none fixed -bottom-36 -left-20 h-[500px] w-[500px] rounded-full bg-violet-500/15 blur-3xl"></div>
       
       {/* Main container */}
-      <div className="relative z-10 mx-auto flex w-full max-w-[1600px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-8 lg:px-8">
         
         {/* Header */}
         <header className="flex flex-col gap-6 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg sm:p-8">
