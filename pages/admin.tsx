@@ -63,9 +63,6 @@ const AdminContent = () => {
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
   const [bulkDuration, setBulkDuration] = useState("");
   const [showBulkActions, setShowBulkActions] = useState(false);
-  
-  const [showRemoteQR, setShowRemoteQR] = useState(false);
-  const [remoteUrl, setRemoteUrl] = useState("");
 
   const galleryStats = useMemo(() => {
     const totalSize = images.reduce((sum, image) => sum + (image.size || 0), 0);
@@ -83,14 +80,6 @@ const AdminContent = () => {
             })(),
     };
   }, [images]);
-
-  // Get remote control URL
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const url = `${window.location.protocol}//${window.location.host}/remote`;
-      setRemoteUrl(url);
-    }
-  }, []);
 
   const handleUpload = useCallback(
     async (files: File[]) => {
@@ -523,60 +512,6 @@ const AdminContent = () => {
                   <span className="font-semibold text-white">{galleryStats.formattedSize}</span>
                 </div>
               </div>
-            </div>
-
-            {/* Remote Control section */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-white/90">Remote Control</h3>
-                <button
-                  onClick={() => setShowRemoteQR(!showRemoteQR)}
-                  className="text-xs text-white/60 hover:text-white underline"
-                >
-                  {showRemoteQR ? "Hide" : "Show QR"}
-                </button>
-              </div>
-              
-              {showRemoteQR ? (
-                <div className="space-y-4">
-                  {/* QR Code */}
-                  <div className="rounded-lg bg-white p-4 flex justify-center">
-                    {remoteUrl && (
-                      <QRCodeSVG
-                        value={remoteUrl}
-                        size={200}
-                        level="H"
-                        includeMargin={true}
-                      />
-                    )}
-                  </div>
-
-                  {/* URL */}
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-white/70">
-                      Remote URL
-                    </label>
-                    <input
-                      type="text"
-                      value={remoteUrl}
-                      readOnly
-                      onClick={(e) => e.currentTarget.select()}
-                      className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-xs text-white/90 focus:border-sky-400/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-                    />
-                  </div>
-
-                  {/* Instructions */}
-                  <div className="rounded-lg border border-blue-400/20 bg-blue-500/5 p-3">
-                    <p className="text-xs text-blue-200/80">
-                      📱 Scan the QR code with your mobile device to control the slideshow remotely.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center text-xs text-white/40">
-                  Click &quot;Show QR&quot; to access remote control
-                </div>
-              )}
             </div>
           </aside>
 
