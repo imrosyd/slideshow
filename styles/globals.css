@@ -2,13 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #__next {
+html {
   height: 100%;
   width: 100%;
   margin: 0;
   padding: 0;
-  overflow-x: hidden; /* Prevent horizontal scroll */
-  /* Prevent screen dimming/sleep */
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background-color: #020617; /* slate-950 as default */
+  transition: background-color 0.3s ease;
+  touch-action: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-weight: 400;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
@@ -16,16 +31,9 @@ html, body, #__next {
   -webkit-tap-highlight-color: transparent;
 }
 
-body {
-  background-color: var(--bg-color); /* Apply theme background */
-  transition: background-color 0.3s ease; /* Smooth theme transition */
-  /* Keep screen active */
-  touch-action: none;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  font-weight: 400;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+#__next {
+  width: 100%;
+  /* No height constraint - let content determine height */
 }
 
 /* Prevent all sleep/screensaver modes */
