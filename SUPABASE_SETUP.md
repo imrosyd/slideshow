@@ -1,16 +1,18 @@
 # Supabase Database Setup
 
-## ⚠️ CRITICAL: This Must Be Done First!
+## ⚠️ CRITICAL: Table Does Not Exist!
 
-The app is saving data successfully but **cannot read it back** due to Row Level Security (RLS) blocking reads.
+The `image_durations` table has not been created yet. Follow these steps:
 
-## Quick Fix - Run This SQL Now
+## Step 1: Create the Table
 
-**Copy and paste this entire block into Supabase SQL Editor:**
+**Open Supabase Dashboard → SQL Editor → New Query**
+
+Copy and paste this ENTIRE script:
 
 ```sql
--- 1. Create table with proper structure
-CREATE TABLE IF NOT EXISTS public.image_durations (
+-- 1. CREATE THE TABLE
+CREATE TABLE public.image_durations (
   id BIGSERIAL PRIMARY KEY,
   filename TEXT NOT NULL,
   duration_ms INTEGER NOT NULL DEFAULT 5000,
@@ -18,52 +20,123 @@ CREATE TABLE IF NOT EXISTS public.image_durations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. Add UNIQUE constraint (CRITICAL for upsert to work)
-ALTER TABLE public.image_durations 
-  DROP CONSTRAINT IF EXISTS image_durations_filename_key;
-
+-- 2. ADD UNIQUE CONSTRAINT (required for upsert)
 ALTER TABLE public.image_durations 
   ADD CONSTRAINT image_durations_filename_key UNIQUE (filename);
 
--- 3. Create index for performance
-CREATE INDEX IF NOT EXISTS idx_image_durations_filename 
+-- 3. CREATE INDEX for better performance
+CREATE INDEX idx_image_durations_filename 
   ON public.image_durations(filename);
 
--- 4. DISABLE RLS (service role should bypass, but sometimes doesn't work)
+-- 4. DISABLE RLS (so service role can read/write)
 ALTER TABLE public.image_durations DISABLE ROW LEVEL SECURITY;
 
--- Alternative: If you want RLS enabled, use these policies instead:
--- ALTER TABLE public.image_durations ENABLE ROW LEVEL SECURITY;
--- 
--- DROP POLICY IF EXISTS "Service role full access" ON public.image_durations;
--- CREATE POLICY "Service role full access" 
---   ON public.image_durations 
---   FOR ALL 
---   TO service_role 
---   USING (true) 
---   WITH CHECK (true);
--- 
--- DROP POLICY IF EXISTS "Public read access" ON public.image_durations;
--- CREATE POLICY "Public read access" 
---   ON public.image_durations 
---   FOR SELECT 
---   USING (true);
-```
-
-## Verify It Worked
-
-After running the SQL, check:
-
-```sql
--- Should return rows if data was saved
-SELECT * FROM public.image_durations ORDER BY created_at DESC;
-
--- Should show RLS is disabled
-SELECT tablename, rowsecurity 
+-- 5. VERIFY TABLE WAS CREATED
+SELECT 
+  tablename, 
+  CASE WHEN rowsecurity THEN 'ENABLED' ELSE 'DISABLED' END as rls_status
 FROM pg_tables 
 WHERE tablename = 'image_durations';
--- rowsecurity should be 'false'
 ```
+
+Click **RUN** (or press Ctrl+Enter)
+
+## Step 2: Verify Table Exists
+
+Run this query:
+
+```sql
+-- Should show the table structure
+\d public.image_durations
+
+-- Or use this:
+SELECT column_name, data_type, is_nullable 
+FROM information_schema.columns 
+WHERE table_name = 'image_durations' 
+ORDER BY ordinal_position;
+```
+
+**Expected output:**
+```
+column_name   | data_type | is_nullable
+--------------+-----------+-------------
+id            | bigint    | NO
+filename      | text      | NO
+duration_ms   | integer   | NO
+caption       | text      | YES
+created_at    | timestamp | YES
+```
+
+## Step 3: Test Insert
+
+Try inserting test data:
+
+```sql
+-- Insert test data
+INSERT INTO public.image_durations (filename, duration_ms, caption)
+VALUES ('test-image.png', 3000, 'Test Caption');
+
+-- Check if it worked
+SELECT * FROM public.image_durations;
+```
+
+**Should show:**
+```
+id | filename        | duration_ms | caption      | created_at
+---+-----------------+-------------+--------------+------------------
+1  | test-image.png  | 3000        | Test Caption | 2025-11-04 ...
+```
+
+## Step 4: Test Upsert (Update or Insert)
+
+```sql
+-- Try upserting (this is what the app does)
+INSERT INTO public.image_durations (filename, duration_ms, caption)
+VALUES ('test-image.png', 5000, 'Updated Caption')
+ON CONFLICT (filename) 
+DO UPDATE SET 
+  duration_ms = EXCLUDED.duration_ms,
+  caption = EXCLUDED.caption;
+
+-- Check if it updated
+SELECT * FROM public.image_durations WHERE filename = 'test-image.png';
+```
+
+**Should show updated values:**
+```
+duration_ms: 5000
+caption: Updated Caption
+```
+
+## Step 5: Clean Up Test Data
+
+```sql
+-- Delete test data
+DELETE FROM public.image_durations WHERE filename = 'test-image.png';
+```
+
+## After Creating the Table
+
+1. Go back to your app's admin panel
+2. Set duration for your images
+3. Click "Save changes"
+4. Refresh the page - durations should persist now!
+5. Check slideshow - timer should work!
+
+## Troubleshooting
+
+### If table creation fails with "already exists":
+
+```sql
+-- Drop and recreate
+DROP TABLE IF EXISTS public.image_durations CASCADE;
+
+-- Then run the CREATE TABLE script again from Step 1
+```
+
+### If you see "permission denied":
+
+Make sure you're logged in as the project owner in Supabase Dashboard.
 
 ## Verify Setup
 
