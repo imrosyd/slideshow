@@ -85,7 +85,12 @@ export default async function handler(
   try {
     const { names, durations, captions } = await readImageList();
 
+    console.log("[Images API] Returning durations:", Object.keys(durations).length, "items");
+    console.log("[Images API] Sample duration:", Object.entries(durations)[0]);
+
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     res.status(200).json({ images: names.slice(), durations, captions });
   } catch (error: any) {
     console.error(error);

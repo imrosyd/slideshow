@@ -221,12 +221,14 @@ export default function Home() {
         setLoading(true);
       }
       
-      // Fetch image list
-      const response = await fetch("/api/images", { 
+      // Fetch image list with cache busting
+      const cacheBuster = `?t=${Date.now()}`;
+      const response = await fetch(`/api/images${cacheBuster}`, { 
         cache: "no-store",
         headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       });
       if (!response.ok) {
