@@ -565,10 +565,13 @@ const AdminContent = () => {
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value as any)}
                     className="rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm text-white focus:border-sky-400/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                    style={{
+                      colorScheme: 'dark',
+                    }}
                   >
-                    <option value="all">All Images</option>
-                    <option value="visible">Visible Only</option>
-                    <option value="hidden">Hidden Only</option>
+                    <option value="all" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>All Images</option>
+                    <option value="visible" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>Visible Only</option>
+                    <option value="hidden" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>Hidden Only</option>
                   </select>
 
                   {/* Sort By */}
@@ -576,11 +579,14 @@ const AdminContent = () => {
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
                     className="rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm text-white focus:border-sky-400/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                    style={{
+                      colorScheme: 'dark',
+                    }}
                   >
-                    <option value="order">Sort: Order</option>
-                    <option value="name">Sort: Name</option>
-                    <option value="size">Sort: Size</option>
-                    <option value="date">Sort: Date</option>
+                    <option value="order" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>Sort: Order</option>
+                    <option value="name" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>Sort: Name</option>
+                    <option value="size" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>Sort: Size</option>
+                    <option value="date" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>Sort: Date</option>
                   </select>
 
                   {/* Bulk Actions Toggle */}
