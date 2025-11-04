@@ -68,9 +68,11 @@ const normalizePayload = (payload: any): MetadataPayload[] => {
   return [];
 };
 
+type MetadataTableName = keyof Database["public"]["Tables"];
+
 const upsertMetadata = async (
   supabase: SupabaseClient<Database>,
-  tableName: string,
+  tableName: MetadataTableName,
   payloads: MetadataPayload[],
   includeCaption: boolean
 ) => {
@@ -78,7 +80,7 @@ const upsertMetadata = async (
     return { error: null };
   }
 
-  const rows = payloads.map((item) => ({
+  const rows: Database["public"]["Tables"]["image_durations"]["Insert"][] = payloads.map((item) => ({
     filename: item.filename,
     duration_ms: item.durationMs ?? null,
     ...(includeCaption ? { caption: item.caption ?? null } : {}),
@@ -89,7 +91,7 @@ const upsertMetadata = async (
 
 const clearMissingRows = async (
   supabase: SupabaseClient<Database>,
-  tableName: string,
+  tableName: MetadataTableName,
   keepFilenames: string[]
 ) => {
   if (!keepFilenames.length) {
@@ -123,6 +125,7 @@ export default async function handler(
     console.error("SUPABASE_DURATIONS_TABLE is not set.");
     return res.status(500).json({ error: "Konfigurasi server salah: Nama tabel durasi tidak diatur." });
   }
+  const metadataTable = SUPABASE_DURATIONS_TABLE as MetadataTableName;
 
   if (!process.env.ADMIN_PASSWORD) {
     console.error("ADMIN_PASSWORD tidak diatur di environment variables.");
@@ -137,7 +140,7 @@ export default async function handler(
 
   const detectCaptionSupport = async () => {
     const probe = await supabaseServiceRole
-      .from(SUPABASE_DURATIONS_TABLE)
+      .from(metadataTable)
       .select("filename, duration_ms, caption")
       .limit(1);
 
@@ -151,7 +154,7 @@ export default async function handler(
     }
 
     const fallback = await supabaseServiceRole
-      .from(SUPABASE_DURATIONS_TABLE)
+      .from(metadataTable)
       .select("filename, duration_ms")
       .limit(1);
 
@@ -176,7 +179,7 @@ export default async function handler(
     let supportsCaption = false;
     try {
       const result = await supabaseServiceRole
-        .from(SUPABASE_DURATIONS_TABLE)
+        .from(metadataTable)
         .select("filename, duration_ms, caption")
         .order("filename", { ascending: true });
       data = result.data ?? [];
@@ -185,7 +188,7 @@ export default async function handler(
       const message = error?.message?.toLowerCase?.() ?? "";
       if (message.includes("column") && message.includes("caption")) {
         const fallback = await supabaseServiceRole
-          .from(SUPABASE_DURATIONS_TABLE)
+          .from(metadataTable)
           .select("filename, duration_ms")
           .order("filename", { ascending: true });
         if (fallback.error) {
@@ -229,7 +232,7 @@ export default async function handler(
     const attemptUpsert = async (includeCaption: boolean) =>
       upsertMetadata(
         supabaseServiceRole,
-        SUPABASE_DURATIONS_TABLE,
+        metadataTable,
         trimmedPayloads,
         includeCaption
       );
@@ -263,7 +266,7 @@ export default async function handler(
     if (filenames.length) {
       const { error: cleanupError } = await clearMissingRows(
         supabaseServiceRole,
-        SUPABASE_DURATIONS_TABLE,
+        metadataTable,
         filenames
       );
       if (cleanupError) {
