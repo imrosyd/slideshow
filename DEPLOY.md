@@ -58,6 +58,8 @@ SUPABASE_DURATIONS_TABLE=image_durations
 
 **Penting:** Pilih environment: **Production, Preview, dan Development**
 
+> ⚠️ Jika salah satu variabel di atas tidak diisi, serverless function akan gagal saat import `lib/supabase.ts` dan Vercel menampilkan error seperti `Missing Supabase public environment variables`. Pastikan semua nilai persis seperti di `.env.local`.
+
 ### Step 4: Deploy!
 
 Klik **"Deploy"** dan tunggu proses selesai (±2-3 menit).
@@ -83,7 +85,7 @@ git add . && git commit -m "Remove old files" && git push
 ### Error: "Environment variables not set"
 **Solusi:** 
 1. Cek di Vercel Dashboard → Settings → Environment Variables
-2. Pastikan semua 5 variables sudah diisi
+2. Pastikan semua 6 variabel (`ADMIN_PASSWORD`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, `SUPABASE_DURATIONS_TABLE`) sudah diisi di semua environment
 3. Redeploy: Deployments → ... → Redeploy
 
 ### Error: "Supabase connection failed"

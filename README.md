@@ -26,7 +26,14 @@ Aplikasi ini menampilkan semua gambar yang Anda simpan di Supabase Storage secar
 
 1. Push repository ini ke GitHub.
 2. Di dashboard Vercel, pilih **Add New → Project** dan hubungkan dengan repository tersebut.
-3. Tambahkan semua variabel environment dari `.env.local` ke Project Settings → Environment Variables (jangan simpan kredensial di repo).
+3. Tambahkan semua variabel environment dari `.env.local` ke Project Settings → Environment Variables (jangan simpan kredensial di repo). **Vercel tidak membaca `.env.local`, jadi jika satu saja variabel di bawah ini kosong, fungsi Next.js akan crash saat import `lib/supabase.ts`.**
+   - `ADMIN_PASSWORD`
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_STORAGE_BUCKET`
+   - `SUPABASE_DURATIONS_TABLE`
+   > Tip: isi untuk Production, Preview, dan Development agar deployment & preview bekerja konsisten.
 4. Biarkan pengaturan build default (`npm install`, `npm run build`) dan produknya `npm start`.
 5. Set *Root Directory* ke `slideshow` (atau nama folder proyek ini).
 6. Deploy. Setiap commit baru akan otomatis memicu deploy ulang.
@@ -42,5 +49,13 @@ Aplikasi ini menampilkan semua gambar yang Anda simpan di Supabase Storage secar
 - Gunakan nama file unik agar lebih mudah diidentifikasi di tampilan caption.
 - Hindari menaruh gambar yang terlalu besar; unggahan dibatasi ±25 MB per file agar aman di Vercel Serverless Functions.
 - Jika Anda ingin menampilkan gambar dari subfolder, sesuaikan logic di `pages/api/images.ts`.
+
+## Troubleshooting Build di Vercel
+
+- **Error**: `Missing Supabase public environment variables`
+  - **Penyebab**: `NEXT_PUBLIC_SUPABASE_URL` atau `NEXT_PUBLIC_SUPABASE_ANON_KEY` belum disetel di Vercel.
+  - **Solusi**: Masukkan seluruh variabel `.env.example` ke Settings → Environment Variables dan redeploy.
+- **Error**: API routes gagal dengan pesan terkait bucket/tabel hilang
+  - **Solusi**: Pastikan `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, dan `SUPABASE_DURATIONS_TABLE` juga diisi di Vercel, bukan hanya lokal.
 
 Selamat mencoba! Jika butuh fitur tambahan (misalnya tombol navigasi, durasi dinamis, atau dukungan folder), tinggal lanjutkan dari struktur ini. 
