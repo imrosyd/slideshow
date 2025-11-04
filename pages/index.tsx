@@ -272,12 +272,19 @@ export default function Home() {
         }
       }
 
+      console.log("[Slideshow] Duration data received:", imageDurations);
+
       const fetchedSlides = payload.images.map((filename) => {
         const durationMs = imageDurations[filename];
         const durationSeconds =
           typeof durationMs === "number" && durationMs > 0
             ? Math.max(1, Math.round(durationMs / 1000))
             : DEFAULT_SLIDE_DURATION_SECONDS;
+        
+        if (durationMs !== undefined) {
+          console.log(`[Slideshow] ${filename}: ${durationMs}ms -> ${durationSeconds}s`);
+        }
+        
         return {
           name: filename,
           url: `/api/image/${encodeURIComponent(filename)}`,
