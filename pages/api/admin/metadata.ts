@@ -91,9 +91,25 @@ const upsertMetadata = async (
 
   console.log("[Metadata] Upserting rows:", rows.length, "Sample:", rows[0]);
 
-  return supabase
+  const result = await supabase
     .from(tableName as 'image_durations')
-    .upsert(rows, { onConflict: "filename" });
+    .upsert(rows, { 
+      onConflict: "filename",
+      ignoreDuplicates: false 
+    });
+
+  if (result.error) {
+    console.error("[Metadata] Upsert error details:", {
+      message: result.error.message,
+      details: result.error.details,
+      hint: result.error.hint,
+      code: result.error.code
+    });
+  } else {
+    console.log("[Metadata] Upsert successful");
+  }
+
+  return result;
 };
 
 const clearMissingRows = async (
