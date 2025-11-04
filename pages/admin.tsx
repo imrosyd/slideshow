@@ -53,6 +53,7 @@ const AdminContent = () => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [hiddenImages, setHiddenImages] = useState<Set<string>>(new Set());
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [isForceRefreshing, setIsForceRefreshing] = useState(false);
 
   const galleryStats = useMemo(() => {
     const totalSize = images.reduce((sum, image) => sum + (image.size || 0), 0);
@@ -129,6 +130,38 @@ const AdminContent = () => {
       setIsLoggingOut(false);
     }
   }, [isLoggingOut, pushToast, router]);
+
+  const handleForceRefresh = useCallback(async () => {
+    if (isForceRefreshing) return;
+    setIsForceRefreshing(true);
+    try {
+      const response = await fetch("/api/admin/force-refresh", { 
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      
+      const data = await response.json();
+      pushToast({ 
+        variant: "success", 
+        description: "Slideshow refresh signal sent! Main page will update shortly." 
+      });
+      console.log('Force refresh triggered:', data);
+    } catch (error) {
+      console.error("Failed to force refresh:", error);
+      pushToast({ 
+        variant: "error", 
+        description: "Failed to send refresh signal to slideshow." 
+      });
+    } finally {
+      setIsForceRefreshing(false);
+    }
+  }, [isForceRefreshing, pushToast]);
 
   const handleDragStart = useCallback((index: number) => {
     setDraggedIndex(index);
@@ -213,7 +246,31 @@ const AdminContent = () => {
                 onClick={() => refresh()}
                 className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/90 transition hover:border-white/30 hover:bg-white/10 active:scale-95"
               >
-                Refresh
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh Gallery
+              </button>
+              <button
+                type="button"
+                onClick={handleForceRefresh}
+                disabled={isForceRefreshing}
+                className="inline-flex items-center gap-2 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-medium text-emerald-200 transition hover:border-emerald-400/50 hover:bg-emerald-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Force update main slideshow display"
+              >
+                {isForceRefreshing ? (
+                  <>
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-emerald-200 border-t-transparent"></span>
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Force Update Slideshow
+                  </>
+                )}
               </button>
               <button
                 type="button"

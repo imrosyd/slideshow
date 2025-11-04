@@ -470,6 +470,21 @@ export default function Home() {
     };
   }, [fetchSlides]);
 
+  // Listen for force refresh broadcast from admin panel
+  useEffect(() => {
+    const controlChannel = supabase
+      .channel('slideshow-control')
+      .on('broadcast', { event: 'force-refresh' }, (payload) => {
+        console.log('⚡ Force refresh signal received from admin panel:', payload);
+        fetchSlides(true);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(controlChannel);
+    };
+  }, [fetchSlides]);
+
   // Auto-rotate slides with smooth fade
   useEffect(() => {
     if (slides.length <= 1 || isPaused) {
