@@ -70,9 +70,9 @@ const normalizePayload = (payload: any): MetadataPayload[] => {
 
 type MetadataTableName = Extract<keyof Database["public"]["Tables"], string>;
 
-const upsertMetadata = async <TTable extends MetadataTableName>(
+const upsertMetadata = async (
   supabase: SupabaseClient<Database>,
-  tableName: TTable,
+  tableName: string,
   payloads: MetadataPayload[],
   includeCaption: boolean
 ) => {
@@ -80,34 +80,37 @@ const upsertMetadata = async <TTable extends MetadataTableName>(
     return { error: null };
   }
 
-  type TableDef = Database["public"]["Tables"][TTable];
+  // Default duration: 5 seconds (5000ms) if not specified
+  const DEFAULT_DURATION_MS = 5000;
 
   const rows = payloads.map((item) => ({
     filename: item.filename,
-    duration_ms: item.durationMs ?? null,
+    duration_ms: item.durationMs ?? DEFAULT_DURATION_MS,
     ...(includeCaption ? { caption: item.caption ?? null } : {}),
   }));
 
+  console.log("[Metadata] Upserting rows:", rows.length, "Sample:", rows[0]);
+
   return supabase
-    .from<TTable, TableDef>(tableName)
-    .upsert(rows as any, { onConflict: "filename" });
+    .from(tableName as 'image_durations')
+    .upsert(rows, { onConflict: "filename" });
 };
 
-const clearMissingRows = async <TTable extends MetadataTableName>(
+const clearMissingRows = async (
   supabase: SupabaseClient<Database>,
-  tableName: TTable,
+  tableName: string,
   keepFilenames: string[]
 ) => {
   if (!keepFilenames.length) {
     // Delete all rows by selecting all and deleting them
     const { data: allRows } = await supabase
-      .from(tableName)
+      .from(tableName as 'image_durations')
       .select('filename');
     
     if (allRows && allRows.length > 0) {
       const allFilenames = allRows.map((row: any) => row.filename);
       return supabase
-        .from(tableName)
+        .from(tableName as 'image_durations')
         .delete()
         .in('filename', allFilenames);
     }
@@ -121,7 +124,7 @@ const clearMissingRows = async <TTable extends MetadataTableName>(
   );
 
   const { error } = await supabase
-    .from(tableName)
+    .from(tableName as 'image_durations')
     .delete()
     .not("filename", "in", `(${escapedNames.join(",")})`);
 
@@ -153,7 +156,7 @@ export default async function handler(
 
   const detectCaptionSupport = async () => {
     const probe = await supabaseServiceRole
-      .from(metadataTable)
+      .from(metadataTable as 'image_durations')
       .select("filename, duration_ms, caption")
       .limit(1);
 
@@ -167,7 +170,7 @@ export default async function handler(
     }
 
     const fallback = await supabaseServiceRole
-      .from(metadataTable)
+      .from(metadataTable as 'image_durations')
       .select("filename, duration_ms")
       .limit(1);
 
@@ -192,7 +195,7 @@ export default async function handler(
     let supportsCaption = false;
     
     const result = await supabaseServiceRole
-      .from(metadataTable)
+      .from(metadataTable as 'image_durations')
       .select("filename, duration_ms, caption")
       .order("filename", { ascending: true });
     
@@ -203,7 +206,7 @@ export default async function handler(
       const message = result.error?.message?.toLowerCase?.() ?? "";
       if (message.includes("column") && message.includes("caption")) {
         const fallback = await supabaseServiceRole
-          .from(metadataTable)
+          .from(metadataTable as 'image_durations')
           .select("filename, duration_ms")
           .order("filename", { ascending: true });
         if (fallback.error) {
@@ -229,67 +232,91 @@ export default async function handler(
   }
 
   if (req.method === "PUT" || req.method === "POST") {
-    const payloads = normalizePayload(req.body);
-    if (!payloads.length) {
-      return res.status(400).json({ error: "Payload metadata tidak valid." });
-    }
+    try {
+      const payloads = normalizePayload(req.body);
+      console.log("[Metadata] Received payloads:", payloads.length);
+      
+      if (!payloads.length) {
+        return res.status(400).json({ error: "Payload metadata tidak valid." });
+      }
 
-    const trimmedPayloads = payloads.map((item) => ({
-      ...item,
-      caption:
-        typeof item.caption === "string"
-          ? item.caption.trim().slice(0, 500)
-          : item.caption ?? null,
-    }));
+      const trimmedPayloads = payloads.map((item) => ({
+        ...item,
+        caption:
+          typeof item.caption === "string"
+            ? item.caption.trim().slice(0, 500)
+            : item.caption ?? null,
+      }));
 
-    const supportsCaption = await ensureSupportFlag().catch(() => false);
+      console.log("[Metadata] Trimmed payloads sample:", trimmedPayloads[0]);
 
-    const attemptUpsert = async (includeCaption: boolean) =>
-      upsertMetadata(
-        supabaseServiceRole,
-        metadataTable,
-        trimmedPayloads,
-        includeCaption
-      );
+      const supportsCaption = await ensureSupportFlag().catch((err) => {
+        console.error("[Metadata] Error detecting caption support:", err);
+        return false;
+      });
+      
+      console.log("[Metadata] Caption support:", supportsCaption);
 
-    let upsertError = null;
-    let includeCaption = supportsCaption;
-    if (includeCaption) {
-      const result = await attemptUpsert(true);
-      upsertError = result.error;
-      if (upsertError) {
-        const message = upsertError.message?.toLowerCase() ?? "";
-        if (message.includes("column") && message.includes("caption")) {
-          includeCaption = false;
-          cachedSupportsCaption = false;
+      const attemptUpsert = async (includeCaption: boolean) => {
+        console.log("[Metadata] Attempting upsert with caption:", includeCaption);
+        return upsertMetadata(
+          supabaseServiceRole,
+          metadataTable,
+          trimmedPayloads,
+          includeCaption
+        );
+      };
+
+      let upsertError = null;
+      let includeCaption = supportsCaption;
+      
+      if (includeCaption) {
+        const result = await attemptUpsert(true);
+        upsertError = result.error;
+        if (upsertError) {
+          console.error("[Metadata] Upsert error with caption:", upsertError);
+          const message = upsertError.message?.toLowerCase() ?? "";
+          if (message.includes("column") && message.includes("caption")) {
+            console.log("[Metadata] Caption column not found, retrying without caption");
+            includeCaption = false;
+            cachedSupportsCaption = false;
+          } else {
+            console.error("[Metadata] Fatal upsert error:", upsertError);
+            return res.status(500).json({ error: `Gagal menyimpan metadata: ${upsertError.message}` });
+          }
         } else {
-          console.error("Error upserting metadata:", upsertError);
-          return res.status(500).json({ error: "Gagal menyimpan metadata di Supabase." });
+          console.log("[Metadata] Upsert successful with caption");
         }
       }
-    }
 
-    if (!includeCaption) {
-      const result = await attemptUpsert(false);
-      if (result.error) {
-        console.error("Error upserting metadata:", result.error);
-        return res.status(500).json({ error: "Gagal menyimpan metadata di Supabase." });
+      if (!includeCaption) {
+        const result = await attemptUpsert(false);
+        if (result.error) {
+          console.error("[Metadata] Upsert error without caption:", result.error);
+          return res.status(500).json({ error: `Gagal menyimpan metadata: ${result.error.message}` });
+        }
+        console.log("[Metadata] Upsert successful without caption");
       }
-    }
 
-    const filenames = trimmedPayloads.map((item) => item.filename);
-    if (filenames.length) {
-      const { error: cleanupError } = await clearMissingRows(
-        supabaseServiceRole,
-        metadataTable,
-        filenames
-      );
-      if (cleanupError) {
-        console.error("Error cleaning up metadata rows:", cleanupError);
+      const filenames = trimmedPayloads.map((item) => item.filename);
+      if (filenames.length) {
+        console.log("[Metadata] Cleaning up missing rows, keeping:", filenames.length);
+        const { error: cleanupError } = await clearMissingRows(
+          supabaseServiceRole,
+          metadataTable,
+          filenames
+        );
+        if (cleanupError) {
+          console.error("[Metadata] Cleanup error (non-fatal):", cleanupError);
+        }
       }
-    }
 
-    return res.status(200).json({ success: true });
+      console.log("[Metadata] Save completed successfully");
+      return res.status(200).json({ success: true });
+    } catch (error: any) {
+      console.error("[Metadata] Unexpected error:", error);
+      return res.status(500).json({ error: `Error tidak terduga: ${error.message}` });
+    }
   }
 
   res.setHeader("Allow", ["GET", "PUT", "POST"]);
