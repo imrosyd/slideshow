@@ -187,6 +187,83 @@ const styles: Record<string, CSSProperties> = {
     letterSpacing: "0.08em",
     cursor: "pointer",
   },
+  controlsOverlay: {
+    position: "fixed",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    background: "linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent)",
+    padding: "40px 20px 20px",
+    zIndex: 100,
+    transition: "opacity 300ms ease, transform 300ms ease",
+  },
+  controlsContainer: {
+    maxWidth: "1200px",
+    margin: "0 auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  controlsRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    justifyContent: "center",
+  },
+  controlButton: {
+    padding: "10px 16px",
+    borderRadius: "8px",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    border: "1px solid rgba(255, 255, 255, 0.2)",
+    color: "#ffffff",
+    fontSize: "0.9rem",
+    fontWeight: 500,
+    cursor: "pointer",
+    transition: "all 200ms ease",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  slideInfo: {
+    textAlign: "center",
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: "0.95rem",
+    fontWeight: 500,
+  },
+  thumbnailGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+    gap: "10px",
+    maxHeight: "200px",
+    overflowY: "auto",
+    padding: "10px",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    borderRadius: "8px",
+  },
+  thumbnail: {
+    width: "100%",
+    aspectRatio: "16/9",
+    objectFit: "cover",
+    borderRadius: "6px",
+    cursor: "pointer",
+    border: "2px solid transparent",
+    transition: "all 200ms ease",
+  },
+  thumbnailActive: {
+    border: "2px solid #60a5fa",
+    boxShadow: "0 0 12px rgba(96, 165, 250, 0.5)",
+  },
+  slideNumber: {
+    position: "absolute",
+    top: "4px",
+    left: "4px",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    color: "#ffffff",
+    padding: "2px 6px",
+    borderRadius: "4px",
+    fontSize: "0.7rem",
+    fontWeight: 600,
+  },
 } as const;
 
 const getErrorMessage = (appError: AppError, language: Language) => {
@@ -204,8 +281,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<Language>("en");
   const [fadeIn, setFadeIn] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
+  const [showControls, setShowControls] = useState(false);
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     slidesRef.current = slides;
@@ -392,8 +472,8 @@ export default function Home() {
 
   // Auto-rotate slides with smooth fade
   useEffect(() => {
-    if (slides.length <= 1) {
-      console.log(`⏸️ Not rotating: ${slides.length} slide(s)`);
+    if (slides.length <= 1 || isPaused) {
+      console.log(`⏸️ Not rotating: ${slides.length} slide(s), paused: ${isPaused}`);
       return;
     }
 
@@ -438,7 +518,7 @@ export default function Home() {
     return () => {
       clearTimeout(timer);
     };
-  }, [slides, currentIndex]);
+  }, [slides, currentIndex, isPaused]);
 
   // Rotate language
   useEffect(() => {
@@ -449,6 +529,130 @@ export default function Home() {
     }, LANGUAGE_SWAP_INTERVAL_MS);
 
     return () => clearInterval(interval);
+  }, []);
+
+  // Navigation functions
+  const goToSlide = useCallback((index: number) => {
+    if (index >= 0 && index < slides.length) {
+      setFadeIn(false);
+      setTimeout(() => {
+        setCurrentIndex(index);
+        setFadeIn(true);
+      }, FADE_DURATION_MS / 2);
+    }
+  }, [slides.length]);
+
+  const goToNextSlide = useCallback(() => {
+    const nextIndex = (currentIndex + 1) % slides.length;
+    goToSlide(nextIndex);
+  }, [currentIndex, slides.length, goToSlide]);
+
+  const goToPreviousSlide = useCallback(() => {
+    const prevIndex = currentIndex === 0 ? slides.length - 1 : currentIndex - 1;
+    goToSlide(prevIndex);
+  }, [currentIndex, slides.length, goToSlide]);
+
+  const reorderSlides = useCallback((fromIndex: number, toIndex: number) => {
+    const newSlides = [...slides];
+    const [movedSlide] = newSlides.splice(fromIndex, 1);
+    newSlides.splice(toIndex, 0, movedSlide);
+    setSlides(newSlides);
+    slidesRef.current = newSlides;
+    
+    // Adjust current index if needed
+    if (currentIndex === fromIndex) {
+      setCurrentIndex(toIndex);
+    } else if (fromIndex < currentIndex && toIndex >= currentIndex) {
+      setCurrentIndex(currentIndex - 1);
+    } else if (fromIndex > currentIndex && toIndex <= currentIndex) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  }, [slides, currentIndex]);
+
+  // Keyboard controls
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Toggle controls with 'c' or 'Escape'
+      if (e.key === 'c' || e.key === 'C' || e.key === 'Escape') {
+        setShowControls(prev => !prev);
+        return;
+      }
+
+      // Space - toggle pause
+      if (e.key === ' ') {
+        e.preventDefault();
+        setIsPaused(prev => !prev);
+        console.log(`⏯️ Slideshow ${!isPaused ? 'paused' : 'resumed'}`);
+        return;
+      }
+
+      // Arrow keys - navigate
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        goToNextSlide();
+        return;
+      }
+
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        goToPreviousSlide();
+        return;
+      }
+
+      // Home/End - first/last slide
+      if (e.key === 'Home') {
+        e.preventDefault();
+        goToSlide(0);
+        return;
+      }
+
+      if (e.key === 'End') {
+        e.preventDefault();
+        goToSlide(slides.length - 1);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [slides.length, isPaused, goToNextSlide, goToPreviousSlide, goToSlide]);
+
+  // Auto-hide controls after 5 seconds
+  useEffect(() => {
+    if (showControls) {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+      
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 5000);
+    }
+
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [showControls]);
+
+  // Mouse movement shows controls
+  useEffect(() => {
+    let moveTimeout: NodeJS.Timeout;
+    
+    const handleMouseMove = () => {
+      setShowControls(true);
+      clearTimeout(moveTimeout);
+      moveTimeout = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      clearTimeout(moveTimeout);
+    };
   }, []);
 
   // Keep screen awake - prevent screensaver on Smart TV
@@ -612,6 +816,110 @@ export default function Home() {
             onError={(e) => console.error(`❌ Failed to display: ${currentSlide.name}`, e)}
           />
         )}
+      </div>
+
+      {/* Controls Overlay */}
+      <div 
+        style={{
+          ...styles.controlsOverlay,
+          opacity: showControls ? 1 : 0,
+          transform: showControls ? 'translateY(0)' : 'translateY(20px)',
+          pointerEvents: showControls ? 'auto' : 'none',
+        }}
+      >
+        <div style={styles.controlsContainer}>
+          {/* Slide info and playback controls */}
+          <div style={styles.controlsRow}>
+            <button
+              style={styles.controlButton}
+              onClick={goToPreviousSlide}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.2)";
+                e.currentTarget.style.transform = "scale(1.05)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                e.currentTarget.style.transform = "scale(1)";
+              }}
+            >
+              ⏮️ Previous
+            </button>
+
+            <button
+              style={{
+                ...styles.controlButton,
+                backgroundColor: isPaused ? "rgba(96, 165, 250, 0.3)" : "rgba(255, 255, 255, 0.1)",
+              }}
+              onClick={() => setIsPaused(!isPaused)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = isPaused ? "rgba(96, 165, 250, 0.4)" : "rgba(255, 255, 255, 0.2)";
+                e.currentTarget.style.transform = "scale(1.05)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = isPaused ? "rgba(96, 165, 250, 0.3)" : "rgba(255, 255, 255, 0.1)";
+                e.currentTarget.style.transform = "scale(1)";
+              }}
+            >
+              {isPaused ? '▶️ Play' : '⏸️ Pause'}
+            </button>
+
+            <button
+              style={styles.controlButton}
+              onClick={goToNextSlide}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.2)";
+                e.currentTarget.style.transform = "scale(1.05)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                e.currentTarget.style.transform = "scale(1)";
+              }}
+            >
+              Next ⏭️
+            </button>
+          </div>
+
+          <div style={styles.slideInfo}>
+            Slide {currentIndex + 1} of {slides.length} • {currentSlide?.name} • {currentSlide?.durationSeconds}s
+          </div>
+
+          {/* Thumbnail grid */}
+          <div style={styles.thumbnailGrid}>
+            {slides.map((slide, index) => (
+              <div
+                key={slide.name}
+                style={{ position: 'relative', cursor: 'pointer' }}
+                onClick={() => goToSlide(index)}
+              >
+                <span style={styles.slideNumber}>{index + 1}</span>
+                <img
+                  src={slide.url}
+                  alt={slide.name}
+                  style={{
+                    ...styles.thumbnail,
+                    ...(index === currentIndex ? styles.thumbnailActive : {}),
+                  }}
+                  onMouseEnter={(e) => {
+                    if (index !== currentIndex) {
+                      e.currentTarget.style.border = "2px solid rgba(255, 255, 255, 0.5)";
+                      e.currentTarget.style.transform = "scale(1.05)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (index !== currentIndex) {
+                      e.currentTarget.style.border = "2px solid transparent";
+                      e.currentTarget.style.transform = "scale(1)";
+                    }
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div style={{ textAlign: 'center', color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.85rem' }}>
+            Press <kbd style={{ padding: '2px 6px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '4px' }}>C</kbd> or <kbd style={{ padding: '2px 6px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '4px' }}>ESC</kbd> to toggle controls • <kbd style={{ padding: '2px 6px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '4px' }}>Space</kbd> to pause • <kbd style={{ padding: '2px 6px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '4px' }}>←</kbd><kbd style={{ padding: '2px 6px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '4px' }}>→</kbd> to navigate
+          </div>
+        </div>
       </div>
     </main>
   );
