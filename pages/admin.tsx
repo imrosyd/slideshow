@@ -152,7 +152,7 @@ const AdminContent = () => {
   }, []);
 
   return (
-    <div className="relative min-h-screen w-full bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
+    <div className="relative w-full bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
       {/* Animated background gradient */}
       <div className="pointer-events-none absolute -top-32 -right-24 h-96 w-96 rounded-full bg-sky-500/20 blur-3xl"></div>
       <div className="pointer-events-none absolute -bottom-36 -left-20 h-[500px] w-[500px] rounded-full bg-violet-500/15 blur-3xl"></div>
