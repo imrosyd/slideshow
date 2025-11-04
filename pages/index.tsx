@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import Head from "next/head";
 import { supabase } from "../lib/supabase";
 
 const DEFAULT_SLIDE_DURATION_SECONDS = 12;
@@ -549,6 +550,9 @@ export default function Home() {
   if (loading || error) {
     return (
       <main style={styles.container}>
+        <Head>
+          <title>Slideshow</title>
+        </Head>
         <div style={styles.glow} />
         <div style={styles.placeholderCard}>
           <span style={styles.accentBadge}>
@@ -569,6 +573,9 @@ export default function Home() {
   if (slides.length === 0) {
     return (
       <main style={styles.container}>
+        <Head>
+          <title>Slideshow</title>
+        </Head>
         <div style={styles.glow} />
         <div style={styles.placeholderCard}>
           <span style={styles.accentBadge}>{translations.badgeReady[language]}</span>
@@ -585,6 +592,9 @@ export default function Home() {
 
   return (
     <main style={styles.container}>
+      <Head>
+        <title>Slideshow</title>
+      </Head>
       <div 
         style={{
           ...styles.imageWrapper,
