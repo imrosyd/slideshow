@@ -64,9 +64,6 @@ const AdminContent = () => {
   const [bulkDuration, setBulkDuration] = useState("");
   const [showBulkActions, setShowBulkActions] = useState(false);
   
-  // Slideshow settings
-  const [transitionEffect, setTransitionEffect] = useState<"fade" | "slide" | "zoom" | "none">("fade");
-  const [showSettings, setShowSettings] = useState(false);
   const [showRemoteQR, setShowRemoteQR] = useState(false);
   const [remoteUrl, setRemoteUrl] = useState("");
 
@@ -87,27 +84,6 @@ const AdminContent = () => {
     };
   }, [images]);
 
-  // Fetch slideshow settings
-  const fetchSettings = useCallback(async () => {
-    try {
-      const response = await fetch("/api/settings");
-      if (response.ok) {
-        const data = await response.json();
-        if (data.transitionEffect) {
-          setTransitionEffect(data.transitionEffect);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to fetch settings:", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (authToken) {
-      fetchSettings();
-    }
-  }, [authToken, fetchSettings]);
-
   // Get remote control URL
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -115,31 +91,6 @@ const AdminContent = () => {
       setRemoteUrl(url);
     }
   }, []);
-
-  const saveTransitionEffect = useCallback(async (effect: "fade" | "slide" | "zoom" | "none") => {
-    try {
-      console.log('Saving transition effect:', effect);
-      const response = await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transitionEffect: effect }),
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to save transition effect. Status:', response.status, errorText);
-        throw new Error(`Failed to save: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('✅ Transition effect saved successfully:', data);
-      setTransitionEffect(effect);
-      pushToast({ variant: "success", description: `Transition effect set to: ${effect}` });
-    } catch (error) {
-      console.error("Failed to save transition effect:", error);
-      pushToast({ variant: "error", description: "Failed to save transition effect" });
-    }
-  }, [pushToast]);
 
   const handleUpload = useCallback(
     async (files: File[]) => {
@@ -572,59 +523,6 @@ const AdminContent = () => {
                   <span className="font-semibold text-white">{galleryStats.formattedSize}</span>
                 </div>
               </div>
-            </div>
-
-            {/* Slideshow Settings section */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-white/90">Slideshow Settings</h3>
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className="text-xs text-white/60 hover:text-white underline"
-                >
-                  {showSettings ? "Hide" : "Show"}
-                </button>
-              </div>
-              
-              {showSettings ? (
-                <div className="space-y-4">
-                  {/* Transition Effect */}
-                  <div>
-                    <label className="mb-2 block text-xs font-medium text-white/70">
-                      Transition Effect
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['fade', 'slide', 'zoom', 'none'] as const).map((effect) => (
-                        <button
-                          key={effect}
-                          onClick={() => saveTransitionEffect(effect)}
-                          className={`rounded-lg border px-3 py-2 text-xs font-medium transition ${
-                            transitionEffect === effect
-                              ? "border-sky-400/50 bg-sky-500/20 text-sky-200"
-                              : "border-white/20 bg-white/5 text-white/70 hover:border-white/30 hover:bg-white/10"
-                          }`}
-                        >
-                          {effect.charAt(0).toUpperCase() + effect.slice(1)}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-xs text-white/50">
-                      Current: <span className="font-medium text-sky-300">{transitionEffect}</span>
-                    </p>
-                  </div>
-
-                  {/* Info */}
-                  <div className="rounded-lg border border-blue-400/20 bg-blue-500/5 p-3">
-                    <p className="text-xs text-blue-200/80">
-                      💡 Transition effects apply to the main slideshow. Users can also change it using the controls (press C or ESC).
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center text-xs text-white/40">
-                  Click &quot;Show&quot; to configure settings
-                </div>
-              )}
             </div>
 
             {/* Remote Control section */}
