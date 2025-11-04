@@ -10,9 +10,11 @@ export type ToastItem = {
   duration: number;
 };
 
+type PushToastInput = Omit<ToastItem, "id" | "duration"> & Partial<Pick<ToastItem, "id" | "duration">>;
+
 type ToastContextValue = {
   toasts: ToastItem[];
-  pushToast: (toast: Omit<ToastItem, "id"> & Partial<Pick<ToastItem, "id">>) => void;
+  pushToast: (toast: PushToastInput) => void;
   dismissToast: (id: string) => void;
 };
 
@@ -38,7 +40,7 @@ export const useToastController = () => {
   }, []);
 
   const pushToast = useCallback(
-    (toast: Omit<ToastItem, "id"> & Partial<Pick<ToastItem, "id">>) => {
+    (toast: PushToastInput) => {
       const id = toast.id ?? randomId();
       const duration = toast.duration ?? DEFAULT_DURATION;
       const nextToast: ToastItem = {
