@@ -734,6 +734,12 @@ export default function Home() {
               goToSlide(data.index);
             }
             break;
+          case 'change-transition':
+            if (data?.effect) {
+              setTransitionEffect(data.effect);
+              console.log('🎨 Transition effect changed to:', data.effect);
+            }
+            break;
         }
       })
       .on('broadcast', { event: 'request-status' }, () => {

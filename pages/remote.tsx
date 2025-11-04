@@ -71,13 +71,16 @@ export default function RemoteControl() {
       if (response.ok) {
         setTransitionEffect(effect);
         console.log('✅ Transition effect saved:', effect);
+        
+        // Send broadcast command to update slideshow immediately
+        sendCommand('change-transition', { effect });
       } else {
         console.error('Failed to save transition effect');
       }
     } catch (error) {
       console.error('Failed to save transition effect:', error);
     }
-  }, []);
+  }, [sendCommand]);
 
   const handlePrevious = () => sendCommand('previous');
   const handleNext = () => sendCommand('next');
