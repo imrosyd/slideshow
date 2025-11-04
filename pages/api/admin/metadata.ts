@@ -70,9 +70,9 @@ const normalizePayload = (payload: any): MetadataPayload[] => {
 
 type MetadataTableName = keyof Database["public"]["Tables"];
 
-const upsertMetadata = async (
+const upsertMetadata = async <TTable extends MetadataTableName>(
   supabase: SupabaseClient<Database>,
-  tableName: MetadataTableName,
+  tableName: TTable,
   payloads: MetadataPayload[],
   includeCaption: boolean
 ) => {
@@ -80,18 +80,18 @@ const upsertMetadata = async (
     return { error: null };
   }
 
-  const rows: Database["public"]["Tables"]["image_durations"]["Insert"][] = payloads.map((item) => ({
+  const rows = payloads.map((item) => ({
     filename: item.filename,
     duration_ms: item.durationMs ?? null,
     ...(includeCaption ? { caption: item.caption ?? null } : {}),
-  }));
+  })) as Database["public"]["Tables"][TTable]["Insert"][];
 
   return supabase.from(tableName).upsert(rows, { onConflict: "filename" });
 };
 
-const clearMissingRows = async (
+const clearMissingRows = async <TTable extends MetadataTableName>(
   supabase: SupabaseClient<Database>,
-  tableName: MetadataTableName,
+  tableName: TTable,
   keepFilenames: string[]
 ) => {
   if (!keepFilenames.length) {
