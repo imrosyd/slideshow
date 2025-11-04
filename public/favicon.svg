@@ -1,13 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0" stop-color="#2563eb" />
-      <stop offset="1" stop-color="#a855f7" />
+      <stop offset="0" stop-color="#0ea5e9" />
+      <stop offset="1" stop-color="#3b82f6" />
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="12" fill="url(#bg)" />
-  <g fill="#f8fafc" transform="translate(16 16)">
-    <path d="M4 0h8c2.21 0 4 1.79 4 4v24c0 2.21-1.79 4-4 4H4c-2.21 0-4-1.79-4-4V4C0 1.79 1.79 0 4 0z" opacity=".9"/>
-    <path d="M16 6.5 30 16l-14 9.5V6.5z" />
+  <rect width="64" height="64" rx="14" fill="url(#bg)" />
+  <!-- Images stack icon -->
+  <g transform="translate(12 12)">
+    <!-- Back image -->
+    <rect x="6" y="6" width="34" height="28" rx="3" fill="#ffffff" opacity="0.3"/>
+    <!-- Middle image -->
+    <rect x="3" y="3" width="34" height="28" rx="3" fill="#ffffff" opacity="0.5"/>
+    <!-- Front image with play button -->
+    <rect x="0" y="0" width="34" height="28" rx="3" fill="#ffffff"/>
+    <!-- Play triangle -->
+    <path d="M14 8 L14 20 L24 14 Z" fill="#0ea5e9"/>
   </g>
 </svg>
