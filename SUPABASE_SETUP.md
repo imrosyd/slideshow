@@ -1,13 +1,15 @@
 # Supabase Database Setup
 
-## Required Table Structure
+## ⚠️ CRITICAL: This Must Be Done First!
 
-### `image_durations` table
+The app is saving data successfully but **cannot read it back** due to Row Level Security (RLS) blocking reads.
 
-Run this SQL in Supabase SQL Editor to ensure table is correctly set up:
+## Quick Fix - Run This SQL Now
+
+**Copy and paste this entire block into Supabase SQL Editor:**
 
 ```sql
--- Create the table if it doesn't exist
+-- 1. Create table with proper structure
 CREATE TABLE IF NOT EXISTS public.image_durations (
   id BIGSERIAL PRIMARY KEY,
   filename TEXT NOT NULL,
@@ -16,34 +18,51 @@ CREATE TABLE IF NOT EXISTS public.image_durations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Add unique constraint on filename (required for upsert to work)
+-- 2. Add UNIQUE constraint (CRITICAL for upsert to work)
 ALTER TABLE public.image_durations 
   DROP CONSTRAINT IF EXISTS image_durations_filename_key;
 
 ALTER TABLE public.image_durations 
   ADD CONSTRAINT image_durations_filename_key UNIQUE (filename);
 
--- Create index for better query performance
+-- 3. Create index for performance
 CREATE INDEX IF NOT EXISTS idx_image_durations_filename 
   ON public.image_durations(filename);
 
--- Enable Row Level Security (RLS)
-ALTER TABLE public.image_durations ENABLE ROW LEVEL SECURITY;
+-- 4. DISABLE RLS (service role should bypass, but sometimes doesn't work)
+ALTER TABLE public.image_durations DISABLE ROW LEVEL SECURITY;
 
--- Create policy to allow service role to do everything
-CREATE POLICY IF NOT EXISTS "Service role can do everything" 
-  ON public.image_durations 
-  FOR ALL 
-  TO service_role 
-  USING (true) 
-  WITH CHECK (true);
+-- Alternative: If you want RLS enabled, use these policies instead:
+-- ALTER TABLE public.image_durations ENABLE ROW LEVEL SECURITY;
+-- 
+-- DROP POLICY IF EXISTS "Service role full access" ON public.image_durations;
+-- CREATE POLICY "Service role full access" 
+--   ON public.image_durations 
+--   FOR ALL 
+--   TO service_role 
+--   USING (true) 
+--   WITH CHECK (true);
+-- 
+-- DROP POLICY IF EXISTS "Public read access" ON public.image_durations;
+-- CREATE POLICY "Public read access" 
+--   ON public.image_durations 
+--   FOR SELECT 
+--   USING (true);
+```
 
--- Create policy for anonymous read access (for slideshow display)
-CREATE POLICY IF NOT EXISTS "Anyone can read" 
-  ON public.image_durations 
-  FOR SELECT 
-  TO anon 
-  USING (true);
+## Verify It Worked
+
+After running the SQL, check:
+
+```sql
+-- Should return rows if data was saved
+SELECT * FROM public.image_durations ORDER BY created_at DESC;
+
+-- Should show RLS is disabled
+SELECT tablename, rowsecurity 
+FROM pg_tables 
+WHERE tablename = 'image_durations';
+-- rowsecurity should be 'false'
 ```
 
 ## Verify Setup

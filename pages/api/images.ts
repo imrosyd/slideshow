@@ -41,6 +41,12 @@ async function readImageList(): Promise<{ names: string[]; durations: Record<str
       .select('filename, duration_ms, caption'),
   ]);
 
+  console.log("[Images API] Metadata query result:", {
+    error: metadataError?.message,
+    count: metadata?.length || 0,
+    sample: metadata?.[0]
+  });
+
   if (error) {
     console.error("Error listing files from Supabase Storage:", error);
     throw new Error("Failed to list images from Supabase Storage.");
