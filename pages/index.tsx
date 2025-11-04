@@ -290,10 +290,6 @@ export default function Home() {
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Analytics tracking
-  const slideStartTimeRef = useRef<number>(Date.now());
-  const [analytics, setAnalytics] = useState<Record<string, { viewCount: number; totalViewTime: number; lastViewed: number }>>({});
 
   useEffect(() => {
     slidesRef.current = slides;
@@ -302,53 +298,6 @@ export default function Home() {
   useEffect(() => {
     indexRef.current = currentIndex;
   }, [currentIndex]);
-
-  // Track analytics when slide changes
-  useEffect(() => {
-    if (slides.length === 0) return;
-    
-    // Only track if we actually changed slides (not initial load)
-    const prevIndex = currentIndex === 0 ? slides.length - 1 : currentIndex - 1;
-    const prevSlide = slides[prevIndex];
-    
-    if (prevSlide && slideStartTimeRef.current > 0) {
-      const now = Date.now();
-      const viewTime = now - slideStartTimeRef.current;
-      
-      // Only track if viewing time is reasonable (between 1 second and 5 minutes)
-      if (viewTime > 1000 && viewTime < 300000) {
-        setAnalytics(prev => {
-          const existing = prev[prevSlide.name] || { viewCount: 0, totalViewTime: 0, lastViewed: 0 };
-          return {
-            ...prev,
-            [prevSlide.name]: {
-              viewCount: existing.viewCount + 1,
-              totalViewTime: existing.totalViewTime + viewTime,
-              lastViewed: now,
-            }
-          };
-        });
-      }
-    }
-    
-    // Reset timer for new slide
-    slideStartTimeRef.current = Date.now();
-  }, [currentIndex, slides]);
-
-  // Save analytics to API periodically
-  useEffect(() => {
-    const saveInterval = setInterval(() => {
-      if (Object.keys(analytics).length > 0) {
-        fetch('/api/analytics', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ analytics }),
-        }).catch(err => console.error('Failed to save analytics:', err));
-      }
-    }, 30000); // Save every 30 seconds
-
-    return () => clearInterval(saveInterval);
-  }, [analytics]);
 
   // Fetch slides from API (reusable function)
   const fetchSlides = useCallback(async (isAutoRefresh = false) => {
@@ -1151,7 +1100,7 @@ export default function Home() {
 
           {/* Transition selector */}
           <div style={styles.controlsRow}>
-            <span style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.7)' }}>Transition:</span>
+            <span style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.9)', fontWeight: 500 }}>Transition:</span>
             {(['fade', 'slide', 'zoom', 'none'] as TransitionEffect[]).map((effect) => (
               <button
                 key={effect}
@@ -1161,21 +1110,31 @@ export default function Home() {
                   padding: '6px 12px',
                   fontSize: '0.8rem',
                   backgroundColor: transitionEffect === effect 
-                    ? "rgba(96, 165, 250, 0.3)" 
-                    : "rgba(255, 255, 255, 0.1)",
+                    ? "rgba(96, 165, 250, 0.5)" 
+                    : "rgba(255, 255, 255, 0.15)",
                   borderColor: transitionEffect === effect
-                    ? "rgba(96, 165, 250, 0.5)"
-                    : "rgba(255, 255, 255, 0.2)",
+                    ? "rgba(96, 165, 250, 0.8)"
+                    : "rgba(255, 255, 255, 0.3)",
+                  color: transitionEffect === effect
+                    ? "#ffffff"
+                    : "rgba(255, 255, 255, 0.85)",
+                  fontWeight: transitionEffect === effect ? 600 : 500,
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = transitionEffect === effect
-                    ? "rgba(96, 165, 250, 0.4)"
-                    : "rgba(255, 255, 255, 0.2)";
+                    ? "rgba(96, 165, 250, 0.6)"
+                    : "rgba(255, 255, 255, 0.25)";
+                  e.currentTarget.style.borderColor = transitionEffect === effect
+                    ? "rgba(96, 165, 250, 1)"
+                    : "rgba(255, 255, 255, 0.5)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = transitionEffect === effect
-                    ? "rgba(96, 165, 250, 0.3)"
-                    : "rgba(255, 255, 255, 0.1)";
+                    ? "rgba(96, 165, 250, 0.5)"
+                    : "rgba(255, 255, 255, 0.15)";
+                  e.currentTarget.style.borderColor = transitionEffect === effect
+                    ? "rgba(96, 165, 250, 0.8)"
+                    : "rgba(255, 255, 255, 0.3)";
                 }}
               >
                 {effect.charAt(0).toUpperCase() + effect.slice(1)}
