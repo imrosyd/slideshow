@@ -86,7 +86,9 @@ const upsertMetadata = async <TTable extends MetadataTableName>(
     ...(includeCaption ? { caption: item.caption ?? null } : {}),
   })) as Database["public"]["Tables"][TTable]["Insert"][];
 
-  return supabase.from(tableName).upsert(rows, { onConflict: "filename" });
+  return supabase
+    .from<TTable, Database["public"]["Tables"][TTable]>(tableName)
+    .upsert(rows, { onConflict: "filename" });
 };
 
 const clearMissingRows = async <TTable extends MetadataTableName>(
