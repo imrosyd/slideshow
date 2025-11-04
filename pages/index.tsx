@@ -1113,41 +1113,37 @@ export default function Home() {
 
           {/* Transition selector */}
           <div style={styles.controlsRow}>
-            <span style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.9)', fontWeight: 500 }}>Transition:</span>
+            <span style={{ fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.9)', fontWeight: 500, marginRight: '4px' }}>Transition:</span>
             {(['fade', 'slide', 'zoom', 'none'] as TransitionEffect[]).map((effect) => (
               <button
                 key={effect}
                 onClick={() => saveTransitionEffect(effect)}
                 style={{
-                  ...styles.controlButton,
-                  padding: '6px 12px',
-                  fontSize: '0.8rem',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
                   backgroundColor: transitionEffect === effect 
                     ? "rgba(96, 165, 250, 0.5)" 
-                    : "rgba(255, 255, 255, 0.9)",
-                  borderColor: transitionEffect === effect
-                    ? "rgba(96, 165, 250, 0.8)"
-                    : "rgba(255, 255, 255, 0.5)",
-                  color: transitionEffect === effect
-                    ? "#ffffff"
-                    : "#000000",
+                    : "rgba(255, 255, 255, 0.1)",
+                  border: transitionEffect === effect
+                    ? "1px solid rgba(96, 165, 250, 0.8)"
+                    : "1px solid rgba(255, 255, 255, 0.2)",
+                  color: "#ffffff",
+                  fontSize: '0.9rem',
                   fontWeight: transitionEffect === effect ? 600 : 500,
+                  cursor: 'pointer',
+                  transition: 'all 200ms ease',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = transitionEffect === effect
                     ? "rgba(96, 165, 250, 0.6)"
-                    : "rgba(255, 255, 255, 1)";
-                  e.currentTarget.style.borderColor = transitionEffect === effect
-                    ? "rgba(96, 165, 250, 1)"
-                    : "rgba(255, 255, 255, 0.8)";
+                    : "rgba(255, 255, 255, 0.2)";
+                  e.currentTarget.style.transform = "scale(1.05)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = transitionEffect === effect
                     ? "rgba(96, 165, 250, 0.5)"
-                    : "rgba(255, 255, 255, 0.9)";
-                  e.currentTarget.style.borderColor = transitionEffect === effect
-                    ? "rgba(96, 165, 250, 0.8)"
-                    : "rgba(255, 255, 255, 0.5)";
+                    : "rgba(255, 255, 255, 0.1)";
+                  e.currentTarget.style.transform = "scale(1)";
                 }}
               >
                 {effect.charAt(0).toUpperCase() + effect.slice(1)}

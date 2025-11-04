@@ -118,18 +118,23 @@ const AdminContent = () => {
 
   const saveTransitionEffect = useCallback(async (effect: "fade" | "slide" | "zoom" | "none") => {
     try {
+      console.log('Saving transition effect:', effect);
       const response = await fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ transitionEffect: effect }),
       });
       
-      if (response.ok) {
-        setTransitionEffect(effect);
-        pushToast({ variant: "success", description: `Transition effect set to: ${effect}` });
-      } else {
-        throw new Error("Failed to save");
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to save transition effect. Status:', response.status, errorText);
+        throw new Error(`Failed to save: ${response.status}`);
       }
+      
+      const data = await response.json();
+      console.log('✅ Transition effect saved successfully:', data);
+      setTransitionEffect(effect);
+      pushToast({ variant: "success", description: `Transition effect set to: ${effect}` });
     } catch (error) {
       console.error("Failed to save transition effect:", error);
       pushToast({ variant: "error", description: "Failed to save transition effect" });
