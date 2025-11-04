@@ -1,103 +1,470 @@
-# Aplikasi Slideshow Otomatis
+# Slideshow Dashboard System
 
-Aplikasi slideshow modern dengan panel admin profesional untuk mengelola tampilan dashboard. Aplikasi ini menampilkan semua gambar yang Anda simpan di Supabase Storage secara otomatis dalam bentuk slideshow. Setiap gambar akan tampil selama **12 detik** (atau mengikuti durasi khusus yang Anda set) sebelum berpindah ke gambar berikutnya. Ketika Anda menambahkan atau menghapus gambar lewat panel admin, aplikasi akan menyinkronkannya secara real-time.
+Aplikasi slideshow modern berbasis Next.js dengan panel admin profesional untuk mengelola dan menampilkan dashboard secara otomatis. Dirancang khusus untuk Smart TV dan display monitor dengan fitur keep-awake untuk LG TV.
 
 ## ✨ Fitur Utama
 
-### 🎬 Slideshow Otomatis
-- **Auto-rotation** dengan durasi per gambar yang dapat disesuaikan (1-60 detik)
-- **Smooth transitions** dengan fade effect untuk pengalaman visual yang lebih baik
-- **Auto-refresh** setiap 60 detik untuk memuat gambar terbaru tanpa reload manual
-- **Real-time sync** dengan Supabase Storage menggunakan WebSocket
-- **Multi-bahasa** dengan rotasi otomatis (English, Korean, Indonesian)
-- **Keep screen awake** mencegah Smart TV/monitor masuk mode sleep saat menampilkan slideshow
+### 🎬 Slideshow Display
+- **Auto-rotation slideshow** dengan durasi custom per gambar (1-60 detik)
+- **4 Transition effects**: Fade, Slide, Zoom, None
+- **Auto-refresh** setiap 60 detik untuk sinkronisasi otomatis
+- **Real-time sync** dengan Supabase Storage via WebSocket
+- **Multi-language** dengan auto-rotate (English, Korean, Indonesian)
+- **LG TV optimization**:
+  - Wake Lock API untuk mencegah sleep mode
+  - Auto-reload setiap 30 menit
+  - Activity simulation setiap 30 menit
+  - Fullscreen mode auto-request
 
-### 🎮 Kontrol Interaktif
+### 🎮 Kontrol Slideshow
 - **Keyboard shortcuts**:
-  - `Space` - Play/Pause slideshow
-  - `←/→` atau `↑/↓` - Navigasi slide sebelumnya/berikutnya
-  - `Home/End` - Loncat ke slide pertama/terakhir
-  - `C` atau `ESC` - Toggle tampilan kontrol
-- **Mouse controls** dengan overlay yang muncul otomatis saat mouse bergerak
-- **Thumbnail grid** untuk preview dan navigasi cepat ke slide tertentu
-- **Slide info display** menampilkan nomor slide, nama file, dan durasi
+  - `Space` - Play/Pause
+  - `←/→` atau `↑/↓` - Navigate slides
+  - `Home/End` - First/Last slide
+  - `C` atau `ESC` - Toggle controls overlay
+- **On-screen controls** dengan auto-hide (3-5 detik inactivity)
+- **Transition selector** langsung dari slideshow
+- **Thumbnail grid** untuk quick navigation
+- **Mouse movement detection** untuk menampilkan controls
 
-### 🛠️ Panel Admin Profesional
-- **Modern UI** dengan desain gradient slate-950 dan sky/violet accent
-- **Drag & drop upload** gambar dengan progress indicator
-- **Drag & drop reordering** untuk mengatur urutan tampilan gambar di slideshow
-- **Visual feedback** saat drag (opacity & scale animation)
-- **Numbered badges** menampilkan posisi setiap gambar (1, 2, 3, ...)
-- **Durasi custom** untuk setiap gambar (1-60 detik)
-- **Bulk operations** dengan checkbox selection
-- **Delete confirmation modal** untuk mencegah penghapusan tidak sengaja
-- **Toast notifications** untuk feedback operasi (sukses/error)
-- **Responsive layout** dengan custom thin scrollbar
-- **Auto-save metadata** menyimpan urutan dan pengaturan gambar
+### 📱 Remote Control (Mobile-Friendly)
+- **Responsive remote control page** untuk mengontrol slideshow dari device lain
+- **Real-time sync** via Supabase Realtime broadcast
+- **Playback controls**: Play/Pause, Previous, Next, First, Last
+- **Quick jump** ke slide tertentu (hingga 20 slides pertama)
+- **Transition effect selector** untuk mengubah efek transisi
+- **Connection status indicator** dengan live update
+- **Touch-optimized UI** dengan large buttons
 
-### 🎨 Desain & UX
-- **Consistent color scheme** antara halaman login dan admin panel
-- **Responsive design** optimal untuk desktop, tablet, dan mobile
-- **Loading states** dengan skeleton screens dan progress indicators
-- **Error handling** dengan pesan yang jelas dalam 3 bahasa
-- **Custom scrollbar** tipis dan elegan untuk tampilan profesional
-- **Smooth animations** pada semua interaksi UI
+### 🛠️ Admin Panel
+- **Modern glassmorphism UI** dengan gradient slate background
+- **Image management**:
+  - Drag & drop upload dengan progress indicator
+  - Drag & drop reordering untuk urutan slideshow
+  - Visual numbered badges (1, 2, 3, ...)
+  - Hide/Show images tanpa menghapus
+  - Custom duration per image (1-60 detik)
+- **Bulk operations**:
+  - Multi-select dengan checkbox
+  - Bulk show/hide images
+  - Bulk set duration
+  - Bulk delete with confirmation
+- **Search & Filter**:
+  - Search by filename
+  - Filter: All, Visible Only, Hidden Only
+  - Sort: Order, Name, Size, Date
+  - Dark mode dropdown dengan proper contrast
+- **Statistics panel**:
+  - Total images count
+  - Visible/Hidden breakdown
+  - Total storage used
+  - Real-time updates
+- **Force refresh** untuk trigger update di semua slideshow
+- **Toast notifications** untuk semua operasi
+- **Fullscreen preview** untuk lihat image detail
 
-## 🚀 Persiapan Lokal
+### 🎨 Design System
+- **Consistent color palette**:
+  - Background: Slate-950 gradient
+  - Accent: Sky-500 (blue) untuk primary actions
+  - Secondary: Violet-500 untuk bulk actions
+  - Success: Green-500
+  - Warning: Amber-500
+  - Error: Red-500
+- **Glassmorphism effects** dengan backdrop blur
+- **Smooth animations** pada semua interactions
+- **Custom scrollbar** tipis dan elegan
+- **Responsive layout** optimal untuk semua screen sizes
+- **Loading states** dengan skeleton screens
 
-1. Pastikan Anda sudah menginstal **Node.js 18+** dan **npm**.
-2. Clone repository dan masuk ke direktori proyek:
+## 🏗️ Tech Stack
+
+- **Framework**: Next.js 14.2.33 (React 18, TypeScript)
+- **Styling**: Tailwind CSS 3.4.17
+- **Backend**: Supabase (Storage, Realtime, Database)
+- **Deployment**: Vercel
+- **UI Components**: Custom components dengan Tailwind
+- **State Management**: React Hooks (useState, useEffect, useCallback)
+- **Real-time**: Supabase Realtime broadcast channels
+
+## 📁 Project Structure
+
+```
+slideshow/
+├── pages/
+│   ├── index.tsx           # Main slideshow display
+│   ├── admin.tsx           # Admin panel
+│   ├── login.tsx           # Admin login page
+│   ├── remote.tsx          # Mobile remote control
+│   ├── _app.tsx            # App wrapper
+│   └── api/
+│       ├── auth.ts         # Authentication endpoint
+│       ├── logout.ts       # Logout endpoint
+│       ├── images.ts       # Get images list
+│       ├── upload.ts       # Upload images
+│       ├── config.ts       # Legacy config endpoint
+│       ├── settings.ts     # Slideshow settings (transition, etc)
+│       ├── image/[name].ts # Serve individual image
+│       └── admin/
+│           ├── images.ts   # Admin image operations (delete, etc)
+│           ├── metadata.ts # Save image metadata (order, duration, visibility)
+│           └── force-refresh.ts # Trigger slideshow refresh
+├── components/
+│   └── admin/
+│       ├── ConfirmModal.tsx   # Delete confirmation modal
+│       ├── ImageCard.tsx      # Image card component
+│       ├── ToastProvider.tsx  # Toast notification provider
+│       └── UploadBox.tsx      # Drag & drop upload component
+├── hooks/
+│   ├── useImages.ts        # Image management hook
+│   └── useToast.ts         # Toast notification hook
+├── lib/
+│   ├── supabase.ts         # Supabase client
+│   ├── auth.ts             # Auth utilities
+│   ├── constants.ts        # App constants
+│   └── database.types.ts   # Supabase types
+├── styles/
+│   └── globals.css         # Global styles & Tailwind imports
+└── public/                 # Static assets
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+ dan npm
+- Akun Supabase (gratis di [supabase.com](https://supabase.com))
+- Browser modern (Chrome, Firefox, Safari, Edge)
+
+### Local Development
+
+1. **Clone repository**:
    ```bash
    git clone <repository-url>
    cd slideshow
    ```
-3. Salin konfigurasi lingkungan:
-   ```bash
-   cp .env.example .env.local
-   ```
-4. Isi variabel environment di `.env.local` dengan kredensial Supabase Anda:
-   ```env
-   ADMIN_PASSWORD=your_secure_password
-   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-   SUPABASE_STORAGE_BUCKET=your_bucket_name
-   SUPABASE_DURATIONS_TABLE=image_durations
-   ```
-   > **Penting:** Jangan commit file `.env.local` ke repository!
 
-5. Instal dependensi:
+2. **Install dependencies**:
    ```bash
    npm install
    ```
-6. Jalankan development server:
+
+3. **Setup environment variables**:
+   ```bash
+   cp .env.example .env.local
+   ```
+   
+   Edit `.env.local` dan isi dengan kredensial Supabase Anda:
+   ```env
+   # Admin Panel Password
+   ADMIN_PASSWORD=your_secure_password
+
+   # Supabase Configuration
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   SUPABASE_STORAGE_BUCKET=slideshow-images
+   SUPABASE_DURATIONS_TABLE=image_durations
+   ```
+
+4. **Setup Supabase** (lihat [SUPABASE_SETUP.md](./SUPABASE_SETUP.md)):
+   - Buat Storage bucket `slideshow-images`
+   - Buat table `image_durations` dengan schema yang sesuai
+   - Konfigurasi RLS policies
+   - Enable Realtime untuk table `image_durations`
+
+5. **Run development server**:
    ```bash
    npm run dev
    ```
-7. Buka browser dan akses:
-   - Slideshow: `http://localhost:3000`
-   - Admin Panel: `http://localhost:3000/admin`
-   - Login Page: `http://localhost:3000/login`
 
-> **Catatan:** Panel admin memerlukan Supabase Storage bucket yang sudah dikonfigurasi dengan benar. Format gambar yang didukung: `png`, `jpg`, `jpeg`, `gif`, `webp`, `bmp`, `svg`, `avif`.
+6. **Access the app**:
+   - Slideshow: http://localhost:3000
+   - Admin Panel: http://localhost:3000/admin
+   - Remote Control: http://localhost:3000/remote
+   - Login: http://localhost:3000/login
 
-## 📦 Deploy ke Vercel
+### Build for Production
 
-1. Push repository ke GitHub.
-2. Buka [Vercel Dashboard](https://vercel.com) dan pilih **Add New → Project**.
-3. Connect dengan repository GitHub Anda.
-4. Tambahkan semua variabel environment di **Project Settings → Environment Variables**:
+```bash
+npm run build
+npm start
+```
+
+## 🌐 Deployment
+
+### Deploy to Vercel (Recommended)
+
+1. **Push to GitHub**:
+   ```bash
+   git push origin main
+   ```
+
+2. **Import to Vercel**:
+   - Buka [vercel.com](https://vercel.com)
+   - Click "Add New" → "Project"
+   - Import your GitHub repository
+
+3. **Configure Environment Variables**:
    
-   | Variable | Description | Scope |
-   |----------|-------------|-------|
-   | `ADMIN_PASSWORD` | Password untuk akses admin panel | Production, Preview, Development |
-   | `NEXT_PUBLIC_SUPABASE_URL` | URL project Supabase Anda | Production, Preview, Development |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key dari Supabase | Production, Preview, Development |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Service role key dari Supabase | Production, Preview, Development |
-   | `SUPABASE_STORAGE_BUCKET` | Nama bucket di Supabase Storage | Production, Preview, Development |
-   | `SUPABASE_DURATIONS_TABLE` | Nama tabel untuk durasi (default: `image_durations`) | Production, Preview, Development |
+   Add the following variables in **Project Settings → Environment Variables**:
+   
+   | Variable | Value | Scope |
+   |----------|-------|-------|
+   | `ADMIN_PASSWORD` | Your admin password | Production, Preview, Development |
+   | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | Production, Preview, Development |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key | Production, Preview, Development |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | Production, Preview, Development |
+   | `SUPABASE_STORAGE_BUCKET` | `slideshow-images` | Production, Preview, Development |
+   | `SUPABASE_DURATIONS_TABLE` | `image_durations` | Production, Preview, Development |
 
-   > **⚠️ Penting:** Vercel tidak membaca `.env.local`. Jika satu saja variabel kosong, deployment akan gagal. Isi untuk semua scope (Production, Preview, Development) agar konsisten.
+4. **Deploy**:
+   - Click "Deploy"
+   - Wait for build to complete
+   - Access your app at `https://your-project.vercel.app`
+
+> **⚠️ Important**: All environment variables must be set for all scopes. Missing variables will cause deployment to fail.
+
+### Vercel Configuration
+
+The project includes `vercel.json` with optimized settings:
+- Build optimization enabled
+- 60-second function timeout for uploads
+- Proper file size limits
+- SSR configuration for dynamic routes
+
+## 📖 Usage Guide
+
+### Admin Panel Workflow
+
+1. **Login**:
+   - Navigate to `/login`
+   - Enter admin password
+   - Click "Sign In"
+
+2. **Upload Images**:
+   - Drag & drop files to upload box
+   - Or click to browse files
+   - Supported formats: PNG, JPG, JPEG, GIF, WEBP, BMP, SVG, AVIF
+   - Maximum file size: 10MB per file
+
+3. **Manage Images**:
+   - **Reorder**: Drag & drop images to change order
+   - **Set Duration**: Click duration selector (1-60s)
+   - **Hide/Show**: Click eye icon to toggle visibility
+   - **Delete**: Click trash icon, confirm deletion
+   - **Preview**: Click image for fullscreen view
+
+4. **Bulk Operations**:
+   - Click "Bulk" button to enable selection mode
+   - Select multiple images
+   - Choose bulk action:
+     - Show selected images
+     - Hide selected images
+     - Set duration for all
+     - Delete selected
+
+5. **Search & Filter**:
+   - Use search box to find by filename
+   - Filter by: All / Visible Only / Hidden Only
+   - Sort by: Order / Name / Size / Date
+
+6. **Force Refresh**:
+   - Click "🔄 Force Refresh" to update all active slideshows
+   - Useful after batch updates
+
+### Slideshow Controls
+
+**Keyboard Shortcuts**:
+- `Space` - Toggle Play/Pause
+- `←` / `→` - Previous/Next slide
+- `↑` / `↓` - Previous/Next slide (alternative)
+- `Home` - Jump to first slide
+- `End` - Jump to last slide
+- `C` or `ESC` - Toggle controls overlay
+
+**On-Screen Controls** (press C or move mouse):
+- Previous/Play-Pause/Next buttons
+- Transition effect selector (Fade/Slide/Zoom/None)
+- Thumbnail grid for quick navigation
+- Auto-hides after 3-5 seconds of inactivity
+
+### Remote Control
+
+1. **Access Remote**:
+   - Open `/remote` on your mobile device
+   - Or scan QR code from admin panel (if enabled)
+
+2. **Control Slideshow**:
+   - Use Playback controls (Play/Pause)
+   - Navigate with Previous/Next buttons
+   - Jump to first/last slide
+   - Select specific slide from Quick Jump grid
+   - Change transition effect
+
+3. **Connection**:
+   - Green dot = Connected
+   - Red dot = Not connected
+   - Real-time sync via Supabase
+
+### LG TV Optimization
+
+The slideshow includes special optimizations for LG TVs:
+
+1. **Wake Lock API**: Prevents screen from sleeping
+2. **Activity Simulation**: Triggers every 30 minutes
+3. **Auto-Reload**: Full page reload every 30 minutes
+4. **Fullscreen Mode**: Auto-requests after 2 seconds
+
+**Console Logs** (check browser console):
+- `🔒 Screen Wake Lock activated` - Wake lock working
+- `⏰ 30-minute activity trigger` - Activity simulation
+- `🔄 Auto-reloading page` - Auto-reload triggered
+
+## 🎨 Customization
+
+### Transition Effects
+
+4 built-in transition effects available:
+- **Fade**: Smooth opacity transition (default)
+- **Slide**: Horizontal slide animation
+- **Zoom**: Scale + fade effect
+- **None**: Instant switch, no animation
+
+Change via:
+- Slideshow controls (press C)
+- Admin panel (Slideshow Settings section - if enabled)
+- Remote control page
+
+### Default Settings
+
+Edit constants in `pages/index.tsx`:
+```typescript
+const DEFAULT_SLIDE_DURATION_SECONDS = 15;  // Default duration
+const LANGUAGE_SWAP_INTERVAL_MS = 4_000;    // Language rotation
+const FADE_DURATION_MS = 500;               // Transition speed
+const AUTO_REFRESH_INTERVAL_MS = 60_000;    // Auto-refresh interval
+```
+
+### Styling
+
+Main style configuration in `styles/globals.css`:
+- Dark theme with slate background
+- Custom scrollbar
+- Tailwind configuration in `tailwind.config.js`
+
+## 🔧 Troubleshooting
+
+See [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for common issues and solutions.
+
+### Common Issues
+
+**Images not showing**:
+- Check Supabase Storage bucket configuration
+- Verify RLS policies allow public read
+- Check browser console for errors
+
+**Upload fails**:
+- Verify file size < 10MB
+- Check supported file formats
+- Ensure Supabase service role key is correct
+
+**Slideshow not auto-updating**:
+- Check Supabase Realtime is enabled
+- Verify `image_durations` table exists
+- Check browser console for WebSocket errors
+
+**LG TV goes to sleep**:
+- Open browser console to verify wake lock logs
+- Check if fullscreen mode is active
+- Wait for 30-minute auto-reload cycle
+
+## 📄 API Reference
+
+### GET /api/images
+Returns list of all images with metadata.
+
+**Response**:
+```json
+{
+  "images": ["image1.jpg", "image2.png"],
+  "durations": { "image1.jpg": 15000, "image2.png": 20000 },
+  "captions": { "image1.jpg": null, "image2.png": null }
+}
+```
+
+### POST /api/upload
+Upload new images.
+
+**Request**: multipart/form-data with file(s)
+
+**Response**:
+```json
+{
+  "success": true,
+  "uploaded": ["new-image.jpg"],
+  "skipped": []
+}
+```
+
+### DELETE /api/admin/images
+Delete image(s).
+
+**Request**:
+```json
+{
+  "filenames": ["image.jpg"]
+}
+```
+
+### POST /api/admin/metadata
+Save image metadata (order, duration, visibility).
+
+**Request**:
+```json
+{
+  "metadata": [
+    { "filename": "image.jpg", "order": 1, "duration_ms": 15000, "hidden": false }
+  ]
+}
+```
+
+### GET/POST /api/settings
+Get or update slideshow settings.
+
+**GET Response**:
+```json
+{
+  "transitionEffect": "fade",
+  "autoRefreshInterval": 60000,
+  "defaultDuration": 15000
+}
+```
+
+**POST Request**:
+```json
+{
+  "transitionEffect": "slide"
+}
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📝 License
+
+This project is licensed under the MIT License.
+
+## 🙏 Acknowledgments
+
+- Built with [Next.js](https://nextjs.org/)
+- Powered by [Supabase](https://supabase.com/)
+- Styled with [Tailwind CSS](https://tailwindcss.com/)
+- Deployed on [Vercel](https://vercel.com/)
+
+---
+
+Made with ❤️ for seamless dashboard presentations
 
 5. Pengaturan build (biasanya sudah otomatis):
    - **Build Command**: `npm run build`
