@@ -68,7 +68,7 @@ const normalizePayload = (payload: any): MetadataPayload[] => {
   return [];
 };
 
-type MetadataTableName = keyof Database["public"]["Tables"];
+type MetadataTableName = Extract<keyof Database["public"]["Tables"], string>;
 
 const upsertMetadata = async <TTable extends MetadataTableName>(
   supabase: SupabaseClient<Database>,
@@ -80,15 +80,17 @@ const upsertMetadata = async <TTable extends MetadataTableName>(
     return { error: null };
   }
 
+  type TableDef = Database["public"]["Tables"][TTable];
+
   const rows = payloads.map((item) => ({
     filename: item.filename,
     duration_ms: item.durationMs ?? null,
     ...(includeCaption ? { caption: item.caption ?? null } : {}),
-  })) as Database["public"]["Tables"][TTable]["Insert"][];
+  }));
 
   return supabase
-    .from<TTable, Database["public"]["Tables"][TTable]>(tableName)
-    .upsert(rows, { onConflict: "filename" });
+    .from<TTable, TableDef>(tableName)
+    .upsert(rows as any, { onConflict: "filename" });
 };
 
 const clearMissingRows = async <TTable extends MetadataTableName>(
@@ -97,10 +99,19 @@ const clearMissingRows = async <TTable extends MetadataTableName>(
   keepFilenames: string[]
 ) => {
   if (!keepFilenames.length) {
-    return supabase
+    // Delete all rows by selecting all and deleting them
+    const { data: allRows } = await supabase
       .from(tableName)
-      .delete()
-      .neq("filename", ""); // delete all rows
+      .select('filename');
+    
+    if (allRows && allRows.length > 0) {
+      const allFilenames = allRows.map((row: any) => row.filename);
+      return supabase
+        .from(tableName)
+        .delete()
+        .in('filename', allFilenames);
+    }
+    return { error: null };
   }
 
   const uniqueNames = Array.from(new Set(keepFilenames));

@@ -37,7 +37,7 @@ async function readImageList(): Promise<{ names: string[]; durations: Record<str
       sortBy: { column: 'name', order: 'asc' },
     }),
     supabaseServiceRole
-      .from(SUPABASE_DURATIONS_TABLE)
+      .from(SUPABASE_DURATIONS_TABLE as 'image_durations')
       .select('filename, duration_ms, caption'),
   ]);
 

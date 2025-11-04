@@ -35,7 +35,7 @@ export default async function handler(
     try {
       const supabaseServiceRole: SupabaseClient<Database> = getSupabaseServiceRoleClient(); // Explicitly type here
       const { data, error } = await supabaseServiceRole
-        .from(SUPABASE_DURATIONS_TABLE)
+        .from(SUPABASE_DURATIONS_TABLE as 'image_durations')
         .select("filename, duration_ms");
 
       if (error) {
@@ -75,15 +75,22 @@ export default async function handler(
       const newConfig: Config = req.body;
       const supabaseServiceRole: SupabaseClient<Database> = getSupabaseServiceRoleClient(); // Explicitly type here
 
-      // Clear existing durations
-      const { error: deleteError } = await supabaseServiceRole
-        .from(SUPABASE_DURATIONS_TABLE)
-        .delete()
-        .neq('filename', '' /* delete all */);
+      // Clear existing durations - select all first, then delete
+      const { data: allRows } = await supabaseServiceRole
+        .from(SUPABASE_DURATIONS_TABLE as 'image_durations')
+        .select('filename');
+      
+      if (allRows && allRows.length > 0) {
+        const allFilenames = allRows.map((row) => row.filename);
+        const { error: deleteError } = await supabaseServiceRole
+          .from(SUPABASE_DURATIONS_TABLE as 'image_durations')
+          .delete()
+          .in('filename', allFilenames);
 
-      if (deleteError) {
-        console.error("Error clearing old durations:", deleteError);
-        return res.status(500).json({ error: "Gagal menghapus durasi lama." });
+        if (deleteError) {
+          console.error("Error clearing old durations:", deleteError);
+          return res.status(500).json({ error: "Gagal menghapus durasi lama." });
+        }
       }
 
       // Insert new durations
@@ -94,7 +101,7 @@ export default async function handler(
 
       if (durationsToInsert.length > 0) {
         const { error: insertError } = await supabaseServiceRole
-          .from(SUPABASE_DURATIONS_TABLE)
+          .from(SUPABASE_DURATIONS_TABLE as 'image_durations')
           .insert(durationsToInsert as any);
 
         if (insertError) {

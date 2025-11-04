@@ -27,7 +27,14 @@ export type Database = {
           duration_ms?: number | null
           caption?: string | null
         }
+        Relationships: []
       }
+    },
+    Views: {
+      [_ in never]: never
+    },
+    Functions: {
+      [_ in never]: never
     }
   }
 }

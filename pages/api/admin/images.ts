@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
 import { isAuthorizedAdminRequest } from "../../../lib/auth";
+import { Database } from "../../../lib/database.types";
 
 type AdminImage = {
   name: string;
@@ -65,13 +66,14 @@ export default async function handler(
     console.error("SUPABASE_DURATIONS_TABLE is not set.");
     return res.status(500).json({ error: "Konfigurasi server salah: Nama tabel durasi tidak diatur." });
   }
+  const metadataTable = SUPABASE_DURATIONS_TABLE as keyof Database["public"]["Tables"];
 
   try {
     const supabaseServiceRole = getSupabaseServiceRoleClient();
 
     const metadataQuery = async () => {
       const primary = await supabaseServiceRole
-        .from(SUPABASE_DURATIONS_TABLE)
+        .from(metadataTable)
         .select("filename, duration_ms, caption");
 
       if (!primary.error) {
@@ -84,7 +86,7 @@ export default async function handler(
       }
 
       const fallback = await supabaseServiceRole
-        .from(SUPABASE_DURATIONS_TABLE)
+        .from(metadataTable)
         .select("filename, duration_ms");
 
       if (fallback.error) {
