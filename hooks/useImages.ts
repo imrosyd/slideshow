@@ -20,6 +20,7 @@ export type ImageAsset = {
   originalDurationSeconds: number | null;
   originalCaption: string;
   previewUrl: string;
+  hidden: boolean;
 };
 
 type FetchState = "idle" | "loading" | "success" | "error";
@@ -64,6 +65,7 @@ export const useImages = (authToken: string | null) => {
       const fetched = (payload?.images ?? []).map((item: any) => {
         const durationSeconds = toSeconds(item.durationMs);
         const caption = item.caption ?? "";
+        const hidden = item.hidden ?? false;
         return {
           name: item.name,
           size: item.size ?? 0,
@@ -74,6 +76,7 @@ export const useImages = (authToken: string | null) => {
           originalDurationSeconds: durationSeconds,
           originalCaption: caption,
           previewUrl: buildPreviewUrl(item.name),
+          hidden,
         } as ImageAsset;
       });
 
@@ -210,7 +213,7 @@ export const useImages = (authToken: string | null) => {
   );
 
   const updateMetadataDraft = useCallback(
-    (filename: string, patch: Partial<Pick<ImageAsset, "durationSeconds" | "caption">>) => {
+    (filename: string, patch: Partial<Pick<ImageAsset, "durationSeconds" | "caption" | "hidden">>) => {
       setImages((prev) =>
         prev.map((image) =>
           image.name === filename
@@ -224,6 +227,16 @@ export const useImages = (authToken: string | null) => {
     },
     []
   );
+
+  const toggleImageHidden = useCallback((filename: string) => {
+    setImages((prev) =>
+      prev.map((image) =>
+        image.name === filename
+          ? { ...image, hidden: !image.hidden }
+          : image
+      )
+    );
+  }, []);
 
   const resetMetadataDraft = useCallback((filename: string) => {
     setImages((prev) =>
@@ -244,6 +257,7 @@ export const useImages = (authToken: string | null) => {
       filename: image.name,
       durationMs: toMilliseconds(image.durationSeconds),
       caption: image.caption,
+      hidden: image.hidden,
     }));
 
     setIsSavingMetadata(true);
@@ -315,5 +329,6 @@ export const useImages = (authToken: string | null) => {
     resetMetadataDraft,
     saveMetadata,
     reorderImages,
+    toggleImageHidden,
   };
 };

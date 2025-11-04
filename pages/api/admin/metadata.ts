@@ -7,6 +7,7 @@ type ImageMetadata = {
   duration_ms: number;
   caption?: string;
   order?: number;
+  hidden?: boolean;
 };
 
 type MetadataStore = {
@@ -20,6 +21,7 @@ type MetadataPayload = {
   durationMs: number | null;
   caption?: string | null;
   order?: number;
+  hidden?: boolean;
 };
 
 const METADATA_FILE = "metadata.json";
@@ -78,6 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             duration_ms: item.durationMs,
             caption: item.caption || undefined,
             order: index,
+            hidden: item.hidden || false,
           };
           newOrder.push(item.filename);
         }

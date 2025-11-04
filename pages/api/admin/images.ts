@@ -9,6 +9,7 @@ type AdminImage = {
   updatedAt: string | null;
   durationMs: number | null;
   caption: string | null;
+  hidden: boolean;
 };
 
 type Data =
@@ -20,6 +21,7 @@ type ImageMetadata = {
   duration_ms: number;
   caption?: string;
   order?: number;
+  hidden?: boolean;
 };
 
 type MetadataStore = {
@@ -80,7 +82,7 @@ export default async function handler(
     const supabaseServiceRole = getSupabaseServiceRoleClient();
 
     // Load metadata from JSON file
-    const metadataMap = new Map<string, { duration_ms: number; caption: string | null; order: number }>();
+    const metadataMap = new Map<string, { duration_ms: number; caption: string | null; order: number; hidden: boolean }>();
     let imageOrder: string[] = [];
     
     const { data: metadataFile } = await supabaseServiceRole.storage
@@ -100,6 +102,7 @@ export default async function handler(
             duration_ms: img.duration_ms,
             caption: img.caption ?? null,
             order: img.order ?? 999,
+            hidden: img.hidden ?? false,
           });
         });
         
@@ -133,6 +136,7 @@ export default async function handler(
           updatedAt: file.updated_at ?? null,
           durationMs,
           caption: metadataEntry?.caption ?? null,
+          hidden: metadataEntry?.hidden ?? false,
         };
       });
 

@@ -20,6 +20,7 @@ type ImageMetadata = {
   duration_ms: number;
   caption?: string;
   order?: number;
+  hidden?: boolean;
 };
 
 type MetadataStore = {
@@ -57,6 +58,7 @@ async function readImageList(): Promise<{ names: string[]; durations: Record<str
   // Load metadata from JSON file
   const durationMap: Record<string, number | null> = {};
   const captionMap: Record<string, string | null> = {};
+  const hiddenSet = new Set<string>();
   let imageOrder: string[] = [];
   
   const { data: metadataFile } = await supabaseServiceRole.storage
@@ -74,9 +76,12 @@ async function readImageList(): Promise<{ names: string[]; durations: Record<str
       Object.values(metadata.images).forEach((img) => {
         durationMap[img.filename] = img.duration_ms;
         captionMap[img.filename] = img.caption ?? null;
+        if (img.hidden) {
+          hiddenSet.add(img.filename);
+        }
       });
       
-      console.log(`[Images API] Loaded ${Object.keys(durationMap).length} metadata entries, order: ${imageOrder.length} items`);
+      console.log(`[Images API] Loaded ${Object.keys(durationMap).length} metadata entries, order: ${imageOrder.length} items, hidden: ${hiddenSet.size}`);
     } catch (err) {
       console.error("[Images API] Failed to parse metadata.json:", err);
     }
@@ -90,7 +95,15 @@ async function readImageList(): Promise<{ names: string[]; durations: Record<str
       if (file.name === METADATA_FILE) return false;
 
       const extension = path.extname(file.name).toLowerCase();
-      return IMAGE_EXTENSIONS.has(extension);
+      if (!IMAGE_EXTENSIONS.has(extension)) return false;
+      
+      // Filter out hidden images
+      if (hiddenSet.has(file.name)) {
+        console.log(`[Images API] Filtering out hidden image: ${file.name}`);
+        return false;
+      }
+      
+      return true;
     })
     .map((file) => file.name);
 

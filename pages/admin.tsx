@@ -49,6 +49,7 @@ const AdminContent = () => {
     resetMetadataDraft,
     saveMetadata,
     reorderImages,
+    toggleImageHidden,
   } = useImages(authToken);
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -58,6 +59,17 @@ const AdminContent = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "visible" | "hidden">("all");
   const [sortBy, setSortBy] = useState<"order" | "name" | "size" | "date">("order");
+  
+  // Sync hiddenImages state with images data from server
+  useEffect(() => {
+    const newHiddenSet = new Set<string>();
+    images.forEach(img => {
+      if (img.hidden) {
+        newHiddenSet.add(img.name);
+      }
+    });
+    setHiddenImages(newHiddenSet);
+  }, [images]);
   
   // Bulk actions
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
@@ -196,6 +208,9 @@ const AdminContent = () => {
   }, []);
 
   const toggleHideImage = useCallback((filename: string) => {
+    toggleImageHidden(filename);
+    
+    // Also update local hiddenImages set for immediate UI feedback
     setHiddenImages(prev => {
       const newSet = new Set(prev);
       if (newSet.has(filename)) {
@@ -205,7 +220,7 @@ const AdminContent = () => {
       }
       return newSet;
     });
-  }, []);
+  }, [toggleImageHidden]);
 
   const openFullscreen = useCallback((filename: string) => {
     setFullscreenImage(filename);
