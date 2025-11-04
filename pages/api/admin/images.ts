@@ -133,7 +133,7 @@ export default async function handler(
         const durationMs = metadataEntry?.duration_ms ?? null;
         return {
           name: file.name,
-          size: file.metadata?.size ?? file.size ?? 0,
+          size: file.metadata?.size ?? 0,
           createdAt: file.created_at ?? null,
           updatedAt: file.updated_at ?? null,
           durationMs,
