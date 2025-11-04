@@ -190,15 +190,17 @@ export default async function handler(
   if (req.method === "GET") {
     let data: any[] = [];
     let supportsCaption = false;
-    try {
-      const result = await supabaseServiceRole
-        .from(metadataTable)
-        .select("filename, duration_ms, caption")
-        .order("filename", { ascending: true });
+    
+    const result = await supabaseServiceRole
+      .from(metadataTable)
+      .select("filename, duration_ms, caption")
+      .order("filename", { ascending: true });
+    
+    if (!result.error) {
       data = result.data ?? [];
       supportsCaption = true;
-    } catch (error: any) {
-      const message = error?.message?.toLowerCase?.() ?? "";
+    } else {
+      const message = result.error?.message?.toLowerCase?.() ?? "";
       if (message.includes("column") && message.includes("caption")) {
         const fallback = await supabaseServiceRole
           .from(metadataTable)
@@ -212,7 +214,7 @@ export default async function handler(
         supportsCaption = false;
         cachedSupportsCaption = supportsCaption;
       } else {
-        console.error("Error fetching metadata from Supabase:", error);
+        console.error("Error fetching metadata from Supabase:", result.error);
         return res.status(500).json({ error: "Gagal membaca metadata dari Supabase." });
       }
     }
