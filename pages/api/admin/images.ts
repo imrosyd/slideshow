@@ -76,20 +76,29 @@ export default async function handler(
         .from(metadataTable)
         .select("filename, duration_ms, caption");
 
+      console.log("[Admin Images] Metadata query result:", {
+        error: primary.error?.message,
+        count: primary.data?.length || 0
+      });
+
       if (!primary.error) {
         return { data: primary.data ?? [], supportsCaption: true as const };
       }
 
       const errorMessage = primary.error?.message?.toLowerCase() ?? "";
       if (!errorMessage.includes("column") || !errorMessage.includes("caption")) {
+        console.error("[Admin Images] Metadata query failed:", primary.error);
         throw primary.error;
       }
+
+      console.log("[Admin Images] Caption column not found, trying without caption");
 
       const fallback = await supabaseServiceRole
         .from(metadataTable)
         .select("filename, duration_ms");
 
       if (fallback.error) {
+        console.error("[Admin Images] Fallback query failed:", fallback.error);
         throw fallback.error;
       }
 
@@ -107,6 +116,11 @@ export default async function handler(
     ]);
 
     const metadata = metadataResult.data;
+
+    console.log("[Admin Images] Metadata items found:", metadata.length);
+    if (metadata.length > 0) {
+      console.log("[Admin Images] Sample metadata:", metadata[0]);
+    }
 
     if (storageError) {
       console.error("Error listing files from Supabase Storage:", storageError);
@@ -128,6 +142,8 @@ export default async function handler(
       });
     });
 
+    console.log("[Admin Images] Metadata map size:", metadataMap.size);
+
     const images: AdminImage[] = (fileList ?? [])
       .filter((file) => file.name && file.name !== "" && file.id && isImageFile(file.name))
       .map((file) => {
@@ -142,6 +158,9 @@ export default async function handler(
           caption: metadataEntry?.caption ?? null,
         };
       });
+
+    console.log("[Admin Images] Total images returned:", images.length);
+    console.log("[Admin Images] Images with duration:", images.filter(i => i.durationMs !== null).length);
 
     return res.status(200).json({ images });
   } catch (error) {
