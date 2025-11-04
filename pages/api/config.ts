@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getSupabaseServiceRoleClient } from "../../lib/supabase";
 import { Database } from "../../lib/database.types"; // Only import Database
 import { SupabaseClient } from "@supabase/supabase-js"; // Import SupabaseClient
+import { isAuthorizedAdminRequest } from "../../lib/auth";
 
 type Config = {
   [filename: string]: number; // filename -> duration in ms
@@ -26,11 +27,8 @@ export default async function handler(
   }
 
   // Authentication for POST requests (saving config)
-  if (req.method === "POST") {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || authHeader !== `Bearer ${ADMIN_PASSWORD}`) {
-      return res.status(401).json({ error: "Akses ditolak." });
-    }
+  if (req.method === "POST" && !isAuthorizedAdminRequest(req)) {
+    return res.status(401).json({ error: "Akses ditolak." });
   }
 
   if (req.method === "GET") {
@@ -52,9 +50,19 @@ export default async function handler(
 
       const config: Config = {};
       (data as DurationRow[]).forEach(row => {
-        config[row.filename] = row.duration_ms;
+        let value: number | null = null;
+        if (typeof row.duration_ms === "number") {
+          value = row.duration_ms;
+        } else if (typeof row.duration_ms === "string") {
+          const parsed = Number(row.duration_ms);
+          value = Number.isNaN(parsed) ? null : parsed;
+        }
+        if (value !== null) {
+          config[row.filename] = value;
+        }
       });
 
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       return res.status(200).json(config);
     } catch (error) {
       console.error("Error in GET /api/config:", error);

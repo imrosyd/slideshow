@@ -14,15 +14,18 @@ export type Database = {
           id: number
           filename: string
           duration_ms: number
+          caption: string | null
           created_at: string
         }
         Insert: {
           filename: string
-          duration_ms: number
+          duration_ms: number | null
+          caption?: string | null
         }
         Update: {
           filename?: string
-          duration_ms?: number
+          duration_ms?: number | null
+          caption?: string | null
         }
       }
     }

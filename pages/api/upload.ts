@@ -3,6 +3,7 @@ import formidable from "formidable";
 import type { File as FormidableFile, Files, Fields } from "formidable";
 import { promises as fs } from "fs";
 import { getSupabaseServiceRoleClient } from "../../lib/supabase";
+import { isAuthorizedAdminRequest } from "../../lib/auth";
 
 const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
 
@@ -192,15 +193,12 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<SuccessResponse | ErrorResponse>
 ) {
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
-  if (!ADMIN_PASSWORD) {
+  if (!process.env.ADMIN_PASSWORD) {
     console.error("ADMIN_PASSWORD tidak diatur di environment variables.");
     return res.status(500).json({ error: "Konfigurasi server salah: ADMIN_PASSWORD tidak diatur." });
   }
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader || authHeader !== `Bearer ${ADMIN_PASSWORD}`) {
+  if (!isAuthorizedAdminRequest(req)) {
     return res.status(401).json({ error: "Akses ditolak." });
   }
 

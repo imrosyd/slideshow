@@ -1,1068 +1,279 @@
-import { useState, useEffect, useRef, useCallback, type FormEvent, type CSSProperties, type DragEvent, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Head from "next/head";
+import type { GetServerSideProps } from "next";
+import { useRouter } from "next/router";
+import { ToastProvider } from "../components/admin/ToastProvider";
+import { UploadBox } from "../components/admin/UploadBox";
+import { ImageCard } from "../components/admin/ImageCard";
+import { ConfirmModal } from "../components/admin/ConfirmModal";
+import { useImages } from "../hooks/useImages";
+import { useToast } from "../hooks/useToast";
+import { getAdminAuthCookieName, getExpectedAdminToken } from "../lib/auth";
 
-type Theme = 'light' | 'dark' | 'system';
-
-const DEFAULT_SLIDE_DURATION_MS = 12_000; // Default duration for slides in milliseconds (12 seconds)
-const MS_PER_SECOND = 1000;
-
-const getSystemTheme = (): 'light' | 'dark' => {
-  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
-  }
-  return 'light';
-};
-
-const applyTheme = (theme: 'light' | 'dark') => {
-  const root = document.documentElement;
-  if (theme === 'dark') {
-    root.style.setProperty('--bg-color', '#0b1529');
-    root.style.setProperty('--surface-color', '#111f3c');
-    root.style.setProperty('--section-color', '#162748');
-    root.style.setProperty('--text-color', '#f1f5ff');
-    root.style.setProperty('--muted-text', '#97a3bf');
-    root.style.setProperty('--secondary-text', '#7281a3');
-    root.style.setProperty('--secondary-color', '#7281a3');
-    root.style.setProperty('--primary-color', '#4f6ff5');
-    root.style.setProperty('--primary-accent', '#7d8bff');
-    root.style.setProperty('--border-color', 'rgba(83, 104, 173, 0.35)');
-    root.style.setProperty('--divider-color', 'rgba(83, 104, 173, 0.22)');
-    root.style.setProperty('--input-bg', '#14233f');
-    root.style.setProperty('--input-text', '#f1f5ff');
-    root.style.setProperty('--input-border-strong', 'rgba(115, 138, 202, 0.42)');
-    root.style.setProperty('--shadow-color', 'rgba(9, 16, 32, 0.6)');
-    root.style.setProperty('--button-text', '#f8faff');
-    root.style.setProperty('--danger-color', '#f87171');
-    root.style.setProperty('--danger-hover', '#ef4444');
-    root.style.setProperty('--accent-chip', 'rgba(120, 140, 220, 0.12)');
-  } else {
-    root.style.setProperty('--bg-color', '#f5f7fb');
-    root.style.setProperty('--surface-color', '#ffffff');
-    root.style.setProperty('--section-color', '#f9fafc');
-    root.style.setProperty('--text-color', '#121621');
-    root.style.setProperty('--muted-text', '#6c7385');
-    root.style.setProperty('--secondary-text', '#8f96a9');
-    root.style.setProperty('--secondary-color', '#8f96a9');
-    root.style.setProperty('--primary-color', '#3c55e7');
-    root.style.setProperty('--primary-accent', '#6576ff');
-    root.style.setProperty('--border-color', 'rgba(69, 94, 178, 0.18)');
-    root.style.setProperty('--divider-color', 'rgba(69, 94, 178, 0.12)');
-    root.style.setProperty('--input-bg', '#ffffff');
-    root.style.setProperty('--input-text', '#121621');
-    root.style.setProperty('--input-border-strong', 'rgba(69, 94, 178, 0.25)');
-    root.style.setProperty('--shadow-color', 'rgba(33, 56, 106, 0.12)');
-    root.style.setProperty('--button-text', '#ffffff');
-    root.style.setProperty('--danger-color', '#e54848');
-    root.style.setProperty('--danger-hover', '#c53030');
-    root.style.setProperty('--accent-chip', 'rgba(60, 85, 231, 0.08)');
-  }
-};
-
-const styles: Record<string, CSSProperties> = {
-  fullPageContainer: {
-    minHeight: '100vh',
-    width: '100%',
-    backgroundColor: 'var(--bg-color)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '48px clamp(24px, 8vw, 108px)',
-    transition: 'background-color 0.4s ease',
-    boxSizing: 'border-box',
-  },
-  surface: {
-    width: '100%',
-    maxWidth: 'min(1120px, 92vw)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '32px',
-    backgroundColor: 'var(--surface-color)',
-    borderRadius: '28px',
-    padding: 'clamp(36px, 5vw, 56px)',
-    boxShadow: '0 32px 80px -40px var(--shadow-color)',
-    border: '1px solid var(--border-color)',
-    color: 'var(--text-color)',
-    transition: 'background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease',
-    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
-  },
-  headerBar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    flexWrap: 'wrap',
-    gap: '24px',
-  },
-  headerContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    maxWidth: '520px',
-  },
-  title: {
-    color: 'var(--text-color)',
-    margin: 0,
-    fontSize: '2.4rem',
-    fontWeight: 700,
-    letterSpacing: '-0.03em',
-  },
-  subtitle: {
-    color: 'var(--secondary-text)',
-    margin: 0,
-    fontSize: '1rem',
-    lineHeight: 1.5,
-  },
-  themeToggleButton: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '46px',
-    height: '46px',
-    borderWidth: '1px',
-    borderStyle: 'solid',
-    borderColor: 'var(--border-color)',
-    backgroundColor: 'var(--section-color)',
-    color: 'var(--text-color)',
-    cursor: 'pointer',
-    fontSize: '1.2rem',
-    fontWeight: 600,
-    transition: 'background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease',
-    boxShadow: '0 16px 30px -28px var(--shadow-color)',
-    borderRadius: '12px',
-  },
-  themeToggleIcon: {
-    fontSize: '1.2rem',
-    lineHeight: 1,
-  },
-  section: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px',
-    padding: '26px clamp(20px, 4vw, 32px)',
-    borderRadius: '20px',
-    border: '1px solid var(--border-color)',
-    backgroundColor: 'var(--section-color)',
-    transition: 'background-color 0.3s ease, border-color 0.3s ease',
-    boxShadow: '0 22px 48px -32px var(--shadow-color)',
-  },
-  sectionHeader: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-  },
-  sectionTitle: {
-    fontSize: '1.35rem',
-    fontWeight: 600,
-    margin: 0,
-    color: 'var(--text-color)',
-  },
-  sectionSubtitle: {
-    margin: 0,
-    fontSize: '0.95rem',
-    color: 'var(--secondary-color)',
-  },
-  authForm: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '14px',
-    width: '100%',
-    maxWidth: '320px',
-  },
-  passwordInput: {
-    borderWidth: '1px',
-    borderStyle: 'solid',
-    borderColor: 'var(--input-border-strong)',
-    borderRadius: '12px',
-    backgroundColor: 'var(--input-bg)',
-    color: 'var(--input-text)',
-    fontSize: '1rem',
-    padding: '12px 16px',
-    transition: 'border-color 0.2s ease, background-color 0.2s ease',
-    outline: 'none',
-  },
-  buttonRow: {
-    display: 'flex',
-    gap: '12px',
-    flexWrap: 'wrap',
-  },
-  button: {
-    padding: '12px 22px',
-    borderRadius: '12px',
-    border: '1px solid transparent',
-    backgroundImage: 'linear-gradient(135deg, var(--primary-color), var(--primary-accent))',
-    color: 'var(--button-text)',
-    cursor: 'pointer',
-    fontSize: '1rem',
-    fontWeight: 600,
-    transition: 'background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    boxShadow: '0 18px 36px -26px var(--shadow-color)',
-  },
-  buttonDisabled: {
-    backgroundImage: 'none',
-    backgroundColor: 'var(--secondary-color)',
-    borderColor: 'transparent',
-    cursor: 'not-allowed',
-    opacity: 0.6,
-    transform: 'none',
-    boxShadow: 'none',
-  },
-  buttonDelete: {
-    backgroundImage: 'linear-gradient(135deg, var(--danger-color), var(--danger-hover))',
-    color: '#ffffff',
-  },
-  uploadForm: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-    width: '100%',
-    maxWidth: '420px',
-  },
-  dropZone: {
-    borderWidth: '1.5px',
-    borderStyle: 'dashed',
-    borderColor: 'var(--border-color)',
-    borderRadius: '16px',
-    backgroundColor: 'var(--section-color)',
-    padding: '28px 24px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '12px',
-    textAlign: 'center',
-    transition: 'border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease',
-    cursor: 'pointer',
-    boxShadow: '0 14px 30px -24px var(--shadow-color)',
-  },
-  dropZoneActive: {
-    borderColor: 'var(--primary-color)',
-    backgroundColor: 'rgba(79, 111, 245, 0.08)',
-    boxShadow: '0 20px 36px -25px var(--shadow-color)',
-  },
-  dropZoneIcon: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '14px',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'var(--accent-chip)',
-    color: 'var(--primary-color)',
-    fontSize: '1.4rem',
-  },
-  dropZoneHeadline: {
-    margin: 0,
-    fontSize: '1.05rem',
-    fontWeight: 600,
-    color: 'var(--text-color)',
-  },
-  dropZoneCaption: {
-    margin: 0,
-    fontSize: '0.9rem',
-    color: 'var(--secondary-text)',
-  },
-  dropZoneMeta: {
-    margin: 0,
-    fontSize: '0.85rem',
-    color: 'var(--muted-text)',
-  },
-  fileList: {
-    listStyle: 'none',
-    padding: 0,
-    margin: 0,
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-    gap: '20px',
-  },
-  fileListItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-    padding: '18px',
-    borderWidth: '1px',
-    borderStyle: 'solid',
-    borderColor: 'var(--border-color)',
-    backgroundColor: 'var(--section-color)',
-    boxShadow: '0 18px 40px -30px var(--shadow-color)',
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
-    borderRadius: '16px',
-  },
-  fileListItemSelected: {
-    borderColor: 'var(--primary-accent)',
-    boxShadow: '0 22px 42px -30px var(--primary-accent)',
-  },
-  fileInfoRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    width: '100%',
-    cursor: 'pointer',
-    padding: '6px 8px',
-    borderRadius: '12px',
-    transition: 'background-color 0.2s ease',
-    userSelect: 'none',
-  },
-  fileInfoRowSelected: {
-    backgroundColor: 'var(--accent-chip)',
-  },
-  fileCheckbox: {
-    width: '18px',
-    height: '18px',
-  },
-  fileMeta: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    flexGrow: 1,
-  },
-  fileNameText: {
-    wordBreak: 'break-word',
-    fontSize: '0.95rem',
-    lineHeight: 1.4,
-    color: 'var(--text-color)',
-  },
-  imagePreview: {
-    width: '72px',
-    height: '72px',
-    objectFit: 'cover',
-    borderWidth: '1px',
-    borderStyle: 'solid',
-    borderColor: 'var(--border-color)',
-    flexShrink: 0,
-    borderRadius: '16px',
-  },
-  durationControl: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '12px',
-    paddingTop: '12px',
-    borderTop: '1px solid var(--divider-color)',
-  },
-  durationLabel: {
-    color: 'var(--secondary-text)',
-    fontSize: '0.9rem',
-  },
-  durationInput: {
-    width: '72px',
-    padding: '10px 12px',
-    borderWidth: '1px',
-    borderStyle: 'solid',
-    borderColor: 'var(--input-border-strong)',
-    backgroundColor: 'var(--input-bg)',
-    color: 'var(--input-text)',
-    textAlign: 'center',
-    fontSize: '0.9rem',
-    outline: 'none',
-    borderRadius: '12px',
-  },
-  emptyState: {
-    padding: '28px 24px',
-    borderRadius: '18px',
-    border: '1px dashed var(--divider-color)',
-    backgroundColor: 'var(--section-color)',
-    color: 'var(--muted-text)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    alignItems: 'center',
-    textAlign: 'center',
-  },
-  error: {
-    padding: '12px 18px',
-    borderRadius: '10px',
-    backgroundColor: 'rgba(248, 113, 113, 0.12)',
-    color: 'var(--error-color)',
-    fontSize: '0.92rem',
-    fontWeight: 500,
-    border: '1px solid rgba(248, 113, 113, 0.2)',
-  },
-  toastWrapper: {
-    position: 'fixed',
-    top: '28px',
-    left: 0,
-    right: 0,
-    display: 'flex',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-    zIndex: 1000,
-  },
-  toast: {
-    minWidth: '240px',
-    maxWidth: '360px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '14px 20px',
-    borderRadius: '14px',
-    fontSize: '0.95rem',
-    fontWeight: 500,
-    boxShadow: '0 24px 60px -32px rgba(15, 23, 42, 0.45)',
-    border: '1px solid transparent',
-    pointerEvents: 'auto',
-    transition: 'transform 0.2s ease, opacity 0.2s ease',
-  },
-  toastSuccess: {
-    backgroundColor: '#dbe3ff',
-    borderColor: '#aac0ff',
-    color: '#1e3a8a',
-  },
-  toastError: {
-    backgroundColor: '#ffe4e6',
-    borderColor: '#fda4af',
-    color: '#991b1b',
-  },
-  toastIcon: {
-    fontSize: '1.2rem',
-    lineHeight: 1,
-  },
-  toastMessage: {
-    flex: 1,
-    margin: 0,
-  },
-  toastDismissButton: {
-    border: 'none',
-    background: 'transparent',
-    color: 'inherit',
-    fontSize: '1.2rem',
-    cursor: 'pointer',
-    padding: 0,
-    lineHeight: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressBarContainer: {
-    width: '100%',
-    height: '6px',
-    backgroundColor: 'var(--section-color)',
-    borderRadius: '6px',
-    overflow: 'hidden',
-    border: '1px solid var(--border-color)',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: 'var(--primary-color)',
-    transition: 'width 0.3s ease',
-    borderRadius: '6px',
-  },
-  progressText: {
-    fontSize: '0.875rem',
-    color: 'var(--secondary-text)',
-    textAlign: 'center' as const,
-    marginTop: '8px',
-  },
-};
-
-export default function Admin() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState<Theme>('system');
-
-  // Read theme preference from localStorage on client-side mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedTheme = localStorage.getItem('theme') as Theme;
-      if (storedTheme) {
-        setCurrentTheme(storedTheme);
-      }
-    }
-  }, []);
-
-  const [images, setImages] = useState<string[]>([]);
-  const [filesToUpload, setFilesToUpload] = useState<FileList | null>(null);
-  const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
-  const [imageDurations, setImageDurations] = useState<Record<string, number>>({});
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [isUploading, setIsUploading] = useState(false);
-
-  const [resolvedThemeIcon, setResolvedThemeIcon] = useState<string>('');
-  const [resolvedThemeName, setResolvedThemeName] = useState<'light' | 'dark'>('light');
-  const [isDragActive, setIsDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [toast, setToast] = useState<{ message: string; variant: "success" | "error" } | null>(null);
-
-  const dismissToast = useCallback(() => {
-    if (toastTimeoutRef.current) {
-      clearTimeout(toastTimeoutRef.current);
-      toastTimeoutRef.current = null;
-    }
-    setToast(null);
-  }, []);
-
-  const showToast = useCallback((message: string, variant: "success" | "error" = "success") => {
-    dismissToast();
-    setToast({ message, variant });
-    toastTimeoutRef.current = setTimeout(() => {
-      setToast(null);
-      toastTimeoutRef.current = null;
-    }, 3500);
-  }, [dismissToast]);
+const AdminContent = () => {
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { pushToast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const token = sessionStorage.getItem("admin-auth-token");
+    if (token) {
+      setAuthToken(token);
+    }
+    const previousSelect = document.body.style.userSelect;
+    const previousTouch = document.body.style.touchAction;
+    document.body.style.userSelect = "auto";
+    document.body.style.touchAction = "auto";
     return () => {
-      if (toastTimeoutRef.current) {
-        clearTimeout(toastTimeoutRef.current);
-      }
+      document.body.style.userSelect = previousSelect;
+      document.body.style.touchAction = previousTouch;
     };
   }, []);
 
-  // Apply theme on mount and when currentTheme changes
-  useEffect(() => {
-    const resolvedTheme = currentTheme === 'system' ? getSystemTheme() : currentTheme;
-    applyTheme(resolvedTheme);
+  const {
+    images,
+    isLoading,
+    isUploading,
+    uploadTasks,
+    isSavingMetadata,
+    dirtyCount,
+    refresh,
+    uploadImages,
+    deleteImage,
+    updateMetadataDraft,
+    resetMetadataDraft,
+    saveMetadata,
+  } = useImages(authToken);
 
-    // Set the icon based on the resolved theme for client-side rendering
-    if (resolvedTheme === 'light') {
-      setResolvedThemeIcon('☀️');
-      setResolvedThemeName('light');
-    } else {
-      setResolvedThemeIcon('🌙');
-      setResolvedThemeName('dark');
-    }
-  }, [currentTheme]);
+  const galleryStats = useMemo(() => {
+    const totalSize = images.reduce((sum, image) => sum + (image.size || 0), 0);
+    return {
+      total: images.length,
+      totalSize,
+      formattedSize:
+        totalSize === 0
+          ? "0 B"
+          : (() => {
+              const units = ["B", "KB", "MB", "GB"];
+              const exponent = Math.min(Math.floor(Math.log(totalSize) / Math.log(1024)), units.length - 1);
+              const value = totalSize / Math.pow(1024, exponent);
+              return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[exponent]}`;
+            })(),
+    };
+  }, [images]);
 
-  // Listen for system theme changes if currentTheme is 'system'
-  useEffect(() => {
-    if (currentTheme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = () => applyTheme(getSystemTheme());
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
-    }
-  }, [currentTheme]);
-
-  // Save theme preference to localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('theme', currentTheme);
-    }
-  }, [currentTheme]);
-
-  const fetchImagesAndConfig = async () => {
-    try {
-      // Fetch images
-      const imagesResponse = await fetch("/api/images");
-      if (!imagesResponse.ok) throw new Error("Failed to load images.");
-      const imagesData = await imagesResponse.json();
-      setImages(imagesData.images || []);
-      setSelectedImages(new Set()); // Clear selection after refresh
-
-      // Fetch config (durations)
-      const configResponse = await fetch("/api/config", {
-        headers: {
-          "Authorization": `Bearer ${password}`,
-        },
-      });
-      if (!configResponse.ok) throw new Error("Failed to load duration settings.");
-      const configData = await configResponse.json();
-      setImageDurations(configData || {});
-
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      void fetchImagesAndConfig();
-    }
-  }, [isAuthenticated, password]); // Depend on password to ensure auth header is available
-
-  const performLogin = async (pwd: string, options?: { silent?: boolean; remember?: boolean }) => {
-    const { silent = false, remember = true } = options ?? {};
-    if (!silent) {
-      setIsLoading(true);
-      setError(null);
-    }
-
-    try {
-      const response = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: pwd }),
-      });
-
-      if (!response.ok) {
-        const errBody = await response.json();
-        throw new Error(errBody.error || "Incorrect password.");
-      }
-
-      setPassword(pwd);
-      setIsAuthenticated(true);
-      if (remember && typeof window !== 'undefined') {
-        window.sessionStorage.setItem('adminPassword', pwd);
-      }
-      return true;
-    } catch (err: any) {
-      if (!silent) {
-        setError(err.message);
-      }
-      setIsAuthenticated(false);
-      if (remember && typeof window !== 'undefined') {
-        window.sessionStorage.removeItem('adminPassword');
-      }
-      return false;
-    } finally {
-      if (!silent) {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  const handleLogin = async (e: FormEvent) => {
-    e.preventDefault();
-    void performLogin(password, { silent: false, remember: true });
-  };
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    const storedPassword = window.sessionStorage.getItem('adminPassword');
-    if (storedPassword) {
-      setPassword(storedPassword);
-      void performLogin(storedPassword, { silent: true, remember: true });
-    }
-  }, []);
-
-  const handleToggleSelect = (filename: string) => {
-    setSelectedImages((prev) => {
-      const newSelection = new Set(prev);
-      if (newSelection.has(filename)) {
-        newSelection.delete(filename);
+  const handleUpload = useCallback(
+    async (files: File[]) => {
+      const result = await uploadImages(files);
+      if (result.success) {
+        pushToast({ variant: "success", description: `${files.length} file${files.length > 1 ? "s" : ""} uploaded successfully.` });
       } else {
-        newSelection.add(filename);
+        pushToast({ variant: "error", description: "Some uploads failed. Check the status panel for details." });
       }
-      return newSelection;
-    });
-  };
+    },
+    [pushToast, uploadImages]
+  );
 
-  const uploadFiles = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) {
-      setError("Select at least one file to upload.");
-      return;
-    }
-
-    setIsLoading(true);
-    setIsUploading(true);
-    setUploadProgress(0);
-    setError(null);
-    
-    const formData = new FormData();
-    const totalFiles = fileList.length;
-    for (let index = 0; index < fileList.length; index += 1) {
-      formData.append("file", fileList[index]);
-    }
-
-    try {
-      // Use XMLHttpRequest for progress tracking
-      const result = await new Promise<any>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-
-        // Track upload progress
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            const percentComplete = Math.round((event.loaded / event.total) * 100);
-            setUploadProgress(percentComplete);
-          }
-        });
-
-        // Handle completion
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const response = JSON.parse(xhr.responseText);
-              resolve(response);
-            } catch (e) {
-              reject(new Error('Failed to parse response'));
-            }
-          } else {
-            try {
-              const errorResponse = JSON.parse(xhr.responseText);
-              reject(new Error(errorResponse.error || 'Upload failed'));
-            } catch (e) {
-              reject(new Error(`Upload failed with status ${xhr.status}`));
-            }
-          }
-        });
-
-        // Handle errors
-        xhr.addEventListener('error', () => {
-          reject(new Error('Network error occurred'));
-        });
-
-        xhr.addEventListener('abort', () => {
-          reject(new Error('Upload cancelled'));
-        });
-
-        // Open connection and send
-        xhr.open('POST', '/api/upload');
-        xhr.setRequestHeader('Authorization', `Bearer ${password}`);
-        xhr.send(formData);
-      });
-
-      handleFilesSelected(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+  const handleDelete = useCallback(
+    async (filename: string) => {
+      setIsDeleting(true);
+      try {
+        const success = await deleteImage([filename]);
+        if (success) {
+          pushToast({ variant: "success", description: `${filename} deleted.` });
+        } else {
+          pushToast({ variant: "error", description: `Failed to delete ${filename}.` });
+        }
+        return success;
+      } finally {
+        setIsDeleting(false);
       }
-      await fetchImagesAndConfig(); // Refresh list and config
-      const uploadedCount = Array.isArray(result.filenames) ? result.filenames.length : totalFiles;
-      const successMessage =
-        uploadedCount === 1 ? "Uploaded 1 image successfully." : `Uploaded ${uploadedCount} images successfully.`;
-      showToast(successMessage, "success");
-    } catch (err: any) {
-      setError(err.message);
-      showToast("Failed to upload files.", "error");
-    } finally {
-      setIsLoading(false);
-      setIsUploading(false);
-      setUploadProgress(0);
-    }
-  };
+    },
+    [deleteImage, pushToast]
+  );
 
-  const handleFilesSelected = (fileList: FileList | null) => {
-    if (fileList && fileList.length > 0) {
-      setFilesToUpload(fileList);
-      setError(null);
-      // langsung mulai upload setelah file dipilih
-      void uploadFiles(fileList);
+  const handleSaveMetadata = useCallback(async () => {
+    const success = await saveMetadata();
+    if (success) {
+      pushToast({ variant: "success", description: "Metadata saved successfully." });
     } else {
-      setFilesToUpload(null);
+      pushToast({ variant: "error", description: "Unable to save metadata." });
     }
-  };
+  }, [pushToast, saveMetadata]);
 
-  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!isDragActive) {
-      setIsDragActive(true);
-    }
-  };
-
-  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const currentTarget = event.currentTarget as Node;
-    const relatedTarget = event.relatedTarget as Node | null;
-    if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
-      setIsDragActive(false);
-    }
-  };
-
-  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setIsDragActive(false);
-    const droppedFiles = event.dataTransfer?.files ?? null;
-    if (droppedFiles && droppedFiles.length > 0) {
-      handleFilesSelected(droppedFiles);
-    }
-  };
-
-  const handleFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    handleFilesSelected(event.target.files);
-  };
-
-  const handleDeleteSelected = async () => {
-    if (selectedImages.size === 0) {
-      setError("Select at least one image to delete.");
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to delete ${selectedImages.size} selected images?`)) return;
-
-    setIsLoading(true);
-    setError(null);
-    const filenamesToDelete = Array.from(selectedImages);
+  const handleLogout = useCallback(async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
     try {
-      const response = await fetch("/api/upload", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${password}`,
-        },
-        body: JSON.stringify({ filenames: filenamesToDelete }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Failed to delete files.");
-      await fetchImagesAndConfig(); // Refresh list and config
-      setSelectedImages(new Set());
-      const deletedCount = Array.isArray(result.filenames) ? result.filenames.length : filenamesToDelete.length;
-      const successMessage =
-        deletedCount === 1 ? "Deleted 1 image." : `Deleted ${deletedCount} images.`;
-      showToast(successMessage, "success");
-    } catch (err: any) {
-      setError(err.message);
-      showToast("Failed to delete files.", "error");
+      const response = await fetch("/api/logout", { method: "POST" });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      sessionStorage.removeItem("admin-auth-token");
+      setAuthToken(null);
+      pushToast({ variant: "success", description: "Signed out." });
+      await router.replace("/login");
+    } catch (error) {
+      console.error("Failed to logout:", error);
+      pushToast({ variant: "error", description: "Unable to sign out." });
     } finally {
-      setIsLoading(false);
+      setIsLoggingOut(false);
     }
-  };
-
-  const handleDurationChange = (filename: string, value: string) => {
-    const seconds = parseInt(value, 10);
-    if (!isNaN(seconds) && seconds > 0) {
-      setImageDurations((prev) => ({
-        ...prev,
-        [filename]: seconds * MS_PER_SECOND,
-      }));
-    } else if (value === '') {
-      // Allow clearing the input
-      setImageDurations((prev) => {
-        const newDurations = { ...prev };
-        delete newDurations[filename];
-        return newDurations;
-      });
-    }
-  };
-
-  const handleSaveDurations = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/config", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${password}`,
-        },
-        body: JSON.stringify(imageDurations),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Failed to save durations.");
-      showToast("Durations saved successfully!", "success");
-    } catch (err: any) {
-      setError(err.message);
-      showToast("Failed to save durations.", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const toggleTheme = () => {
-    setCurrentTheme((prevTheme) => {
-      if (prevTheme === 'light') return 'dark';
-      if (prevTheme === 'dark') return 'system';
-      return 'light';
-    });
-  };
-
-  const nextThemeLabel =
-    currentTheme === 'light'
-      ? 'Dark'
-      : currentTheme === 'dark'
-        ? 'System'
-        : 'Light';
-
-  const toastStyle = toast
-    ? toast.variant === "success"
-      ? { ...styles.toast, ...styles.toastSuccess }
-      : { ...styles.toast, ...styles.toastError }
-    : null;
-  const toastIcon = toast?.variant === "success" ? "✅" : "⚠️";
+  }, [isLoggingOut, pushToast, router]);
 
   return (
-    <div style={styles.fullPageContainer}>
-      {toast && toastStyle && (
-        <div style={styles.toastWrapper}>
-          <div style={toastStyle}>
-            <span style={styles.toastIcon}>{toastIcon}</span>
-            <p style={styles.toastMessage}>{toast.message}</p>
-            <button
-              type="button"
-              style={styles.toastDismissButton}
-              onClick={dismissToast}
-              aria-label="Dismiss notification"
-            >
-              x
-            </button>
+    <div className="relative min-h-screen w-full bg-slate-950 text-white touch-auto select-text">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.25)_0,_transparent_55%)]"></div>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom,_rgba(14,165,233,0.2)_0,_transparent_60%)]"></div>
+      <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-10 px-6 py-12 sm:px-10 lg:px-12">
+        <header className="flex flex-col gap-6">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-medium tracking-[0.2em] text-white/60">Admin dashboard</span>
+            <h1 className="text-4xl font-semibold tracking-tight text-white">Slideshow Control Center</h1>
+            <p className="max-w-3xl text-sm text-white/60">
+              Manage your slideshow collection with a modern control panel: upload new images, fine-tune metadata, and monitor status in real time.
+            </p>
           </div>
-        </div>
-      )}
-      <div style={styles.surface}>
-        <div style={styles.headerBar}>
-          <div style={styles.headerContent}>
-            <h1 style={styles.title}>Admin Panel</h1>
-            <p style={styles.subtitle}>Keep your slideshow images organized and up to date.</p>
-          </div>
-          <button
-            onClick={toggleTheme}
-            style={styles.themeToggleButton}
-            title={`Switch to ${nextThemeLabel} theme`}
-            aria-label={`Switch to ${nextThemeLabel} theme`}
-          >
-            <span style={styles.themeToggleIcon}>{resolvedThemeIcon}</span>
-          </button>
-        </div>
-
-        {error && <div style={styles.error}>{error}</div>}
-
-        {!isAuthenticated ? (
-          <section style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <h2 style={styles.sectionTitle}>Sign In</h2>
-              <p style={styles.sectionSubtitle}>Use the admin password to access slideshow controls.</p>
-            </div>
-            <form onSubmit={handleLogin} style={styles.authForm}>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter admin password"
-                style={styles.passwordInput}
-              />
+          <div className="flex flex-wrap items-center gap-3 text-sm text-white/60">
+            <span className="rounded-full border border-white/20 bg-white/5 px-4 py-1.5 text-white/70">
+              {galleryStats.total} images
+            </span>
+            <span className="rounded-full border border-white/20 bg-white/5 px-4 py-1.5 text-white/70">
+              {galleryStats.formattedSize}
+            </span>
+            <div className="ml-auto flex items-center gap-3">
               <button
-                type="submit"
-                disabled={isLoading}
-                style={isLoading ? { ...styles.button, ...styles.buttonDisabled } : styles.button}
+                type="button"
+                onClick={() => refresh()}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:bg-white/10"
               >
-                {isLoading ? 'Signing in...' : 'Login'}
+                ↻ Refresh
               </button>
-            </form>
-          </section>
-        ) : (
-          <>
-            <section style={styles.section}>
-              <div style={styles.sectionHeader}>
-                <h2 style={styles.sectionTitle}>Upload Images</h2>
-                <p style={styles.sectionSubtitle}>Add new images to the slideshow lineup.</p>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isLoggingOut ? "Signing out…" : "Logout"}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <section className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="flex flex-col gap-8 lg:col-span-1">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-glass">
+              <h2 className="mb-4 text-lg font-semibold text-white">Upload images</h2>
+              <UploadBox isUploading={isUploading} uploadTasks={uploadTasks} onFilesSelected={handleUpload} />
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-glass">
+              <h2 className="text-lg font-semibold text-white">Metadata</h2>
+              <p className="mt-2 text-sm text-white/60">
+                Set a custom duration per slide and add captions that will be displayed on the slideshow screen.
+              </p>
+              <button
+                type="button"
+                onClick={handleSaveMetadata}
+                disabled={dirtyCount === 0 || isSavingMetadata}
+                className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-sky-500 via-sky-400 to-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/30 transition hover:shadow-sky-500/50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSavingMetadata ? "Saving…" : dirtyCount > 0 ? `Save ${dirtyCount} change${dirtyCount > 1 ? "s" : ""}` : "No pending changes"}
+              </button>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">Image Gallery</h2>
+              {isLoading && <span className="text-xs tracking-wide text-white/60">Loading…</span>}
+            </div>
+            {images.length === 0 ? (
+              <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-white/15 bg-white/5 text-center text-white/60">
+                <span className="text-2xl">🌌</span>
+                <p className="max-w-sm text-sm">No images uploaded yet. Start by adding files through the upload panel.</p>
               </div>
-              <div style={styles.uploadForm}>
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  style={isDragActive ? { ...styles.dropZone, ...styles.dropZoneActive } : styles.dropZone}
-                >
-                  <div style={styles.dropZoneIcon}>🖼️</div>
-                  <p style={styles.dropZoneHeadline}>Drag & drop images here</p>
-                  <p style={styles.dropZoneCaption}>or click to browse files</p>
-                  {filesToUpload && filesToUpload.length > 0 && (
-                    <p style={styles.dropZoneMeta}>
-                      {filesToUpload.length === 1
-                        ? filesToUpload[0]?.name
-                        : `${filesToUpload.length} files selected`}
-                    </p>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    id="file-input"
-                    type="file"
-                    accept="image/png, image/jpeg, image/gif, image/webp"
-                    multiple
-                    onChange={handleFileInputChange}
-                    style={{ display: 'none' }}
+            ) : (
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {images.map((image) => (
+                  <ImageCard
+                    key={image.name}
+                    image={image}
+                    onChange={updateMetadataDraft}
+                    onReset={resetMetadataDraft}
+                    onDelete={(filename) => setConfirmTarget(filename)}
                   />
-                </div>
-                
-                {/* Upload Progress Bar */}
-                {isUploading && (
-                  <div style={{ marginTop: '20px' }}>
-                    <div style={styles.progressBarContainer}>
-                      <div 
-                        style={{
-                          ...styles.progressBar,
-                          width: `${uploadProgress}%`
-                        }}
-                      />
-                    </div>
-                    <p style={styles.progressText}>
-                      Uploading... {uploadProgress}%
-                    </p>
-                  </div>
-                )}
+                ))}
               </div>
-            </section>
-
-            <section style={styles.section}>
-              <div style={styles.sectionHeader}>
-                <h2 style={styles.sectionTitle}>Image Library</h2>
-                <p style={styles.sectionSubtitle}>Adjust display duration or remove images you no longer need.</p>
-              </div>
-
-              {images.length > 0 ? (
-                <>
-                  <div style={styles.buttonRow}>
-                    <button
-                      onClick={handleDeleteSelected}
-                      disabled={isLoading || selectedImages.size === 0}
-                      style={isLoading || selectedImages.size === 0 ? { ...styles.button, ...styles.buttonDisabled } : { ...styles.button, ...styles.buttonDelete }}
-                    >
-                      {`Delete Selected (${selectedImages.size})`}
-                    </button>
-                    <button
-                      onClick={handleSaveDurations}
-                      disabled={isLoading}
-                      style={isLoading ? { ...styles.button, ...styles.buttonDisabled } : styles.button}
-                    >
-                      Save Durations
-                    </button>
-                  </div>
-
-                  <ul style={styles.fileList}>
-                    {images.map((image, index) => {
-                      const checkboxId = `image-checkbox-${index}`;
-                      const isSelected = selectedImages.has(image);
-                      const itemStyle = isSelected
-                        ? { ...styles.fileListItem, ...styles.fileListItemSelected }
-                        : styles.fileListItem;
-                      const infoRowStyle = isSelected
-                        ? { ...styles.fileInfoRow, ...styles.fileInfoRowSelected }
-                        : styles.fileInfoRow;
-
-                      return (
-                        <li key={image} style={itemStyle}>
-                          <label htmlFor={checkboxId} style={infoRowStyle}>
-                            <input
-                              id={checkboxId}
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleToggleSelect(image)}
-                              disabled={isLoading}
-                              style={styles.fileCheckbox}
-                            />
-                            <img src={`/api/image/${encodeURIComponent(image)}`} alt={image} style={styles.imagePreview} />
-                            <div style={styles.fileMeta}>
-                              <span style={styles.fileNameText}>{image}</span>
-                            </div>
-                          </label>
-                        <div style={styles.durationControl}>
-                          <span style={styles.durationLabel}>Display duration</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <input
-                              type="number"
-                              min="1"
-                              step="1"
-                              value={Math.round((imageDurations[image] ?? DEFAULT_SLIDE_DURATION_MS) / MS_PER_SECOND)}
-                              onChange={(e) => handleDurationChange(image, e.target.value)}
-                              style={styles.durationInput}
-                              disabled={isLoading}
-                            />
-                            <span>seconds</span>
-                          </div>
-                        </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </>
-              ) : (
-                <div style={styles.emptyState}>
-                  <p style={{ margin: 0, fontWeight: 600 }}>No images yet.</p>
-                  <p style={{ margin: 0 }}>Upload images to start building your slideshow.</p>
-                </div>
-              )}
-            </section>
-          </>
-        )}
+            )}
+          </div>
+        </section>
       </div>
+
+      <ConfirmModal
+        open={Boolean(confirmTarget)}
+        title="Delete this image?"
+        description={confirmTarget ? `Image ${confirmTarget} will be permanently removed from storage.` : ""}
+        onCancel={() => setConfirmTarget(null)}
+        isLoading={isDeleting}
+        onConfirm={async () => {
+          if (confirmTarget) {
+            const didDelete = await handleDelete(confirmTarget);
+            if (didDelete) {
+              setConfirmTarget(null);
+            }
+          }
+        }}
+      />
     </div>
   );
+};
+
+export default function AdminPage() {
+  return (
+    <ToastProvider>
+      <Head>
+        <title>Admin Dashboard · Slideshow</title>
+      </Head>
+      <AdminContent />
+    </ToastProvider>
+  );
 }
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  try {
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (!adminPassword) {
+      return {
+        redirect: { destination: "/login", permanent: false },
+      };
+    }
+
+    const expectedToken = getExpectedAdminToken(adminPassword);
+    const cookieName = getAdminAuthCookieName();
+    const cookieToken = context.req.cookies?.[cookieName];
+
+    if (!cookieToken || cookieToken !== expectedToken) {
+      return {
+        redirect: {
+          destination: "/login",
+          permanent: false,
+        },
+      };
+    }
+
+    return { props: {} };
+  } catch (error) {
+    console.error("Error checking admin auth:", error);
+    return {
+      redirect: {
+        destination: "/login",
+        permanent: false,
+      },
+    };
+  }
+};

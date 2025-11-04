@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 html, body, #__next {
   height: 100%;
   width: 100%;
@@ -17,6 +21,11 @@ body {
   transition: background-color 0.3s ease; /* Smooth theme transition */
   /* Keep screen active */
   touch-action: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-weight: 400;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Prevent all sleep/screensaver modes */
