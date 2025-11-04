@@ -72,13 +72,18 @@ export default async function handler(
     const supabaseServiceRole = getSupabaseServiceRoleClient();
 
     const metadataQuery = async () => {
+      console.log("[Admin Images] Querying table:", metadataTable);
+      
       const primary = await supabaseServiceRole
-        .from(metadataTable)
+        .from(metadataTable as 'image_durations')
         .select("filename, duration_ms, caption");
 
       console.log("[Admin Images] Metadata query result:", {
         error: primary.error?.message,
-        count: primary.data?.length || 0
+        errorCode: primary.error?.code,
+        errorDetails: primary.error?.details,
+        count: primary.data?.length || 0,
+        sample: primary.data?.[0]
       });
 
       if (!primary.error) {
@@ -94,7 +99,7 @@ export default async function handler(
       console.log("[Admin Images] Caption column not found, trying without caption");
 
       const fallback = await supabaseServiceRole
-        .from(metadataTable)
+        .from(metadataTable as 'image_durations')
         .select("filename, duration_ms");
 
       if (fallback.error) {
