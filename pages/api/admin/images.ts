@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
 import { isAuthorizedAdminRequest } from "../../../lib/auth";
-import { Database } from "../../../lib/database.types";
 
 type AdminImage = {
   name: string;
@@ -15,6 +14,17 @@ type AdminImage = {
 type Data =
   | { images: AdminImage[] }
   | { error: string };
+
+type ImageMetadata = {
+  filename: string;
+  duration_ms: number;
+  caption?: string;
+};
+
+type MetadataStore = {
+  images: Record<string, ImageMetadata>;
+  updated_at: string;
+};
 
 const IMAGE_EXTENSIONS = new Set([
   ".png",
@@ -35,6 +45,8 @@ const isImageFile = (filename: string) => {
   const extension = filename.slice(lastDot).toLowerCase();
   return IMAGE_EXTENSIONS.has(extension);
 };
+
+const METADATA_FILE = "metadata.json";
 
 export default async function handler(
   req: NextApiRequest,
@@ -62,95 +74,48 @@ export default async function handler(
     return res.status(500).json({ error: "Konfigurasi server salah: Supabase bucket tidak diatur." });
   }
 
-  if (!SUPABASE_DURATIONS_TABLE) {
-    console.error("SUPABASE_DURATIONS_TABLE is not set.");
-    return res.status(500).json({ error: "Konfigurasi server salah: Nama tabel durasi tidak diatur." });
-  }
-  const metadataTable = SUPABASE_DURATIONS_TABLE as keyof Database["public"]["Tables"];
-
   try {
     const supabaseServiceRole = getSupabaseServiceRoleClient();
 
-    const metadataQuery = async () => {
-      console.log("[Admin Images] Querying table:", metadataTable);
-      
-      const primary = await supabaseServiceRole
-        .from(metadataTable as 'image_durations')
-        .select("filename, duration_ms, caption");
+    // Load metadata from JSON file
+    const metadataMap = new Map<string, { duration_ms: number; caption: string | null }>();
+    
+    const { data: metadataFile } = await supabaseServiceRole.storage
+      .from(SUPABASE_STORAGE_BUCKET)
+      .download(METADATA_FILE);
 
-      console.log("[Admin Images] Metadata query result:", {
-        error: primary.error?.message,
-        errorCode: primary.error?.code,
-        errorDetails: primary.error?.details,
-        count: primary.data?.length || 0,
-        sample: primary.data?.[0]
-      });
-
-      if (!primary.error) {
-        return { data: primary.data ?? [], supportsCaption: true as const };
+    if (metadataFile) {
+      try {
+        const text = await metadataFile.text();
+        const metadata: MetadataStore = JSON.parse(text);
+        
+        Object.values(metadata.images).forEach((img) => {
+          metadataMap.set(img.filename, {
+            duration_ms: img.duration_ms,
+            caption: img.caption ?? null,
+          });
+        });
+        
+        console.log(`[Admin Images] Loaded ${metadataMap.size} metadata entries from JSON`);
+      } catch (err) {
+        console.error("[Admin Images] Failed to parse metadata.json:", err);
       }
-
-      const errorMessage = primary.error?.message?.toLowerCase() ?? "";
-      if (!errorMessage.includes("column") || !errorMessage.includes("caption")) {
-        console.error("[Admin Images] Metadata query failed:", primary.error);
-        throw primary.error;
-      }
-
-      console.log("[Admin Images] Caption column not found, trying without caption");
-
-      const fallback = await supabaseServiceRole
-        .from(metadataTable as 'image_durations')
-        .select("filename, duration_ms");
-
-      if (fallback.error) {
-        console.error("[Admin Images] Fallback query failed:", fallback.error);
-        throw fallback.error;
-      }
-
-      return {
-        data: (fallback.data ?? []).map((row: any) => ({ ...row, caption: null })),
-        supportsCaption: false as const,
-      };
-    };
-
-    const [{ data: fileList, error: storageError }, metadataResult] = await Promise.all([
-      supabaseServiceRole.storage
-        .from(SUPABASE_STORAGE_BUCKET)
-        .list("", { limit: 1000, sortBy: { column: "name", order: "asc" } }),
-      metadataQuery(),
-    ]);
-
-    const metadata = metadataResult.data;
-
-    console.log("[Admin Images] Metadata items found:", metadata.length);
-    if (metadata.length > 0) {
-      console.log("[Admin Images] Sample metadata:", metadata[0]);
+    } else {
+      console.log("[Admin Images] No metadata.json found");
     }
+
+    // List files from storage
+    const { data: fileList, error: storageError } = await supabaseServiceRole.storage
+      .from(SUPABASE_STORAGE_BUCKET)
+      .list("", { limit: 1000, sortBy: { column: "name", order: "asc" } });
 
     if (storageError) {
       console.error("Error listing files from Supabase Storage:", storageError);
       return res.status(500).json({ error: "Gagal membaca daftar file dari Supabase Storage." });
     }
 
-    const metadataMap = new Map<string, { duration_ms: number | null; caption: string | null }>();
-    (metadata ?? []).forEach((row: any) => {
-      let duration: number | null = null;
-      if (typeof row.duration_ms === "number") {
-        duration = row.duration_ms;
-      } else if (typeof row.duration_ms === "string") {
-        const parsed = Number(row.duration_ms);
-        duration = Number.isNaN(parsed) ? null : parsed;
-      }
-      metadataMap.set(row.filename, {
-        duration_ms: duration,
-        caption: row.caption ?? null
-      });
-    });
-
-    console.log("[Admin Images] Metadata map size:", metadataMap.size);
-
     const images: AdminImage[] = (fileList ?? [])
-      .filter((file) => file.name && file.name !== "" && file.id && isImageFile(file.name))
+      .filter((file) => file.name && file.name !== "" && file.id && file.name !== METADATA_FILE && isImageFile(file.name))
       .map((file) => {
         const metadataEntry = metadataMap.get(file.name) || null;
         const durationMs = metadataEntry?.duration_ms ?? null;

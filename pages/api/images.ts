@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getSupabaseServiceRoleClient } from "../../lib/supabase";
-import path from "path"; // Keep path for extension checking
+import path from "path";
 
 const IMAGE_EXTENSIONS = new Set([
   ".png",
@@ -13,73 +13,83 @@ const IMAGE_EXTENSIONS = new Set([
   ".avif"
 ]);
 
+const METADATA_FILE = "metadata.json";
+
+type ImageMetadata = {
+  filename: string;
+  duration_ms: number;
+  caption?: string;
+};
+
+type MetadataStore = {
+  images: Record<string, ImageMetadata>;
+  updated_at: string;
+};
+
 type Data =
   | { images: string[]; durations?: Record<string, number | null>; captions?: Record<string, string | null> }
   | { error: string };
 
 async function readImageList(): Promise<{ names: string[]; durations: Record<string, number | null>; captions: Record<string, string | null> }> {
   const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
-  const SUPABASE_DURATIONS_TABLE = process.env.SUPABASE_DURATIONS_TABLE;
 
   if (!SUPABASE_STORAGE_BUCKET) {
     throw new Error("SUPABASE_STORAGE_BUCKET is not set.");
   }
-  if (!SUPABASE_DURATIONS_TABLE) {
-    throw new Error("SUPABASE_DURATIONS_TABLE is not set.");
-  }
 
   const supabaseServiceRole = getSupabaseServiceRoleClient();
-  const [{ data, error }, { data: metadata, error: metadataError }] = await Promise.all([
-    supabaseServiceRole.storage
+  
+  // List files from storage
+  const { data, error } = await supabaseServiceRole.storage
     .from(SUPABASE_STORAGE_BUCKET)
     .list('', {
       limit: 1000,
       sortBy: { column: 'name', order: 'asc' },
-    }),
-    supabaseServiceRole
-      .from(SUPABASE_DURATIONS_TABLE as 'image_durations')
-      .select('filename, duration_ms, caption'),
-  ]);
-
-  console.log("[Images API] Metadata query result:", {
-    error: metadataError?.message,
-    count: metadata?.length || 0,
-    sample: metadata?.[0]
-  });
+    });
 
   if (error) {
     console.error("Error listing files from Supabase Storage:", error);
     throw new Error("Failed to list images from Supabase Storage.");
   }
-  if (metadataError) {
-    console.error("Error fetching metadata from Supabase:", metadataError);
-    throw new Error("Failed to fetch metadata from Supabase.");
-  }
 
+  // Load metadata from JSON file
   const durationMap: Record<string, number | null> = {};
   const captionMap: Record<string, string | null> = {};
-  (metadata ?? []).forEach((row) => {
-    let duration: number | null = null;
-    if (typeof row.duration_ms === "number") {
-      duration = row.duration_ms;
-    } else if (typeof row.duration_ms === "string") {
-      const parsed = Number(row.duration_ms);
-      duration = Number.isNaN(parsed) ? null : parsed;
+  
+  const { data: metadataFile } = await supabaseServiceRole.storage
+    .from(SUPABASE_STORAGE_BUCKET)
+    .download(METADATA_FILE);
+
+  if (metadataFile) {
+    try {
+      const text = await metadataFile.text();
+      const metadata: MetadataStore = JSON.parse(text);
+      
+      Object.values(metadata.images).forEach((img) => {
+        durationMap[img.filename] = img.duration_ms;
+        captionMap[img.filename] = img.caption ?? null;
+      });
+      
+      console.log(`[Images API] Loaded ${Object.keys(durationMap).length} metadata entries`);
+    } catch (err) {
+      console.error("[Images API] Failed to parse metadata.json:", err);
     }
-    durationMap[row.filename] = duration;
-    captionMap[row.filename] = row.caption ?? null;
-  });
+  } else {
+    console.log("[Images API] No metadata.json found");
+  }
 
   const names = data
     .filter((file) => {
-      // Supabase list() returns files and folders, filter for files
-      if (file.id === null) return false; // This indicates a folder
+      if (file.id === null) return false;
+      if (file.name === METADATA_FILE) return false;
 
       const extension = path.extname(file.name).toLowerCase();
       return IMAGE_EXTENSIONS.has(extension);
     })
     .map((file) => file.name)
     .sort((a, b) => a.localeCompare(b));
+
+  console.log(`[Images API] Returning ${names.length} images with ${Object.keys(durationMap).length} durations`);
 
   return { names, durations: durationMap, captions: captionMap };
 }

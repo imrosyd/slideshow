@@ -1,8 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
 import { isAuthorizedAdminRequest } from "../../../lib/auth";
-import { Database } from "../../../lib/database.types";
-import type { SupabaseClient } from "@supabase/supabase-js";
+
+type ImageMetadata = {
+  filename: string;
+  duration_ms: number;
+  caption?: string;
+};
+
+type MetadataStore = {
+  images: Record<string, ImageMetadata>;
+  updated_at: string;
+};
 
 type MetadataPayload = {
   filename: string;
@@ -10,331 +19,81 @@ type MetadataPayload = {
   caption?: string | null;
 };
 
-type Data =
-  | { metadata: MetadataPayload[] }
-  | { success: true }
-  | { error: string };
+const METADATA_FILE = "metadata.json";
 
-const normalizePayload = (payload: any): MetadataPayload[] => {
-  if (Array.isArray(payload)) {
-    return payload
-      .filter((item) => typeof item?.filename === "string")
-      .map((item) => ({
-        filename: item.filename,
-        durationMs:
-          typeof item.durationMs === "number"
-            ? item.durationMs
-            : typeof item.duration_ms === "number"
-              ? item.duration_ms
-              : null,
-        caption:
-          typeof item.caption === "string"
-            ? item.caption
-            : item.caption === null
-              ? null
-              : undefined,
-      }));
-  }
-
-  if (
-    payload &&
-    typeof payload === "object" &&
-    !Array.isArray(payload) &&
-    Object.keys(payload).length > 0
-  ) {
-    return Object.entries(payload).map(([filename, value]) => {
-      if (typeof value === "number") {
-        return { filename, durationMs: value, caption: undefined };
-      }
-      if (typeof value === "object" && value !== null) {
-        const duration =
-          typeof (value as any).durationMs === "number"
-            ? (value as any).durationMs
-            : typeof (value as any).duration_ms === "number"
-              ? (value as any).duration_ms
-              : typeof (value as any).duration === "number"
-                ? (value as any).duration
-                : null;
-        const caption =
-          typeof (value as any).caption === "string"
-            ? (value as any).caption
-            : undefined;
-        return { filename, durationMs: duration, caption };
-      }
-      return { filename, durationMs: null, caption: undefined };
-    });
-  }
-
-  return [];
-};
-
-type MetadataTableName = Extract<keyof Database["public"]["Tables"], string>;
-
-const upsertMetadata = async (
-  supabase: SupabaseClient<Database>,
-  tableName: string,
-  payloads: MetadataPayload[],
-  includeCaption: boolean
-) => {
-  if (!payloads.length) {
-    return { error: null };
-  }
-
-  // Default duration: 5 seconds (5000ms) if not specified
-  const DEFAULT_DURATION_MS = 5000;
-
-  const rows = payloads.map((item) => ({
-    filename: item.filename,
-    duration_ms: item.durationMs ?? DEFAULT_DURATION_MS,
-    ...(includeCaption ? { caption: item.caption ?? null } : {}),
-  }));
-
-  console.log("[Metadata] Upserting rows:", rows.length, "Sample:", rows[0]);
-
-  const result = await supabase
-    .from(tableName as 'image_durations')
-    .upsert(rows, { 
-      onConflict: "filename",
-      ignoreDuplicates: false 
-    });
-
-  if (result.error) {
-    console.error("[Metadata] Upsert error details:", {
-      message: result.error.message,
-      details: result.error.details,
-      hint: result.error.hint,
-      code: result.error.code
-    });
-  } else {
-    console.log("[Metadata] Upsert successful");
-  }
-
-  return result;
-};
-
-const clearMissingRows = async (
-  supabase: SupabaseClient<Database>,
-  tableName: string,
-  keepFilenames: string[]
-) => {
-  if (!keepFilenames.length) {
-    // Delete all rows by selecting all and deleting them
-    const { data: allRows } = await supabase
-      .from(tableName as 'image_durations')
-      .select('filename');
-    
-    if (allRows && allRows.length > 0) {
-      const allFilenames = allRows.map((row: any) => row.filename);
-      return supabase
-        .from(tableName as 'image_durations')
-        .delete()
-        .in('filename', allFilenames);
-    }
-    return { error: null };
-  }
-
-  const uniqueNames = Array.from(new Set(keepFilenames));
-
-  const escapedNames = uniqueNames.map((name) =>
-    `'${name.replace(/'/g, "''")}'`
-  );
-
-  const { error } = await supabase
-    .from(tableName as 'image_durations')
-    .delete()
-    .not("filename", "in", `(${escapedNames.join(",")})`);
-
-  return { error };
-};
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<Data>
-) {
-  const SUPABASE_DURATIONS_TABLE = process.env.SUPABASE_DURATIONS_TABLE;
-
-  if (!SUPABASE_DURATIONS_TABLE) {
-    console.error("SUPABASE_DURATIONS_TABLE is not set.");
-    return res.status(500).json({ error: "Konfigurasi server salah: Nama tabel durasi tidak diatur." });
-  }
-  const metadataTable = SUPABASE_DURATIONS_TABLE as MetadataTableName;
-
-  if (!process.env.ADMIN_PASSWORD) {
-    console.error("ADMIN_PASSWORD tidak diatur di environment variables.");
-    return res.status(500).json({ error: "Konfigurasi server salah: ADMIN_PASSWORD tidak diatur." });
-  }
-
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!isAuthorizedAdminRequest(req)) {
     return res.status(401).json({ error: "Akses ditolak." });
   }
 
-  const supabaseServiceRole = getSupabaseServiceRoleClient();
-
-  const detectCaptionSupport = async () => {
-    const probe = await supabaseServiceRole
-      .from(metadataTable as 'image_durations')
-      .select("filename, duration_ms, caption")
-      .limit(1);
-
-    if (!probe.error) {
-      return { supportsCaption: true as const, data: probe.data ?? [] };
-    }
-
-    const message = probe.error?.message?.toLowerCase() ?? "";
-    if (!message.includes("column") || !message.includes("caption")) {
-      throw probe.error;
-    }
-
-    const fallback = await supabaseServiceRole
-      .from(metadataTable as 'image_durations')
-      .select("filename, duration_ms")
-      .limit(1);
-
-    if (fallback.error) {
-      throw fallback.error;
-    }
-
-    return { supportsCaption: false as const, data: fallback.data ?? [] };
-  };
-
-  let cachedSupportsCaption: boolean | null = null;
-
-  const ensureSupportFlag = async () => {
-    if (cachedSupportsCaption !== null) return cachedSupportsCaption;
-    const result = await detectCaptionSupport();
-    cachedSupportsCaption = result.supportsCaption;
-    return cachedSupportsCaption;
-  };
-
-  if (req.method === "GET") {
-    let data: any[] = [];
-    let supportsCaption = false;
-    
-    const result = await supabaseServiceRole
-      .from(metadataTable as 'image_durations')
-      .select("filename, duration_ms, caption")
-      .order("filename", { ascending: true });
-    
-    if (!result.error) {
-      data = result.data ?? [];
-      supportsCaption = true;
-    } else {
-      const message = result.error?.message?.toLowerCase?.() ?? "";
-      if (message.includes("column") && message.includes("caption")) {
-        const fallback = await supabaseServiceRole
-          .from(metadataTable as 'image_durations')
-          .select("filename, duration_ms")
-          .order("filename", { ascending: true });
-        if (fallback.error) {
-          console.error("Error fetching metadata from Supabase:", fallback.error);
-          return res.status(500).json({ error: "Gagal membaca metadata dari Supabase." });
-        }
-        data = (fallback.data ?? []).map((row: any) => ({ ...row, caption: null }));
-        supportsCaption = false;
-        cachedSupportsCaption = supportsCaption;
-      } else {
-        console.error("Error fetching metadata from Supabase:", result.error);
-        return res.status(500).json({ error: "Gagal membaca metadata dari Supabase." });
-      }
-    }
-
-    const metadata = (data ?? []).map((item: any) => ({
-      filename: item.filename,
-      durationMs: item.duration_ms ?? null,
-      caption: supportsCaption ? item.caption ?? null : null,
-    }));
-
-    return res.status(200).json({ metadata });
+  const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
+  if (!SUPABASE_STORAGE_BUCKET) {
+    return res.status(500).json({ error: "Konfigurasi server salah." });
   }
 
-  if (req.method === "PUT" || req.method === "POST") {
+  const supabase = getSupabaseServiceRoleClient();
+
+  if (req.method === "PUT") {
     try {
-      const payloads = normalizePayload(req.body);
-      console.log("[Metadata] Received payloads:", payloads.length);
+      const payload = req.body as MetadataPayload[];
       
-      if (!payloads.length) {
-        return res.status(400).json({ error: "Payload metadata tidak valid." });
+      if (!Array.isArray(payload)) {
+        return res.status(400).json({ error: "Expected array of metadata" });
       }
 
-      const trimmedPayloads = payloads.map((item) => ({
-        ...item,
-        caption:
-          typeof item.caption === "string"
-            ? item.caption.trim().slice(0, 500)
-            : item.caption ?? null,
-      }));
+      console.log(`[Metadata] Saving metadata for ${payload.length} images`);
 
-      console.log("[Metadata] Trimmed payloads sample:", trimmedPayloads[0]);
+      let metadata: MetadataStore = { images: {}, updated_at: new Date().toISOString() };
+      
+      const { data: existingData } = await supabase.storage
+        .from(SUPABASE_STORAGE_BUCKET)
+        .download(METADATA_FILE);
 
-      const supportsCaption = await ensureSupportFlag().catch((err) => {
-        console.error("[Metadata] Error detecting caption support:", err);
-        return false;
+      if (existingData) {
+        try {
+          const text = await existingData.text();
+          metadata = JSON.parse(text);
+        } catch (err) {
+          console.log("[Metadata] Creating new metadata file");
+        }
+      }
+
+      payload.forEach(item => {
+        if (item.filename && typeof item.durationMs === 'number') {
+          metadata.images[item.filename] = {
+            filename: item.filename,
+            duration_ms: item.durationMs,
+            caption: item.caption || undefined,
+          };
+        }
       });
       
-      console.log("[Metadata] Caption support:", supportsCaption);
+      metadata.updated_at = new Date().toISOString();
 
-      const attemptUpsert = async (includeCaption: boolean) => {
-        console.log("[Metadata] Attempting upsert with caption:", includeCaption);
-        return upsertMetadata(
-          supabaseServiceRole,
-          metadataTable,
-          trimmedPayloads,
-          includeCaption
-        );
-      };
+      const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
+        type: "application/json",
+      });
 
-      let upsertError = null;
-      let includeCaption = supportsCaption;
-      
-      if (includeCaption) {
-        const result = await attemptUpsert(true);
-        upsertError = result.error;
-        if (upsertError) {
-          console.error("[Metadata] Upsert error with caption:", upsertError);
-          const message = upsertError.message?.toLowerCase() ?? "";
-          if (message.includes("column") && message.includes("caption")) {
-            console.log("[Metadata] Caption column not found, retrying without caption");
-            includeCaption = false;
-            cachedSupportsCaption = false;
-          } else {
-            console.error("[Metadata] Fatal upsert error:", upsertError);
-            return res.status(500).json({ error: `Gagal menyimpan metadata: ${upsertError.message}` });
-          }
-        } else {
-          console.log("[Metadata] Upsert successful with caption");
-        }
+      const { error: uploadError } = await supabase.storage
+        .from(SUPABASE_STORAGE_BUCKET)
+        .upload(METADATA_FILE, metadataBlob, {
+          upsert: true,
+          contentType: "application/json",
+        });
+
+      if (uploadError) {
+        console.error("[Metadata] Upload error:", uploadError);
+        return res.status(500).json({ error: "Failed to save metadata" });
       }
 
-      if (!includeCaption) {
-        const result = await attemptUpsert(false);
-        if (result.error) {
-          console.error("[Metadata] Upsert error without caption:", result.error);
-          return res.status(500).json({ error: `Gagal menyimpan metadata: ${result.error.message}` });
-        }
-        console.log("[Metadata] Upsert successful without caption");
-      }
-
-      const filenames = trimmedPayloads.map((item) => item.filename);
-      if (filenames.length) {
-        console.log("[Metadata] Cleaning up missing rows, keeping:", filenames.length);
-        const { error: cleanupError } = await clearMissingRows(
-          supabaseServiceRole,
-          metadataTable,
-          filenames
-        );
-        if (cleanupError) {
-          console.error("[Metadata] Cleanup error (non-fatal):", cleanupError);
-        }
-      }
-
-      console.log("[Metadata] Save completed successfully");
+      console.log(`[Metadata] Successfully saved ${Object.keys(metadata.images).length} entries`);
       return res.status(200).json({ success: true });
-    } catch (error: any) {
-      console.error("[Metadata] Unexpected error:", error);
-      return res.status(500).json({ error: `Error tidak terduga: ${error.message}` });
+
+    } catch (error) {
+      console.error("[Metadata] PUT error:", error);
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 
-  res.setHeader("Allow", ["GET", "PUT", "POST"]);
-  return res.status(405).json({ error: `Metode ${req.method} tidak diizinkan.` });
+  res.status(405).json({ error: "Method not allowed" });
 }
