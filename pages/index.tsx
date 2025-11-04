@@ -670,11 +670,14 @@ export default function Home() {
     };
   }, []);
 
-  // Keep screen awake - prevent screensaver on Smart TV
+  // Keep screen awake - prevent screensaver on Smart TV (especially LG)
   useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
     let wakeLock: any = null;
+    let noSleepVideo: HTMLVideoElement | null = null;
+    let activityInterval: NodeJS.Timeout | null = null;
+    let videoCheckInterval: NodeJS.Timeout | null = null;
 
     // 1. Wake Lock API (modern browsers and some Smart TVs)
     const requestWakeLock = async () => {
@@ -693,64 +696,133 @@ export default function Home() {
       }
     };
 
-    // 2. Prevent sleep with video element trick (works on many Smart TVs)
+    // 2. Advanced video element trick for LG TV (more aggressive)
     const createNoSleepVideo = () => {
       const video = document.createElement('video');
       video.setAttribute('loop', '');
       video.setAttribute('muted', '');
       video.setAttribute('playsinline', '');
-      video.style.position = 'absolute';
-      video.style.width = '1px';
-      video.style.height = '1px';
-      video.style.opacity = '0.01';
+      video.setAttribute('autoplay', '');
+      video.style.position = 'fixed';
+      video.style.width = '2px';
+      video.style.height = '2px';
+      video.style.opacity = '0.001';
       video.style.pointerEvents = 'none';
+      video.style.zIndex = '-9999';
+      video.style.bottom = '0';
+      video.style.right = '0';
       
-      // Minimal WebM video (1 second, black frame)
+      // Longer, more substantial video for LG TV (10 seconds loop)
+      // This is a proper WebM video that LG TV recognizes better
       const webmData = 'data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwH/////////FUmpZpkq17GDD0JATYCGQ2hyb21lV0GGQ2hyb21lFlSua7+uvdeBAXPFh1WGQ2hyb2lztLYBAAAAAAUKAAAAAAABAWVibWKHg/////91AA4GhgeBAJFhEACEgQFVsIRVuYEBElTrEAAAAAAAZp+BAAAAAAAq17GDD0JATYCGQ2hyb21lV0GGQ2hyb21lFlSua7+uvdeBAXPFhJFg////0kFRN0BGVP///////wAAAAADL/////qGgP////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGa1Eg3ERMiWjkBInAr+DIgeISLAqJ0SCBAULnBIQjNKAAAAAAAz4PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWc+2RuZJ2WPeTPdMjeqt7lOmR1XNubXeNeHcmutVQIJRBwIKJFsEJRQSCCdN9P+hETAdL4aDUAAAAAAAAADXXq87qWuK7KQ7oSoZowjmj7MV0V2Hud9FqLPjFWr+7I4AAAAA';
       
       video.src = webmData;
       document.body.appendChild(video);
       
       const playVideo = () => {
-        video.play().catch(() => {
-          // Retry on user interaction
-          document.addEventListener('click', () => video.play(), { once: true });
-        });
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('🎬 NoSleep video playing successfully for LG TV');
+            })
+            .catch((error) => {
+              console.warn('⚠️ NoSleep video play failed, retrying...', error);
+              // Retry after user interaction
+              const retryPlay = () => {
+                video.play();
+                document.removeEventListener('click', retryPlay);
+                document.removeEventListener('touchstart', retryPlay);
+              };
+              document.addEventListener('click', retryPlay, { once: true });
+              document.addEventListener('touchstart', retryPlay, { once: true });
+            });
+        }
       };
       
       playVideo();
+      
+      // Monitor video playback - restart if stopped (crucial for LG TV)
+      videoCheckInterval = setInterval(() => {
+        if (video.paused) {
+          console.log('🔄 Video paused, restarting for LG TV...');
+          playVideo();
+        }
+      }, 5000);
+      
       return video;
     };
 
-    // 3. Periodic activity simulation (fallback for older Smart TVs)
+    // 3. Aggressive activity simulation for LG TV
     const simulateActivity = () => {
-      // Trigger mousemove event to keep TV awake
-      const event = new MouseEvent('mousemove', {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-        clientX: Math.random() * window.innerWidth,
-        clientY: Math.random() * window.innerHeight,
+      // Multiple types of events to keep LG TV awake
+      const events = [
+        new MouseEvent('mousemove', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          clientX: Math.random() * window.innerWidth,
+          clientY: Math.random() * window.innerHeight,
+        }),
+        new TouchEvent('touchstart', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          touches: [] as any,
+        }),
+        new KeyboardEvent('keydown', {
+          bubbles: true,
+          cancelable: true,
+          key: 'Shift',
+        })
+      ];
+      
+      events.forEach(event => {
+        try {
+          document.dispatchEvent(event);
+        } catch (e) {
+          // Ignore errors
+        }
       });
-      document.dispatchEvent(event);
-      console.log('🖱️ Activity simulation triggered to keep TV awake');
+      
+      console.log('🖱️ Activity simulation triggered to keep LG TV awake');
     };
 
     // 4. Prevent visibility change sleep
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         requestWakeLock();
+        if (noSleepVideo && noSleepVideo.paused) {
+          noSleepVideo.play();
+        }
+      }
+    };
+
+    // 5. Force full screen mode (helps prevent LG TV timeout)
+    const requestFullscreen = () => {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(() => {});
+      } else if ((elem as any).webkitRequestFullscreen) {
+        (elem as any).webkitRequestFullscreen();
+      } else if ((elem as any).mozRequestFullScreen) {
+        (elem as any).mozRequestFullScreen();
+      } else if ((elem as any).msRequestFullscreen) {
+        (elem as any).msRequestFullscreen();
       }
     };
 
     // Initialize all methods
-    const noSleepVideo = createNoSleepVideo();
+    noSleepVideo = createNoSleepVideo();
     requestWakeLock();
     
-    // Simulate activity every 45 minutes (2700000 ms)
-    const activityInterval = setInterval(simulateActivity, 2700000);
+    // Try to enter fullscreen (helps with LG TV)
+    setTimeout(requestFullscreen, 2000);
     
-    // Re-request wake lock on visibility change
+    // More frequent activity simulation for LG TV (every 15 seconds instead of 45 min)
+    activityInterval = setInterval(simulateActivity, 15000);
+    
+    // Re-request wake lock and restart video on visibility change
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Cleanup
@@ -762,7 +834,12 @@ export default function Home() {
         noSleepVideo.pause();
         noSleepVideo.parentNode.removeChild(noSleepVideo);
       }
-      clearInterval(activityInterval);
+      if (activityInterval) {
+        clearInterval(activityInterval);
+      }
+      if (videoCheckInterval) {
+        clearInterval(videoCheckInterval);
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
