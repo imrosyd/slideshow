@@ -1107,10 +1107,6 @@ export default function Home() {
             </button>
           </div>
 
-          <div style={styles.slideInfo}>
-            Slide {currentIndex + 1} of {slides.length} • {currentSlide?.name} • {currentSlide?.durationSeconds}s
-          </div>
-
           {/* Transition selector */}
           <div style={styles.controlsRow}>
             <span style={{ fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.9)', fontWeight: 500, marginRight: '4px' }}>Transition:</span>
