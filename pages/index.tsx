@@ -286,6 +286,10 @@ export default function Home() {
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Analytics tracking
+  const slideStartTimeRef = useRef<number>(Date.now());
+  const [analytics, setAnalytics] = useState<Record<string, { viewCount: number; totalViewTime: number; lastViewed: number }>>({});
 
   useEffect(() => {
     slidesRef.current = slides;
@@ -294,6 +298,50 @@ export default function Home() {
   useEffect(() => {
     indexRef.current = currentIndex;
   }, [currentIndex]);
+
+  // Track analytics when slide changes
+  useEffect(() => {
+    if (!slides[currentIndex]) return;
+
+    const currentSlide = slides[currentIndex];
+    const now = Date.now();
+    
+    // Calculate viewing time for previous slide
+    const viewTime = now - slideStartTimeRef.current;
+    const prevSlide = slides[currentIndex === 0 ? slides.length - 1 : currentIndex - 1];
+    
+    if (prevSlide && viewTime > 0 && viewTime < 300000) { // Only track if less than 5 minutes (prevents tracking during pauses)
+      setAnalytics(prev => {
+        const existing = prev[prevSlide.name] || { viewCount: 0, totalViewTime: 0, lastViewed: 0 };
+        return {
+          ...prev,
+          [prevSlide.name]: {
+            viewCount: existing.viewCount + 1,
+            totalViewTime: existing.totalViewTime + viewTime,
+            lastViewed: now,
+          }
+        };
+      });
+    }
+    
+    // Reset timer for new slide
+    slideStartTimeRef.current = now;
+  }, [currentIndex, slides]);
+
+  // Save analytics to API periodically
+  useEffect(() => {
+    const saveInterval = setInterval(() => {
+      if (Object.keys(analytics).length > 0) {
+        fetch('/api/analytics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ analytics }),
+        }).catch(err => console.error('Failed to save analytics:', err));
+      }
+    }, 30000); // Save every 30 seconds
+
+    return () => clearInterval(saveInterval);
+  }, [analytics]);
 
   // Fetch slides from API (reusable function)
   const fetchSlides = useCallback(async (isAutoRefresh = false) => {

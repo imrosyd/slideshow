@@ -62,6 +62,10 @@ const AdminContent = () => {
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
   const [bulkDuration, setBulkDuration] = useState("");
   const [showBulkActions, setShowBulkActions] = useState(false);
+  
+  // Analytics
+  const [analytics, setAnalytics] = useState<Record<string, { viewCount: number; totalViewTime: number; lastViewed: number }>>({});
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const galleryStats = useMemo(() => {
     const totalSize = images.reduce((sum, image) => sum + (image.size || 0), 0);
@@ -79,6 +83,47 @@ const AdminContent = () => {
             })(),
     };
   }, [images]);
+
+  // Fetch analytics data
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      const response = await fetch("/api/analytics");
+      if (response.ok) {
+        const data = await response.json();
+        setAnalytics(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch analytics:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (authToken) {
+      fetchAnalytics();
+      // Refresh analytics every 30 seconds
+      const interval = setInterval(fetchAnalytics, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [authToken, fetchAnalytics]);
+
+  const resetAnalytics = useCallback(async () => {
+    if (!confirm("Are you sure you want to reset all analytics data? This cannot be undone.")) {
+      return;
+    }
+    
+    try {
+      const response = await fetch("/api/analytics", { method: "DELETE" });
+      if (response.ok) {
+        setAnalytics({});
+        pushToast({ variant: "success", description: "Analytics data reset successfully" });
+      } else {
+        throw new Error("Failed to reset");
+      }
+    } catch (error) {
+      console.error("Failed to reset analytics:", error);
+      pushToast({ variant: "error", description: "Failed to reset analytics" });
+    }
+  }, [pushToast]);
 
   const handleUpload = useCallback(
     async (files: File[]) => {
@@ -511,6 +556,89 @@ const AdminContent = () => {
                   <span className="font-semibold text-white">{galleryStats.formattedSize}</span>
                 </div>
               </div>
+            </div>
+
+            {/* Analytics section */}
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-white/90">Analytics</h3>
+                <button
+                  onClick={() => setShowAnalytics(!showAnalytics)}
+                  className="text-xs text-white/60 hover:text-white underline"
+                >
+                  {showAnalytics ? "Hide" : "Show"}
+                </button>
+              </div>
+              
+              {showAnalytics ? (
+                <div className="space-y-4">
+                  {/* Analytics summary */}
+                  <div className="rounded-lg border border-sky-400/20 bg-sky-500/5 p-3">
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-white/60">Total Views</span>
+                        <span className="font-semibold text-sky-200">
+                          {Object.values(analytics).reduce((sum, a) => sum + a.viewCount, 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-white/60">Total Watch Time</span>
+                        <span className="font-semibold text-sky-200">
+                          {(() => {
+                            const totalMs = Object.values(analytics).reduce((sum, a) => sum + a.totalViewTime, 0);
+                            const hours = Math.floor(totalMs / 3600000);
+                            const minutes = Math.floor((totalMs % 3600000) / 60000);
+                            return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                          })()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-white/60">Tracked Images</span>
+                        <span className="font-semibold text-sky-200">
+                          {Object.keys(analytics).length}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Top images */}
+                  {Object.keys(analytics).length > 0 && (
+                    <div>
+                      <h4 className="mb-2 text-xs font-medium text-white/70">Most Viewed</h4>
+                      <div className="space-y-2">
+                        {Object.entries(analytics)
+                          .sort(([, a], [, b]) => b.viewCount - a.viewCount)
+                          .slice(0, 5)
+                          .map(([name, data]) => (
+                            <div key={name} className="flex items-center justify-between rounded border border-white/10 bg-white/5 px-3 py-2">
+                              <span className="truncate text-xs text-white/80" title={name}>
+                                {name.length > 20 ? `${name.slice(0, 20)}...` : name}
+                              </span>
+                              <div className="flex gap-3 text-xs">
+                                <span className="text-white/60">{data.viewCount}×</span>
+                                <span className="text-white/40">
+                                  {Math.round(data.totalViewTime / 60000)}m
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Reset button */}
+                  <button
+                    onClick={resetAnalytics}
+                    className="w-full rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/20"
+                  >
+                    Reset Analytics
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center text-xs text-white/40">
+                  Click &quot;Show&quot; to view analytics
+                </div>
+              )}
             </div>
           </aside>
 
