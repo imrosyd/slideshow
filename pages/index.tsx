@@ -732,6 +732,65 @@ export default function Home() {
     };
   }, []);
 
+  // Listen for remote control commands
+  useEffect(() => {
+    const remoteChannel = supabase
+      .channel('remote-control')
+      .on('broadcast', { event: 'remote-command' }, (payload) => {
+        console.log('📱 Remote command received:', payload);
+        const { command, data } = payload.payload || {};
+        
+        switch (command) {
+          case 'previous':
+            goToPreviousSlide();
+            break;
+          case 'next':
+            goToNextSlide();
+            break;
+          case 'toggle-pause':
+            setIsPaused(prev => !prev);
+            break;
+          case 'goto':
+            if (data?.index !== undefined) {
+              goToSlide(data.index);
+            }
+            break;
+        }
+      })
+      .on('broadcast', { event: 'request-status' }, () => {
+        // Send current status to remote
+        console.log('📡 Sending status to remote');
+        remoteChannel.send({
+          type: 'broadcast',
+          event: 'slideshow-status',
+          payload: {
+            total: slides.length,
+            current: currentIndex,
+            paused: isPaused,
+          }
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(remoteChannel);
+    };
+  }, [slides.length, currentIndex, isPaused, goToNextSlide, goToPreviousSlide, goToSlide]);
+
+  // Broadcast status updates
+  useEffect(() => {
+    const remoteChannel = supabase.channel('remote-control');
+    remoteChannel.send({
+      type: 'broadcast',
+      event: 'slideshow-status',
+      payload: {
+        total: slides.length,
+        current: currentIndex,
+        paused: isPaused,
+      }
+    });
+  }, [slides.length, currentIndex, isPaused]);
+
   // Keep screen awake - prevent screensaver on Smart TV (especially LG)
   useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
