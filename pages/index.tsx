@@ -305,31 +305,34 @@ export default function Home() {
 
   // Track analytics when slide changes
   useEffect(() => {
-    if (!slides[currentIndex]) return;
-
-    const currentSlide = slides[currentIndex];
-    const now = Date.now();
+    if (slides.length === 0) return;
     
-    // Calculate viewing time for previous slide
-    const viewTime = now - slideStartTimeRef.current;
-    const prevSlide = slides[currentIndex === 0 ? slides.length - 1 : currentIndex - 1];
+    // Only track if we actually changed slides (not initial load)
+    const prevIndex = currentIndex === 0 ? slides.length - 1 : currentIndex - 1;
+    const prevSlide = slides[prevIndex];
     
-    if (prevSlide && viewTime > 0 && viewTime < 300000) { // Only track if less than 5 minutes (prevents tracking during pauses)
-      setAnalytics(prev => {
-        const existing = prev[prevSlide.name] || { viewCount: 0, totalViewTime: 0, lastViewed: 0 };
-        return {
-          ...prev,
-          [prevSlide.name]: {
-            viewCount: existing.viewCount + 1,
-            totalViewTime: existing.totalViewTime + viewTime,
-            lastViewed: now,
-          }
-        };
-      });
+    if (prevSlide && slideStartTimeRef.current > 0) {
+      const now = Date.now();
+      const viewTime = now - slideStartTimeRef.current;
+      
+      // Only track if viewing time is reasonable (between 1 second and 5 minutes)
+      if (viewTime > 1000 && viewTime < 300000) {
+        setAnalytics(prev => {
+          const existing = prev[prevSlide.name] || { viewCount: 0, totalViewTime: 0, lastViewed: 0 };
+          return {
+            ...prev,
+            [prevSlide.name]: {
+              viewCount: existing.viewCount + 1,
+              totalViewTime: existing.totalViewTime + viewTime,
+              lastViewed: now,
+            }
+          };
+        });
+      }
     }
     
     // Reset timer for new slide
-    slideStartTimeRef.current = now;
+    slideStartTimeRef.current = Date.now();
   }, [currentIndex, slides]);
 
   // Save analytics to API periodically
@@ -618,6 +621,20 @@ export default function Home() {
       }, FADE_DURATION_MS / 2);
     }
   }, [slides.length]);
+
+  // Save transition effect to settings
+  const saveTransitionEffect = useCallback(async (effect: TransitionEffect) => {
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transitionEffect: effect }),
+      });
+      setTransitionEffect(effect);
+    } catch (error) {
+      console.error('Failed to save transition effect:', error);
+    }
+  }, []);
 
   const goToNextSlide = useCallback(() => {
     const nextIndex = (currentIndex + 1) % slides.length;
@@ -1138,7 +1155,7 @@ export default function Home() {
             {(['fade', 'slide', 'zoom', 'none'] as TransitionEffect[]).map((effect) => (
               <button
                 key={effect}
-                onClick={() => setTransitionEffect(effect)}
+                onClick={() => saveTransitionEffect(effect)}
                 style={{
                   ...styles.controlButton,
                   padding: '6px 12px',
