@@ -10,6 +10,9 @@ const AUTO_REFRESH_INTERVAL_MS = 60_000; // Check for new images every 60 second
 type Language = "en" | "ko" | "id";
 const LANGUAGE_SEQUENCE: Language[] = ["en", "ko", "id"];
 
+type TransitionEffect = "fade" | "slide" | "zoom" | "none";
+const DEFAULT_TRANSITION: TransitionEffect = "fade";
+
 const translations = {
   loading: {
     en: "Loading images…",
@@ -283,6 +286,7 @@ export default function Home() {
   const [fadeIn, setFadeIn] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [showControls, setShowControls] = useState(false);
+  const [transitionEffect, setTransitionEffect] = useState<TransitionEffect>(DEFAULT_TRANSITION);
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -486,6 +490,16 @@ export default function Home() {
   // Initial fetch on mount
   useEffect(() => {
     fetchSlides(false);
+    
+    // Load transition effect from settings
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data.transitionEffect) {
+          setTransitionEffect(data.transitionEffect);
+        }
+      })
+      .catch(err => console.error('Failed to load settings:', err));
   }, [fetchSlides]);
 
   // Auto-refresh: Check for new images periodically
@@ -935,17 +949,52 @@ export default function Home() {
   // Display current slide
   const currentSlide = slides[currentIndex];
 
+  // Get transition styles based on selected effect
+  const getTransitionStyle = (): CSSProperties => {
+    const baseStyle: CSSProperties = {
+      ...styles.imageWrapper,
+      transition: `all ${FADE_DURATION_MS}ms ease-in-out`,
+    };
+
+    switch (transitionEffect) {
+      case "fade":
+        return {
+          ...baseStyle,
+          opacity: fadeIn ? 1 : 0,
+        };
+      case "slide":
+        return {
+          ...baseStyle,
+          opacity: 1,
+          transform: fadeIn ? "translateX(0)" : "translateX(100%)",
+        };
+      case "zoom":
+        return {
+          ...baseStyle,
+          opacity: fadeIn ? 1 : 0,
+          transform: fadeIn ? "scale(1)" : "scale(0.8)",
+        };
+      case "none":
+        return {
+          ...baseStyle,
+          opacity: 1,
+          transition: "none",
+        };
+      default:
+        return {
+          ...baseStyle,
+          opacity: fadeIn ? 1 : 0,
+        };
+    }
+  };
+
   return (
     <main style={styles.container}>
       <Head>
         <title>Slideshow</title>
       </Head>
       <div 
-        style={{
-          ...styles.imageWrapper,
-          opacity: fadeIn ? 1 : 0,
-          transition: `opacity ${FADE_DURATION_MS}ms ease-in-out`,
-        }}
+        style={getTransitionStyle()}
       >
         {currentSlide && (
           <img
@@ -1022,6 +1071,40 @@ export default function Home() {
 
           <div style={styles.slideInfo}>
             Slide {currentIndex + 1} of {slides.length} • {currentSlide?.name} • {currentSlide?.durationSeconds}s
+          </div>
+
+          {/* Transition selector */}
+          <div style={styles.controlsRow}>
+            <span style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.7)' }}>Transition:</span>
+            {(['fade', 'slide', 'zoom', 'none'] as TransitionEffect[]).map((effect) => (
+              <button
+                key={effect}
+                onClick={() => setTransitionEffect(effect)}
+                style={{
+                  ...styles.controlButton,
+                  padding: '6px 12px',
+                  fontSize: '0.8rem',
+                  backgroundColor: transitionEffect === effect 
+                    ? "rgba(96, 165, 250, 0.3)" 
+                    : "rgba(255, 255, 255, 0.1)",
+                  borderColor: transitionEffect === effect
+                    ? "rgba(96, 165, 250, 0.5)"
+                    : "rgba(255, 255, 255, 0.2)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = transitionEffect === effect
+                    ? "rgba(96, 165, 250, 0.4)"
+                    : "rgba(255, 255, 255, 0.2)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = transitionEffect === effect
+                    ? "rgba(96, 165, 250, 0.3)"
+                    : "rgba(255, 255, 255, 0.1)";
+                }}
+              >
+                {effect.charAt(0).toUpperCase() + effect.slice(1)}
+              </button>
+            ))}
           </div>
 
           {/* Thumbnail grid */}
