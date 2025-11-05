@@ -53,8 +53,7 @@ Aplikasi slideshow modern berbasis Next.js dengan panel admin profesional untuk 
 - **Responsive remote control page** untuk mengontrol slideshow dari device lain
 - **Real-time sync** via Supabase Realtime broadcast
 - **Playback controls**: Play/Pause, Previous, Next, First, Last
-- **Quick jump** ke slide tertentu (hingga 20 slides pertama)
-- **Transition effect selector** untuk mengubah efek transisi
+- **Quick jump** ke slide tertentu
 - **Connection status indicator** dengan live update
 - **Touch-optimized UI** dengan large buttons
 

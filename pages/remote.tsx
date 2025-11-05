@@ -93,9 +93,6 @@ export default function RemoteControl() {
           <h1 className="mb-3 text-4xl font-bold tracking-tight sm:text-5xl">
             Slideshow Control
           </h1>
-          <p className="text-lg text-white/60">
-            Professional remote control interface
-          </p>
         </div>
 
         {!isConnected && (
