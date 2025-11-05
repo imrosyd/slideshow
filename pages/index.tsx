@@ -776,20 +776,69 @@ export default function Home() {
     });
   }, [slides.length, currentIndex, isPaused]);
 
-  // Keep screen awake and auto-reload for LG TV - every 30 minutes
+  // Keep screen awake and auto-reload for LG TV - aggressive multi-method approach
   useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
     let wakeLock: any = null;
     let activityInterval: NodeJS.Timeout | null = null;
     let reloadInterval: NodeJS.Timeout | null = null;
+    let keepAliveInterval: NodeJS.Timeout | null = null;
+    let hiddenVideoInterval: NodeJS.Timeout | null = null;
+    let hiddenVideo: HTMLVideoElement | null = null;
 
     // Detect webOS browser
     const isWebOS = /webOS|hpwOS/.test(navigator.userAgent);
     
     if (isWebOS) {
-      console.log('📺 webOS browser detected - activating webOS-specific keep-awake');
+      console.log('📺 webOS browser detected - activating aggressive webOS keep-awake');
+    } else {
+      console.log('🔋 LG TV keep-awake system activated (non-webOS mode)');
     }
+
+    // 0. Create hidden video for continuous playback (tricks OS into staying awake)
+    const createHiddenVideo = () => {
+      try {
+        hiddenVideo = document.createElement('video');
+        hiddenVideo.style.display = 'none';
+        hiddenVideo.style.visibility = 'hidden';
+        hiddenVideo.style.position = 'fixed';
+        hiddenVideo.style.top = '-9999px';
+        
+        // Create a silent video blob
+        const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(0, 0, 1, 1);
+        }
+        
+        canvas.toBlob((blob) => {
+          if (blob && hiddenVideo) {
+            const url = URL.createObjectURL(blob);
+            hiddenVideo.src = url;
+            hiddenVideo.loop = true;
+            hiddenVideo.muted = true;
+            hiddenVideo.volume = 0;
+            
+            // Try to play the video
+            const playPromise = hiddenVideo.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(() => {
+                console.log('⚠️ Hidden video autoplay blocked');
+              });
+            }
+            console.log('🎬 Hidden video created for keep-awake');
+          }
+        });
+        
+        document.body.appendChild(hiddenVideo);
+      } catch (e) {
+        console.log('⚠️ Could not create hidden video');
+      }
+    };
 
     // 1. Wake Lock API (modern browsers and some Smart TVs)
     const requestWakeLock = async () => {
@@ -813,10 +862,10 @@ export default function Home() {
       try {
         // Try webOS specific API if available
         if ((window as any).webOS && (window as any).webOS.service) {
-          const bridge = (window as any).webOS.service.request('luna://com.palm.powermanager/', {
+          (window as any).webOS.service.request('luna://com.palm.powermanager/', {
             method: 'activityStart',
             parameters: {
-              id: 'slideshow-app',
+              id: 'slideshow-display-app',
               reason: 'Display slideshow content'
             },
             onSuccess: () => {
@@ -826,9 +875,6 @@ export default function Home() {
               console.log('⚠️ webOS activity start failed');
             }
           });
-        } else if ((window as any).webOS && (window as any).webOS.platformBack) {
-          // Alternative: use webOS keyboard API
-          console.log('📺 webOS detected but using alternative keep-awake method');
         }
       } catch (e) {
         // Silently ignore
@@ -856,6 +902,17 @@ export default function Home() {
           bubbles: true,
           cancelable: true,
           key: 'Shift',
+        }),
+        new KeyboardEvent('keyup', {
+          bubbles: true,
+          cancelable: true,
+          key: 'Shift',
+        }),
+        new PointerEvent('pointermove', {
+          bubbles: true,
+          cancelable: true,
+          clientX: Math.random() * window.innerWidth,
+          clientY: Math.random() * window.innerHeight,
         })
       ];
       
@@ -872,13 +929,14 @@ export default function Home() {
         webOSKeepAwake();
       }
       
-      console.log('🖱️ Activity simulation triggered to keep LG TV awake');
+      console.log('🖱️ Activity simulation triggered');
     };
 
     // 4. Prevent visibility change sleep
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         requestWakeLock();
+        simulateActivity();
         if (isWebOS) {
           webOSKeepAwake();
         }
@@ -887,43 +945,82 @@ export default function Home() {
 
     // 5. Force full screen mode (helps prevent LG TV timeout)
     const requestFullscreen = () => {
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) {
-        elem.requestFullscreen().catch(() => {});
-      } else if ((elem as any).webkitRequestFullscreen) {
-        (elem as any).webkitRequestFullscreen();
-      } else if ((elem as any).mozRequestFullScreen) {
-        (elem as any).mozRequestFullScreen();
-      } else if ((elem as any).msRequestFullscreen) {
-        (elem as any).msRequestFullscreen();
+      try {
+        const elem = document.documentElement;
+        if (elem.requestFullscreen && document.fullscreenElement === null) {
+          elem.requestFullscreen().catch(() => {});
+        } else if ((elem as any).webkitRequestFullscreen && !(document as any).webkitFullscreenElement) {
+          (elem as any).webkitRequestFullscreen();
+        } else if ((elem as any).mozRequestFullScreen && !(document as any).mozFullScreenElement) {
+          (elem as any).mozRequestFullScreen();
+        } else if ((elem as any).msRequestFullscreen && !(document as any).msFullscreenElement) {
+          (elem as any).msRequestFullscreen();
+        }
+      } catch (e) {
+        console.log('⚠️ Fullscreen request failed');
       }
     };
 
-    // Initialize all methods
+    // 6. Aggressive continuous keep-alive (every 5 minutes)
+    const continuousKeepAlive = () => {
+      simulateActivity();
+      requestWakeLock();
+      if (isWebOS) {
+        webOSKeepAwake();
+      }
+      console.log('⚡ Continuous keep-alive trigger');
+    };
+
+    // Initialize all methods on startup
     requestWakeLock();
+    createHiddenVideo();
     
-    // Try to enter fullscreen (helps with LG TV)
+    // Try to enter fullscreen immediately
     setTimeout(requestFullscreen, 2000);
     
     // webOS keep-awake on startup
     if (isWebOS) {
       setTimeout(webOSKeepAwake, 1000);
+      setTimeout(webOSKeepAwake, 5000);
     }
     
-    // Activity simulation every 25 minutes
+    // Aggressive continuous keep-alive every 5 minutes
+    keepAliveInterval = setInterval(() => {
+      continuousKeepAlive();
+    }, 5 * 60 * 1000); // Every 5 minutes
+    
+    // Activity simulation every 15 minutes (more frequent)
     activityInterval = setInterval(() => {
       simulateActivity();
-      console.log('⏰ 25-minute activity trigger');
-    }, 25 * 60 * 1000); // 25 minutes
+      console.log('⏰ 15-minute activity trigger');
+    }, 15 * 60 * 1000); // 15 minutes
     
-    // Auto-reload every 25 minutes to keep TV awake
+    // Auto-reload every 20 minutes to keep TV awake (more aggressive)
     reloadInterval = setInterval(() => {
-      console.log('🔄 Auto-reloading page to keep LG TV awake (25 min)');
+      console.log('🔄 Auto-reloading page to keep LG TV awake (20 min)');
       window.location.reload();
-    }, 25 * 60 * 1000); // 25 minutes
+    }, 20 * 60 * 1000); // 20 minutes
+    
+    // Retry fullscreen every 10 minutes
+    hiddenVideoInterval = setInterval(() => {
+      requestFullscreen();
+      if (isWebOS) {
+        webOSKeepAwake();
+      }
+    }, 10 * 60 * 1000); // Every 10 minutes
     
     // Re-request wake lock on visibility change
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Also trigger on user interaction
+    const triggerOnInteraction = () => {
+      requestWakeLock();
+      simulateActivity();
+    };
+    
+    document.addEventListener('click', triggerOnInteraction, { once: true });
+    document.addEventListener('keydown', triggerOnInteraction, { once: true });
+    document.addEventListener('touchstart', triggerOnInteraction, { once: true });
 
     // Cleanup
     return () => {
@@ -936,7 +1033,19 @@ export default function Home() {
       if (reloadInterval) {
         clearInterval(reloadInterval);
       }
+      if (keepAliveInterval) {
+        clearInterval(keepAliveInterval);
+      }
+      if (hiddenVideoInterval) {
+        clearInterval(hiddenVideoInterval);
+      }
+      if (hiddenVideo && hiddenVideo.parentNode) {
+        hiddenVideo.parentNode.removeChild(hiddenVideo);
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('click', triggerOnInteraction);
+      document.removeEventListener('keydown', triggerOnInteraction);
+      document.removeEventListener('touchstart', triggerOnInteraction);
     };
   }, []);
 

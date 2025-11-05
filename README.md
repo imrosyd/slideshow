@@ -34,9 +34,12 @@ Aplikasi slideshow modern berbasis Next.js dengan panel admin profesional untuk 
 - **Multi-language** dengan auto-rotate (English, Korean, Indonesian)
 - **LG TV optimization**:
   - Wake Lock API untuk mencegah sleep mode
-  - webOS browser keep-awake triggers
-  - Activity simulation setiap 25 menit
-  - Auto-reload setiap 25 menit
+  - webOS browser keep-awake triggers (Luna Service API)
+  - Hidden video playback untuk trick OS
+  - Activity simulation setiap 15 menit
+  - Continuous keep-alive setiap 5 menit
+  - Auto-reload setiap 20 menit
+  - Fullscreen mode retry setiap 10 menit
   - Fullscreen mode auto-request
 
 ### 🎮 Kontrol Slideshow
@@ -678,26 +681,33 @@ Setelah deploy berhasil, Anda akan mendapatkan 3 URL:
 
 ### webOS Browser Support
 
-Aplikasi ini memiliki dukungan khusus untuk browser webOS di LG TV:
+Aplikasi ini memiliki dukungan khusus untuk browser webOS di LG TV dengan multiple keep-awake strategies:
 
-**Features:**
-- ✅ Deteksi otomatis webOS browser
-- ✅ Activity management via webOS Luna Service API
-- ✅ Prevent screensaver dengan webOS system services
-- ✅ Periodic keep-alive triggers setiap 5 menit
-- ✅ Graceful fallback ke metode standar jika API tidak tersedia
+**Keep-Awake Methods (Multi-Layer):**
+1. **Wake Lock API** - Screen wake lock dari browser standard
+2. **webOS Luna Service** - Activity management via `com.palm.powermanager`
+3. **Hidden Video Playback** - Continuous silent video untuk trick OS
+4. **Activity Simulation** - Event dispatching setiap 15 menit
+5. **Continuous Keep-Alive** - Trigger setiap 5 menit
+6. **Fullscreen Mode** - Auto-request dan retry setiap 10 menit
+7. **Auto-Reload** - Full page reload setiap 20 menit untuk reset state
 
 **Console Logs (untuk debugging):**
-- `📺 webOS browser detected - initializing keep-awake system` - webOS terdeteksi
-- `✅ webOS activity started successfully` - Keep-awake berhasil diaktifkan
-- `🔄 webOS keep-alive triggered` - Periodic refresh triggered
-- `ℹ️ Not running on webOS browser` - Bukan webOS browser
+- `📺 webOS browser detected - activating aggressive webOS keep-awake` - webOS terdeteksi
+- `🎬 Hidden video created for keep-awake` - Video hidden berhasil dibuat
+- `✅ webOS activity started` - Keep-awake via Luna Service berhasil
+- `⚡ Continuous keep-alive trigger` - Periodic keep-alive triggered
+- `🔄 Auto-reloading page to keep LG TV awake (20 min)` - Auto-reload triggered
 
 **Untuk pengguna LG TV:**
 1. Buka `http://your-slideshow-url` di webOS browser
-2. Aplikasi akan otomatis mendeteksi webOS dan mengaktifkan keep-awake
-3. Lihat console (F12) untuk konfirmasi bahwa webOS keep-awake aktif
-4. TV akan tetap menyala selama aplikasi berjalan
+2. Aplikasi akan otomatis mendeteksi dan aktivasi aggressive keep-awake
+3. TV akan tetap menyala dengan multiple protection layers
+4. Lihat console (F12) untuk monitoring keep-awake activity
+5. Jika tetap mati, check:
+   - Pengaturan sleep/screensaver di LG TV diatur sangat tinggi (4+ jam)
+   - Pastikan fullscreen mode aktif
+   - Check console logs untuk error messages
 
 ## 🛣️ Roadmap & Future Features
 
