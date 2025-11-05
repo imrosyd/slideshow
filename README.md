@@ -36,7 +36,7 @@ Aplikasi slideshow modern berbasis Next.js dengan panel admin profesional untuk 
   - Wake Lock API untuk mencegah sleep mode
   - webOS browser keep-awake triggers
   - Activity simulation setiap 30 menit
-  - Auto-reload setiap 30 menit
+  - Auto-reload setiap 25 menit
   - Fullscreen mode auto-request
 
 ### 🎮 Kontrol Slideshow

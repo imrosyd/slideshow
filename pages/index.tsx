@@ -916,11 +916,11 @@ export default function Home() {
       console.log('⏰ 30-minute activity trigger');
     }, 30 * 60 * 1000); // 30 minutes
     
-    // Auto-reload every 30 minutes to keep TV awake
+    // Auto-reload every 25 minutes to keep TV awake
     reloadInterval = setInterval(() => {
-      console.log('🔄 Auto-reloading page to keep LG TV awake (30 min)');
+      console.log('🔄 Auto-reloading page to keep LG TV awake (25 min)');
       window.location.reload();
-    }, 30 * 60 * 1000); // 30 minutes
+    }, 25 * 60 * 1000); // 25 minutes
     
     // Re-request wake lock on visibility change
     document.addEventListener('visibilitychange', handleVisibilityChange);
