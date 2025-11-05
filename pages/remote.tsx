@@ -70,121 +70,122 @@ export default function RemoteControl() {
 
       {/* Status Bar */}
       <div className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-lg">
-        <div className="mx-auto max-w-lg px-4 py-3">
+        <div className="mx-auto max-w-2xl px-4 py-4 sm:px-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-red-400'} animate-pulse`} />
-              <span className="text-sm font-medium">
-                {isConnected ? 'Connected' : 'Connecting...'}
+            <div className="flex items-center gap-3">
+              <div className={`h-3 w-3 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-red-500'} ${isConnected ? 'animate-pulse' : ''}`} />
+              <span className="text-sm font-semibold tracking-wide">
+                {isConnected ? 'CONNECTED' : 'CONNECTING'}
               </span>
             </div>
-            <div className="text-sm text-white/60">
-              Slide {currentSlide + 1} / {slideCount}
+            <div className="text-sm font-medium text-white/80">
+              <span className="font-bold text-sky-400">{currentSlide + 1}</span>
+              <span className="text-white/60"> / {slideCount}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="mx-auto max-w-lg px-4 py-8">
+      <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="mb-2 text-3xl font-bold tracking-tight">
-            🎮 Remote Control
+        <div className="mb-12 text-center">
+          <h1 className="mb-3 text-4xl font-bold tracking-tight sm:text-5xl">
+            Slideshow Control
           </h1>
-          <p className="text-sm text-white/60">
-            Control your slideshow from anywhere
+          <p className="text-lg text-white/60">
+            Professional remote control interface
           </p>
         </div>
 
         {!isConnected && (
-          <div className="mb-8 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4 text-center">
-            <p className="text-sm text-amber-200">
-              Waiting for slideshow connection...
+          <div className="mb-10 rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 to-orange-500/10 p-4 text-center backdrop-blur">
+            <p className="text-sm font-medium text-amber-200">
+              Establishing connection to slideshow...
             </p>
           </div>
         )}
 
         {/* Playback Controls */}
-        <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-lg">
-          <h2 className="mb-4 text-sm font-semibold text-white/70">Playback</h2>
-          <div className="flex gap-3">
-            <button
-              onClick={handlePlayPause}
-              disabled={!isConnected}
-              className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 px-6 py-4 text-lg font-bold text-white shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isPaused ? '▶️ Play' : '⏸️ Pause'}
-            </button>
-          </div>
+        <div className="mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-8 shadow-2xl backdrop-blur-xl">
+          <h2 className="mb-6 text-xs font-bold uppercase tracking-widest text-white/70">Playback Control</h2>
+          <button
+            onClick={handlePlayPause}
+            disabled={!isConnected}
+            className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-6 py-5 text-lg font-bold text-white shadow-lg transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-sky-500/50 hover:shadow-2xl"
+          >
+            {isPaused ? 'PLAY' : 'PAUSE'}
+          </button>
         </div>
 
         {/* Navigation Controls */}
-        <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-lg">
-          <h2 className="mb-4 text-sm font-semibold text-white/70">Navigation</h2>
-          <div className="grid grid-cols-2 gap-3">
+        <div className="mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-8 shadow-2xl backdrop-blur-xl">
+          <h2 className="mb-6 text-xs font-bold uppercase tracking-widest text-white/70">Navigation</h2>
+          
+          {/* Main Navigation Buttons */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-3">
             <button
               onClick={handleFirst}
               disabled={!isConnected || currentSlide === 0}
-              className="rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm font-medium transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="rounded-xl border border-white/20 bg-white/5 px-4 py-4 text-sm font-bold text-white/90 transition-all duration-200 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 hover:border-white/30"
             >
-              ⏮️ First
+              FIRST
             </button>
-            <button
-              onClick={handleLast}
-              disabled={!isConnected || currentSlide === slideCount - 1}
-              className="rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm font-medium transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Last ⏭️
-            </button>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-3">
             <button
               onClick={handlePrevious}
               disabled={!isConnected}
-              className="rounded-xl border border-white/20 bg-white/5 px-6 py-4 text-lg font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-xl border border-white/20 bg-white/5 px-4 py-4 text-sm font-bold text-white/90 transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 hover:border-white/30"
             >
-              ⏮️ Previous
+              PREV
             </button>
             <button
               onClick={handleNext}
               disabled={!isConnected}
-              className="rounded-xl border border-white/20 bg-white/5 px-6 py-4 text-lg font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-xl border border-white/20 bg-white/5 px-4 py-4 text-sm font-bold text-white/90 transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 hover:border-white/30"
             >
-              Next ⏭️
+              NEXT
+            </button>
+            <button
+              onClick={handleLast}
+              disabled={!isConnected || currentSlide === slideCount - 1}
+              className="rounded-xl border border-white/20 bg-white/5 px-4 py-4 text-sm font-bold text-white/90 transition-all duration-200 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 hover:border-white/30"
+            >
+              LAST
             </button>
           </div>
         </div>
 
         {/* Quick Jump */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-lg">
-          <h2 className="mb-4 text-sm font-semibold text-white/70">Quick Jump</h2>
-          <div className="grid grid-cols-5 gap-2">
-            {Array.from({ length: Math.min(slideCount, 20) }, (_, i) => (
+        <div className="mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-8 shadow-2xl backdrop-blur-xl">
+          <h2 className="mb-6 text-xs font-bold uppercase tracking-widest text-white/70">Quick Navigation</h2>
+          <div className="grid grid-cols-5 gap-2 sm:grid-cols-10">
+            {Array.from({ length: Math.min(slideCount, 30) }, (_, i) => (
               <button
                 key={i}
                 onClick={() => handleGoToSlide(i)}
                 disabled={!isConnected}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition-all active:scale-95 disabled:cursor-not-allowed ${
+                className={`rounded-lg px-2 py-2 text-xs font-bold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed sm:px-3 sm:py-2.5 ${
                   currentSlide === i
-                    ? 'bg-sky-500 text-white'
-                    : 'border border-white/20 bg-white/5 text-white/80 disabled:opacity-30'
+                    ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/50'
+                    : 'border border-white/20 bg-white/5 text-white/80 disabled:opacity-30 hover:bg-white/10 hover:border-white/30'
                 }`}
               >
                 {i + 1}
               </button>
             ))}
           </div>
-          {slideCount > 20 && (
-            <p className="mt-3 text-center text-xs text-white/40">
-              Showing first 20 slides
+          {slideCount > 30 && (
+            <p className="mt-4 text-center text-xs text-white/50">
+              Showing first 30 slides
             </p>
           )}
         </div>
 
         {/* Info */}
-        <div className="mt-8 text-center text-xs text-white/40">
-          <p>Keep this tab open to control the slideshow</p>
+        <div className="mt-12 rounded-xl border border-white/10 bg-white/5 p-6 text-center backdrop-blur">
+          <p className="text-sm font-medium text-white/70">
+            Keep this tab open to maintain slideshow control
+          </p>
         </div>
       </div>
     </div>
