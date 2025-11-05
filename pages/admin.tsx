@@ -8,7 +8,6 @@ import { UploadBox } from "../components/admin/UploadBox";
 import { ImageCard } from "../components/admin/ImageCard";
 import { ConfirmModal } from "../components/admin/ConfirmModal";
 import { BatchVideoDialog } from "../components/admin/BatchVideoDialog";
-import { GenerateAllVideoDialog } from "../components/admin/GenerateAllVideoDialog";
 import { useImages } from "../hooks/useImages";
 import { useToast } from "../hooks/useToast";
 import { getAdminAuthCookieName, getExpectedAdminToken } from "../lib/auth";
@@ -70,8 +69,6 @@ const AdminContent = () => {
   const [generatingVideoFor, setGeneratingVideoFor] = useState<string | null>(null);
   const [showBatchVideoDialog, setShowBatchVideoDialog] = useState(false);
   const [isGeneratingBatchVideo, setIsGeneratingBatchVideo] = useState(false);
-  const [showGenerateAllVideoDialog, setShowGenerateAllVideoDialog] = useState(false);
-  const [isGeneratingAllVideo, setIsGeneratingAllVideo] = useState(false);
 
   const galleryStats = useMemo(() => {
     const totalSize = images.reduce((sum, image) => sum + (image.size || 0), 0);
@@ -89,6 +86,40 @@ const AdminContent = () => {
             })(),
     };
   }, [images]);
+
+  // Auto-generate video ketika page admin di-load atau images berubah
+  useEffect(() => {
+    const autoGenerateVideo = async () => {
+      if (images.length === 0 || isLoading) return;
+
+      try {
+        console.log(`[Admin] Auto-generating video for all ${images.length} images with individual durations`);
+
+        // Create videoData array with per-image durations
+        const videoData = images.map((img) => ({
+          filename: img.name,
+          durationSeconds: img.durationSeconds || 0,
+        }));
+
+        const totalDuration = videoData.reduce((sum, v) => sum + v.durationSeconds, 0);
+        console.log(`[Admin] Auto-generate: Total duration: ${totalDuration}s`);
+
+        // Call generateBatchVideo with new format (videoData)
+        await generateBatchVideo([], undefined, videoData);
+
+        console.log(`✅ Auto-generated video successfully`);
+      } catch (error) {
+        console.error("[Admin] Auto-generate failed:", error);
+      }
+    };
+
+    // Trigger auto-generate when page loads with images
+    const timer = setTimeout(() => {
+      autoGenerateVideo();
+    }, 1000); // 1 second delay after component mounts
+
+    return () => clearTimeout(timer);
+  }, [images, isLoading, generateBatchVideo]);
 
   const handleUpload = useCallback(
     async (files: File[]) => {
@@ -211,52 +242,6 @@ const AdminContent = () => {
       }
     },
     [selectedImages, generateBatchVideo, pushToast]
-  );
-
-  const handleGenerateAllVideo = useCallback(
-    async () => {
-      if (images.length === 0) {
-        pushToast({
-          variant: "error",
-          description: "No images available",
-        });
-        return;
-      }
-
-      try {
-        setIsGeneratingAllVideo(true);
-        console.log(`[Admin] Generating master video for all ${images.length} images`);
-        
-        // Create videoData array with per-image durations
-        const videoData = images.map((img) => ({
-          filename: img.name,
-          durationSeconds: img.durationSeconds || 0,
-        }));
-
-        const totalDuration = videoData.reduce((sum, v) => sum + v.durationSeconds, 0);
-        console.log(`[Admin] Total duration: ${totalDuration}s`);
-        
-        // Call generateBatchVideo with new format (videoData)
-        await generateBatchVideo([], undefined, videoData);
-        
-        console.log(`✅ Master video generated successfully`);
-        pushToast({
-          variant: "success",
-          description: `Master video generated successfully for all ${images.length} image(s) (${totalDuration}s total)`,
-        });
-
-        setShowGenerateAllVideoDialog(false);
-      } catch (error) {
-        console.error("Master video generation error:", error);
-        pushToast({
-          variant: "error",
-          description: `Failed to generate master video: ${error}`,
-        });
-      } finally {
-        setIsGeneratingAllVideo(false);
-      }
-    },
-    [images, generateBatchVideo, pushToast]
   );
 
   const handleForceRefresh = useCallback(async () => {
@@ -692,25 +677,6 @@ const AdminContent = () => {
                       )}
                     </button>
                   )}
-
-                  {/* Generate All Videos Button */}
-                  <button
-                    onClick={() => setShowGenerateAllVideoDialog(true)}
-                    disabled={isGeneratingAllVideo || images.length === 0}
-                    className="flex items-center gap-2 rounded-lg border border-blue-400/40 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 px-4 py-2 text-sm font-medium text-blue-200 transition-all hover:border-blue-300/60 hover:from-blue-500/30 hover:to-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isGeneratingAllVideo ? (
-                      <>
-                        <div className="h-4 w-4 border-2 border-blue-200 border-t-transparent rounded-full animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <span>🎥</span>
-                        Generate All Videos
-                      </>
-                    )}
-                  </button>
                 </div>
 
                 {/* Bulk Actions Panel */}
@@ -914,13 +880,6 @@ const AdminContent = () => {
         isLoading={isGeneratingBatchVideo}
         onClose={() => setShowBatchVideoDialog(false)}
         onGenerate={handleGenerateBatchVideo}
-      />
-      <GenerateAllVideoDialog
-        images={images}
-        isOpen={showGenerateAllVideoDialog}
-        isLoading={isGeneratingAllVideo}
-        onClose={() => setShowGenerateAllVideoDialog(false)}
-        onGenerate={handleGenerateAllVideo}
       />
     </div>
   );
