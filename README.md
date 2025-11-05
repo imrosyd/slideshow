@@ -68,6 +68,7 @@ Aplikasi slideshow modern berbasis Next.js dengan panel admin profesional untuk 
   - Drag & drop reordering untuk urutan slideshow
   - Visual numbered badges (1, 2, 3, ...)
   - Custom duration per image (1-60 detik)
+  - **Auto-convert images to video** untuk better TV keep-awake
 - **Bulk operations**:
   - Multi-select dengan checkbox
   - Bulk set duration
@@ -691,27 +692,54 @@ Aplikasi ini memiliki dukungan khusus untuk browser webOS di LG TV dengan multip
 5. **Continuous Keep-Alive** - Trigger setiap 5 menit
 6. **Fullscreen Mode** - Auto-request dan retry setiap 10 menit
 7. **Auto-Reload** - Full page reload setiap 20 menit untuk reset state
+8. **Video Content** - Auto-convert gambar ke video format untuk maximum keep-awake
+
+**Video Conversion Feature (BARU!):**
+- ✅ Auto-convert static images ke MP4 video on upload
+- ✅ Video playback jauh lebih efektif untuk TV keep-awake
+- ✅ Server-side ffmpeg conversion untuk quality terbaik
+- ✅ Client-side fallback menggunakan Canvas + MediaRecorder
+- ✅ Subtle zoom animation selama playback (keep-awake trick)
+- ✅ Seamless integration dengan existing slideshow
+
+**Mengapa Video Lebih Baik?**
+- TV screensaver tidak trigger saat ada motion/video playback
+- Video codec native support pada LG TV
+- Continuous stream prevent power management activation
+- Audio track (even silent) keeps system awake
 
 **Console Logs (untuk debugging):**
 - `📺 webOS browser detected - activating aggressive webOS keep-awake` - webOS terdeteksi
+- `🎬 Converting image to video: [filename]` - Image conversion dimulai
+- `✅ Video created: [filepath]` - Video conversion berhasil
 - `🎬 Hidden video created for keep-awake` - Video hidden berhasil dibuat
 - `✅ webOS activity started` - Keep-awake via Luna Service berhasil
 - `⚡ Continuous keep-alive trigger` - Periodic keep-alive triggered
-- `🔄 Auto-reloading page to keep LG TV awake (20 min)` - Auto-reload triggered
 
 **Untuk pengguna LG TV:**
-1. Buka `http://your-slideshow-url` di webOS browser
-2. Aplikasi akan otomatis mendeteksi dan aktivasi aggressive keep-awake
-3. TV akan tetap menyala dengan multiple protection layers
-4. Lihat console (F12) untuk monitoring keep-awake activity
-5. Jika tetap mati, check:
-   - Pengaturan sleep/screensaver di LG TV diatur sangat tinggi (4+ jam)
-   - Pastikan fullscreen mode aktif
-   - Check console logs untuk error messages
+1. Upload gambar seperti biasa di admin panel
+2. Sistem akan otomatis convert gambar ke video format
+3. Video akan di-use di slideshow untuk better keep-awake
+4. TV akan tetap menyala dengan maximum protection layers
+5. Lihat console (F12) untuk monitoring conversion process
+
+**Installation Requirements:**
+- For server-side conversion: `ffmpeg` harus terinstall di server
+  ```bash
+  # Ubuntu/Debian
+  sudo apt-get install ffmpeg
+  
+  # macOS
+  brew install ffmpeg
+  
+  # Windows
+  choco install ffmpeg
+  ```
+- Client-side fallback: Works di semua modern browsers dengan Canvas API support
 
 ## 🛣️ Roadmap & Future Features
 
-- [ ] Support untuk video files (mp4, webm)
+- [x] Support untuk video files (mp4, webm) - Auto-convert from images
 - [ ] Caption editor untuk setiap gambar
 - [ ] Transition effects yang bisa dipilih (fade, slide, zoom, dll)
 - [ ] Scheduling: Atur waktu tampil untuk setiap gambar
