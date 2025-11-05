@@ -2,20 +2,6 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
 import { isAuthorizedAdminRequest } from "../../../lib/auth";
 
-type ImageMetadata = {
-  filename: string;
-  duration_ms: number;
-  caption?: string;
-  order?: number;
-  hidden?: boolean;
-};
-
-type MetadataStore = {
-  images: Record<string, ImageMetadata>;
-  order: string[];
-  updated_at: string;
-};
-
 type MetadataPayload = {
   filename: string;
   durationMs: number | null;
@@ -24,16 +10,19 @@ type MetadataPayload = {
   hidden?: boolean;
 };
 
-const METADATA_FILE = "metadata.json";
+const DEFAULT_DURATION_MS = 5000;
+
+type UpsertRecord = {
+  filename: string;
+  duration_ms: number;
+  caption: string | null;
+  order_index: number;
+  hidden: boolean;
+};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!isAuthorizedAdminRequest(req)) {
     return res.status(401).json({ error: "Akses ditolak." });
-  }
-
-  const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
-  if (!SUPABASE_STORAGE_BUCKET) {
-    return res.status(500).json({ error: "Konfigurasi server salah." });
   }
 
   const supabase = getSupabaseServiceRoleClient();
@@ -46,71 +35,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: "Expected array of metadata" });
       }
 
-      console.log(`[Metadata] Saving metadata for ${payload.length} images`);
+      const upsertPayload: UpsertRecord[] = payload
+        .filter((item): item is MetadataPayload => Boolean(item?.filename))
+        .map((item, index) => {
+          const hasValidDuration = typeof item.durationMs === "number" && Number.isFinite(item.durationMs);
+          const roundedDuration = hasValidDuration
+            ? Math.max(0, Math.round(item.durationMs as number))
+            : DEFAULT_DURATION_MS;
 
-      let metadata: MetadataStore = { 
-        images: {}, 
-        order: [],
-        updated_at: new Date().toISOString() 
-      };
-      
-      const { data: existingData } = await supabase.storage
-        .from(SUPABASE_STORAGE_BUCKET)
-        .download(METADATA_FILE);
-
-      if (existingData) {
-        try {
-          const text = await existingData.text();
-          metadata = JSON.parse(text);
-          // Ensure order array exists
-          if (!metadata.order) {
-            metadata.order = [];
-          }
-        } catch (err) {
-          console.log("[Metadata] Creating new metadata file");
-        }
-      }
-
-      // Update metadata and build order array
-      const newOrder: string[] = [];
-      payload.forEach((item, index) => {
-        if (item.filename && typeof item.durationMs === 'number') {
-          metadata.images[item.filename] = {
+          const record: UpsertRecord = {
             filename: item.filename,
-            duration_ms: item.durationMs,
-            caption: item.caption || undefined,
-            order: index,
-            hidden: item.hidden || false,
+            duration_ms: roundedDuration,
+            caption: item.caption ?? null,
+            order_index: item.order ?? index,
+            hidden: typeof item.hidden === "boolean" ? item.hidden : false,
           };
-          newOrder.push(item.filename);
-        }
-      });
-      
-      metadata.order = newOrder;
-      metadata.updated_at = new Date().toISOString();
 
-      const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
-        type: "application/json",
-      });
-
-      const { error: uploadError } = await supabase.storage
-        .from(SUPABASE_STORAGE_BUCKET)
-        .upload(METADATA_FILE, metadataBlob, {
-          upsert: true,
-          contentType: "application/json",
+          console.log(`[Metadata] Upserting ${record.filename}: hidden=${record.hidden}, duration=${record.duration_ms}`);
+          return record;
         });
 
-      if (uploadError) {
-        console.error("[Metadata] Upload error:", uploadError);
-        return res.status(500).json({ error: "Failed to save metadata" });
+      if (!upsertPayload.length) {
+        return res.status(200).json({ success: true, count: 0 });
       }
 
-      console.log(`[Metadata] Successfully saved ${Object.keys(metadata.images).length} entries`);
-      return res.status(200).json({ success: true });
+      const { error: upsertError } = await supabase
+        .from('image_durations')
+        .upsert(upsertPayload, {
+          onConflict: 'filename',
+        });
 
-    } catch (error) {
+      if (upsertError) {
+        console.error(`[Metadata] Failed to upsert batch:`, upsertError);
+        return res.status(500).json({ error: upsertError.message });
+      }
+
+      console.log(`[Metadata] Upserted ${upsertPayload.length} records successfully`);
+      return res.status(200).json({ success: true, count: upsertPayload.length });
+    } catch (error: any) {
       console.error("[Metadata] PUT error:", error);
-      return res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ 
+        error: "Internal server error",
+        details: error.message 
+      });
     }
   }
 

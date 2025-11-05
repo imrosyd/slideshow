@@ -16,20 +16,6 @@ type Data =
   | { images: AdminImage[] }
   | { error: string };
 
-type ImageMetadata = {
-  filename: string;
-  duration_ms: number;
-  caption?: string;
-  order?: number;
-  hidden?: boolean;
-};
-
-type MetadataStore = {
-  images: Record<string, ImageMetadata>;
-  order?: string[];
-  updated_at: string;
-};
-
 const IMAGE_EXTENSIONS = new Set([
   ".png",
   ".jpg",
@@ -49,8 +35,6 @@ const isImageFile = (filename: string) => {
   const extension = filename.slice(lastDot).toLowerCase();
   return IMAGE_EXTENSIONS.has(extension);
 };
-
-const METADATA_FILE = "metadata.json";
 
 export default async function handler(
   req: NextApiRequest,
@@ -79,39 +63,35 @@ export default async function handler(
   }
 
   try {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
     const supabaseServiceRole = getSupabaseServiceRoleClient();
 
-    // Load metadata from JSON file
+    // Load metadata from database
     const metadataMap = new Map<string, { duration_ms: number; caption: string | null; order: number; hidden: boolean }>();
-    let imageOrder: string[] = [];
     
-    const { data: metadataFile } = await supabaseServiceRole.storage
-      .from(SUPABASE_STORAGE_BUCKET)
-      .download(METADATA_FILE);
+    // Try to load from database (with fallback if migration not run yet)
+    const { data: dbMetadata, error: dbError } = await supabaseServiceRole
+      .from('image_durations')
+      .select('*');
 
-    if (metadataFile) {
-      try {
-        const text = await metadataFile.text();
-        const metadata: MetadataStore = JSON.parse(text);
-        
-        // Store order from metadata
-        imageOrder = metadata.order || [];
-        
-        Object.values(metadata.images).forEach((img) => {
-          metadataMap.set(img.filename, {
-            duration_ms: img.duration_ms,
-            caption: img.caption ?? null,
-            order: img.order ?? 999,
-            hidden: img.hidden ?? false,
-          });
+    if (dbError) {
+      console.error("[Admin Images] Database error:", dbError);
+    } else if (dbMetadata) {
+      dbMetadata.forEach((row: any) => {
+        metadataMap.set(row.filename, {
+          duration_ms: row.duration_ms,
+          caption: row.caption ?? null,
+          order: row.order_index ?? 999,
+          hidden: row.hidden ?? false,
         });
-        
-        console.log(`[Admin Images] Loaded ${metadataMap.size} metadata entries from JSON, order: ${imageOrder.length} items`);
-      } catch (err) {
-        console.error("[Admin Images] Failed to parse metadata.json:", err);
+      });
+      console.log(`[Admin Images] Loaded ${metadataMap.size} metadata entries from database`);
+      if (metadataMap.size > 0) {
+        console.log(`[Admin Images] Sample entry: ${Array.from(metadataMap.entries())[0]?.[0]} hidden=${Array.from(metadataMap.entries())[0]?.[1]?.hidden}`);
       }
-    } else {
-      console.log("[Admin Images] No metadata.json found");
     }
 
     // List files from storage
@@ -125,7 +105,7 @@ export default async function handler(
     }
 
     const images: AdminImage[] = (fileList ?? [])
-      .filter((file) => file.name && file.name !== "" && file.id && file.name !== METADATA_FILE && isImageFile(file.name))
+      .filter((file) => file.name && file.name !== "" && file.id && isImageFile(file.name))
       .map((file) => {
         const metadataEntry = metadataMap.get(file.name) || null;
         const durationMs = metadataEntry?.duration_ms ?? null;
@@ -140,28 +120,24 @@ export default async function handler(
         };
       });
 
-    // Sort images based on saved order
-    if (imageOrder.length > 0) {
-      images.sort((a, b) => {
-        const orderA = imageOrder.indexOf(a.name);
-        const orderB = imageOrder.indexOf(b.name);
-        
-        // If both are in order, sort by their position
-        if (orderA !== -1 && orderB !== -1) {
-          return orderA - orderB;
-        }
-        
-        // Items not in order go to the end
-        if (orderA === -1) return 1;
-        if (orderB === -1) return -1;
-        
-        return 0;
-      });
-      console.log("[Admin Images] Sorted images based on saved order");
-    }
+    // Sort images based on order_index from database
+    images.sort((a, b) => {
+      const metaA = metadataMap.get(a.name);
+      const metaB = metadataMap.get(b.name);
+      const orderA = metaA?.order ?? 999999;
+      const orderB = metaB?.order ?? 999999;
+      
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      
+      // Same order, sort alphabetically
+      return a.name.localeCompare(b.name);
+    });
 
     console.log("[Admin Images] Total images returned:", images.length);
     console.log("[Admin Images] Images with duration:", images.filter(i => i.durationMs !== null).length);
+    console.log("[Admin Images] Hidden images:", images.filter(i => i.hidden).length);
 
     return res.status(200).json({ images });
   } catch (error) {

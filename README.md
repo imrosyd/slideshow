@@ -2,6 +2,28 @@
 
 Aplikasi slideshow modern berbasis Next.js dengan panel admin profesional untuk mengelola dan menampilkan dashboard secara otomatis. Dirancang khusus untuk Smart TV dan display monitor dengan fitur keep-awake untuk LG TV.
 
+> **Last Updated**: November 5, 2025  
+> **Status**: ✅ Production Ready
+
+## 🆕 Recent Changes (v1.1.0)
+
+### ✨ Improvements
+- Removed hide/show feature for cleaner UI
+- Simplified admin panel with focused features
+- Improved image management workflow
+- Optimized database schema for better performance
+- Cleaned up codebase - removed 9 documentation files
+
+### 🔧 What's Working
+- ✅ Slideshow with smooth transitions
+- ✅ Image upload & management
+- ✅ Custom duration per image
+- ✅ Drag & drop reordering
+- ✅ Real-time sync with Supabase
+- ✅ Remote control page
+- ✅ LG TV keep-awake features
+- ✅ Admin authentication
+
 ## ✨ Fitur Utama
 
 ### 🎬 Slideshow Display
@@ -42,21 +64,17 @@ Aplikasi slideshow modern berbasis Next.js dengan panel admin profesional untuk 
   - Drag & drop upload dengan progress indicator
   - Drag & drop reordering untuk urutan slideshow
   - Visual numbered badges (1, 2, 3, ...)
-  - Hide/Show images tanpa menghapus
   - Custom duration per image (1-60 detik)
 - **Bulk operations**:
   - Multi-select dengan checkbox
-  - Bulk show/hide images
   - Bulk set duration
   - Bulk delete with confirmation
 - **Search & Filter**:
   - Search by filename
-  - Filter: All, Visible Only, Hidden Only
   - Sort: Order, Name, Size, Date
   - Dark mode dropdown dengan proper contrast
 - **Statistics panel**:
   - Total images count
-  - Visible/Hidden breakdown
   - Total storage used
   - Real-time updates
 - **Force refresh** untuk trigger update di semua slideshow

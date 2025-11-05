@@ -16,6 +16,7 @@ const AdminContent = () => {
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [togglingImage, setTogglingImage] = useState<string | null>(null); // Track which image is being toggled
   const { pushToast } = useToast();
   const router = useRouter();
 
@@ -49,27 +50,14 @@ const AdminContent = () => {
     resetMetadataDraft,
     saveMetadata,
     reorderImages,
-    toggleImageHidden,
   } = useImages(authToken);
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [hiddenImages, setHiddenImages] = useState<Set<string>>(new Set());
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [isForceRefreshing, setIsForceRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "visible" | "hidden">("all");
   const [sortBy, setSortBy] = useState<"order" | "name" | "size" | "date">("order");
-  
-  // Sync hiddenImages state with images data from server
-  useEffect(() => {
-    const newHiddenSet = new Set<string>();
-    images.forEach(img => {
-      if (img.hidden) {
-        newHiddenSet.add(img.name);
-      }
-    });
-    setHiddenImages(newHiddenSet);
-  }, [images]);
   
   // Bulk actions
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
@@ -207,35 +195,6 @@ const AdminContent = () => {
     setDraggedIndex(null);
   }, []);
 
-  const toggleHideImage = useCallback(async (filename: string) => {
-    // Check current state before toggle
-    const wasHidden = hiddenImages.has(filename);
-    
-    toggleImageHidden(filename);
-    
-    // Also update local hiddenImages set for immediate UI feedback
-    setHiddenImages(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(filename)) {
-        newSet.delete(filename);
-      } else {
-        newSet.add(filename);
-      }
-      return newSet;
-    });
-    
-    // Auto-save metadata after toggle
-    setTimeout(async () => {
-      const success = await saveMetadata();
-      if (success) {
-        pushToast({ 
-          variant: "success", 
-          description: `Image ${wasHidden ? 'shown' : 'hidden'} successfully` 
-        });
-      }
-    }, 100); // Small delay to ensure state is updated
-  }, [hiddenImages, toggleImageHidden, saveMetadata, pushToast]);
-
   const openFullscreen = useCallback((filename: string) => {
     setFullscreenImage(filename);
   }, []);
@@ -265,26 +224,6 @@ const AdminContent = () => {
   const deselectAll = useCallback(() => {
     setSelectedImages(new Set());
   }, []);
-
-  const bulkHideImages = useCallback(() => {
-    setHiddenImages(prev => {
-      const newSet = new Set(prev);
-      selectedImages.forEach(name => newSet.add(name));
-      return newSet;
-    });
-    pushToast({ variant: "success", description: `Hidden ${selectedImages.size} image${selectedImages.size !== 1 ? 's' : ''}` });
-    setSelectedImages(new Set());
-  }, [selectedImages, pushToast]);
-
-  const bulkShowImages = useCallback(() => {
-    setHiddenImages(prev => {
-      const newSet = new Set(prev);
-      selectedImages.forEach(name => newSet.delete(name));
-      return newSet;
-    });
-    pushToast({ variant: "success", description: `Showed ${selectedImages.size} image${selectedImages.size !== 1 ? 's' : ''}` });
-    setSelectedImages(new Set());
-  }, [selectedImages, pushToast]);
 
   const bulkSetDuration = useCallback(async () => {
     const durationMs = parseInt(bulkDuration);
@@ -353,10 +292,6 @@ const AdminContent = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [fullscreenImage, closeFullscreen]);
 
-  const visibleImages = useMemo(() => {
-    return images.filter(img => !hiddenImages.has(img.name));
-  }, [images, hiddenImages]);
-
   const filteredImages = useMemo(() => {
     let filtered = [...images];
 
@@ -365,13 +300,6 @@ const AdminContent = () => {
       filtered = filtered.filter(img => 
         img.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
-    }
-
-    // Apply status filter
-    if (filterStatus === "visible") {
-      filtered = filtered.filter(img => !hiddenImages.has(img.name));
-    } else if (filterStatus === "hidden") {
-      filtered = filtered.filter(img => hiddenImages.has(img.name));
     }
 
     // Apply sorting
@@ -396,7 +324,7 @@ const AdminContent = () => {
     }
 
     return filtered;
-  }, [images, searchQuery, filterStatus, hiddenImages, sortBy]);
+  }, [images, searchQuery, filterStatus, sortBy]);
 
   return (
     <div className="relative w-full min-h-screen bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
@@ -523,14 +451,6 @@ const AdminContent = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-white/60">Total Images</span>
                   <span className="font-semibold text-white">{images.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white/60">Hidden</span>
-                  <span className="font-semibold text-amber-300">{hiddenImages.size}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white/60">Visible</span>
-                  <span className="font-semibold text-emerald-300">{images.length - hiddenImages.size}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-white/60">Uploading</span>
@@ -661,27 +581,6 @@ const AdminContent = () => {
 
                     {selectedImages.size > 0 && (
                       <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={bulkShowImages}
-                          className="flex items-center gap-1.5 rounded-lg border border-green-400/30 bg-green-500/20 px-3 py-1.5 text-xs font-medium text-green-200 transition-all hover:bg-green-500/30"
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                          Show
-                        </button>
-
-                        <button
-                          onClick={bulkHideImages}
-                          className="flex items-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-200 transition-all hover:bg-amber-500/30"
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                          </svg>
-                          Hide
-                        </button>
-
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
@@ -788,9 +687,7 @@ const AdminContent = () => {
                             onChange={updateMetadataDraft}
                             onReset={resetMetadataDraft}
                             onDelete={(filename) => setConfirmTarget(filename)}
-                            onToggleHide={toggleHideImage}
                             onPreview={openFullscreen}
-                            isHidden={hiddenImages.has(image.name)}
                           />
                         </div>
                       </div>

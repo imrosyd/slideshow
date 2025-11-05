@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type UploadStatus = "pending" | "uploading" | "success" | "error";
 
@@ -20,7 +20,6 @@ export type ImageAsset = {
   originalDurationSeconds: number | null;
   originalCaption: string;
   previewUrl: string;
-  hidden: boolean;
 };
 
 type FetchState = "idle" | "loading" | "success" | "error";
@@ -38,7 +37,21 @@ const generateTaskId = (filename: string, index: number) =>
   `${filename}-${Date.now()}-${index}`;
 
 export const useImages = (authToken: string | null) => {
-  const [images, setImages] = useState<ImageAsset[]>([]);
+  const [images, setImagesInternal] = useState<ImageAsset[]>([]);
+  const imagesRef = useRef<ImageAsset[]>([]);
+
+  type ImagesUpdater = ImageAsset[] | ((prev: ImageAsset[]) => ImageAsset[]);
+
+  const setImagesState = useCallback((updater: ImagesUpdater) => {
+    setImagesInternal((prev) => {
+      const next =
+        typeof updater === "function"
+          ? (updater as (prev: ImageAsset[]) => ImageAsset[])(prev)
+          : updater;
+      imagesRef.current = next;
+      return next;
+    });
+  }, []);
   const [fetchState, setFetchState] = useState<FetchState>("idle");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([]);
@@ -55,6 +68,7 @@ export const useImages = (authToken: string | null) => {
 
       const response = await fetch("/api/admin/images", {
         headers,
+        cache: "no-store", // force network fetch so visibility updates are fresh
       });
 
       if (!response.ok) {
@@ -65,7 +79,6 @@ export const useImages = (authToken: string | null) => {
       const fetched = (payload?.images ?? []).map((item: any) => {
         const durationSeconds = toSeconds(item.durationMs);
         const caption = item.caption ?? "";
-        const hidden = item.hidden ?? false;
         return {
           name: item.name,
           size: item.size ?? 0,
@@ -76,11 +89,10 @@ export const useImages = (authToken: string | null) => {
           originalDurationSeconds: durationSeconds,
           originalCaption: caption,
           previewUrl: buildPreviewUrl(item.name),
-          hidden,
         } as ImageAsset;
       });
 
-      setImages(fetched);
+      setImagesState(fetched);
       setFetchState("success");
     } catch (error) {
       console.error("Failed to fetch admin images:", error);
@@ -200,7 +212,7 @@ export const useImages = (authToken: string | null) => {
           throw new Error(await response.text());
         }
 
-        setImages((prev) =>
+        setImagesState((prev) =>
           prev.filter((image) => !filenames.includes(image.name))
         );
         return true;
@@ -213,8 +225,8 @@ export const useImages = (authToken: string | null) => {
   );
 
   const updateMetadataDraft = useCallback(
-    (filename: string, patch: Partial<Pick<ImageAsset, "durationSeconds" | "caption" | "hidden">>) => {
-      setImages((prev) =>
+    (filename: string, patch: Partial<Pick<ImageAsset, "durationSeconds" | "caption">>) => {
+      setImagesState((prev) =>
         prev.map((image) =>
           image.name === filename
             ? {
@@ -228,18 +240,8 @@ export const useImages = (authToken: string | null) => {
     []
   );
 
-  const toggleImageHidden = useCallback((filename: string) => {
-    setImages((prev) =>
-      prev.map((image) =>
-        image.name === filename
-          ? { ...image, hidden: !image.hidden }
-          : image
-      )
-    );
-  }, []);
-
   const resetMetadataDraft = useCallback((filename: string) => {
-    setImages((prev) =>
+    setImagesState((prev) =>
       prev.map((image) =>
         image.name === filename
           ? {
@@ -253,12 +255,16 @@ export const useImages = (authToken: string | null) => {
   }, []);
 
   const saveMetadata = useCallback(async () => {
-    const payload = images.map((image) => ({
+    const snapshot = imagesRef.current;
+
+    const payload = snapshot.map((image, index) => ({
       filename: image.name,
       durationMs: toMilliseconds(image.durationSeconds),
       caption: image.caption,
-      hidden: image.hidden,
+      order: index,
     }));
+
+    console.log(`[useImages] saveMetadata: ${payload.length} items`);
 
     setIsSavingMetadata(true);
     try {
@@ -279,7 +285,7 @@ export const useImages = (authToken: string | null) => {
         throw new Error(await response.text());
       }
 
-      setImages((prev) =>
+      setImagesState((prev) =>
         prev.map((image) => ({
           ...image,
           originalCaption: image.caption,
@@ -294,7 +300,7 @@ export const useImages = (authToken: string | null) => {
     } finally {
       setIsSavingMetadata(false);
     }
-  }, [authToken, images]);
+  }, [authToken, setImagesState]);
 
   const dirtyCount = useMemo(
     () =>
@@ -307,7 +313,7 @@ export const useImages = (authToken: string | null) => {
   );
 
   const reorderImages = useCallback((fromIndex: number, toIndex: number) => {
-    setImages((prev) => {
+    setImagesState((prev) => {
       const newImages = [...prev];
       const [movedImage] = newImages.splice(fromIndex, 1);
       newImages.splice(toIndex, 0, movedImage);
@@ -329,6 +335,5 @@ export const useImages = (authToken: string | null) => {
     resetMetadataDraft,
     saveMetadata,
     reorderImages,
-    toggleImageHidden,
   };
 };
