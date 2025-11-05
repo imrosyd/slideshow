@@ -35,7 +35,7 @@ Aplikasi slideshow modern berbasis Next.js dengan panel admin profesional untuk 
 - **LG TV optimization**:
   - Wake Lock API untuk mencegah sleep mode
   - webOS browser keep-awake triggers
-  - Activity simulation setiap 30 menit
+  - Activity simulation setiap 25 menit
   - Auto-reload setiap 25 menit
   - Fullscreen mode auto-request
 

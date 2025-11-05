@@ -910,11 +910,11 @@ export default function Home() {
       setTimeout(webOSKeepAwake, 1000);
     }
     
-    // Activity simulation every 30 minutes
+    // Activity simulation every 25 minutes
     activityInterval = setInterval(() => {
       simulateActivity();
-      console.log('⏰ 30-minute activity trigger');
-    }, 30 * 60 * 1000); // 30 minutes
+      console.log('⏰ 25-minute activity trigger');
+    }, 25 * 60 * 1000); // 25 minutes
     
     // Auto-reload every 25 minutes to keep TV awake
     reloadInterval = setInterval(() => {
