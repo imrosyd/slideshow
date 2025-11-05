@@ -258,6 +258,20 @@ const styles: Record<string, CSSProperties> = {
     border: "2px solid #60a5fa",
     boxShadow: "0 0 12px rgba(96, 165, 250, 0.5)",
   },
+  videoPlayIcon: {
+    position: "absolute" as const,
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: "32px",
+    height: "32px",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "none" as const,
+  },
   slideNumber: {
     position: "absolute",
     top: "4px",
@@ -361,29 +375,32 @@ export default function Home() {
 
       console.log("[Slideshow] Duration data received:", imageDurations);
 
-      const fetchedSlides = payload.images.map((imageItem) => {
-        const filename = typeof imageItem === 'string' ? imageItem : imageItem.name;
-        const isVideo = typeof imageItem === 'string' ? false : (imageItem.isVideo || false);
-        const videoUrl = typeof imageItem === 'string' ? undefined : imageItem.videoUrl;
-        
-        const durationMs = imageDurations[filename];
-        const durationSeconds =
-          typeof durationMs === "number" && durationMs > 0
-            ? Math.max(1, Math.round(durationMs / 1000))
-            : DEFAULT_SLIDE_DURATION_SECONDS;
-        
-        if (durationMs !== undefined) {
-          console.log(`[Slideshow] ${filename}: ${durationMs}ms -> ${durationSeconds}s`);
-        }
-        
-        return {
-          name: filename,
-          url: `/api/image/${encodeURIComponent(filename)}`,
-          durationSeconds,
-          isVideo,
-          videoUrl,
-        };
-      });
+      const fetchedSlides = payload.images
+        .filter((imageItem) => {
+          // Only include items that have video generated
+          const isVideo = typeof imageItem === 'string' ? false : (imageItem.isVideo || false);
+          return isVideo;
+        })
+        .map((imageItem) => {
+          const filename = typeof imageItem === 'string' ? imageItem : imageItem.name;
+          const videoUrl = typeof imageItem === 'string' ? undefined : imageItem.videoUrl;
+          
+          const durationMs = imageDurations[filename];
+          const durationSeconds =
+            typeof durationMs === "number" && durationMs > 0
+              ? Math.max(1, Math.round(durationMs / 1000))
+              : DEFAULT_SLIDE_DURATION_SECONDS;
+          
+          console.log(`[Slideshow] Video: ${filename} -> ${durationSeconds}s`);
+          
+          return {
+            name: filename,
+            url: videoUrl || `/api/image/${encodeURIComponent(filename)}`,
+            durationSeconds,
+            isVideo: true,
+            videoUrl,
+          };
+        });
 
       // Check if slides have changed
       const previousSlides = slidesRef.current;
@@ -1149,28 +1166,17 @@ export default function Home() {
       <div 
         style={getTransitionStyle()}
       >
-        {currentSlide && (
-          currentSlide.isVideo && currentSlide.videoUrl ? (
-            <video
-              key={currentSlide.videoUrl}
-              src={currentSlide.videoUrl}
-              autoPlay
-              muted
-              loop
-              style={styles.image}
-              onPlay={() => console.log(`▶️ Video playing - TV keep-awake: ${currentSlide.name}`)}
-              onError={(e) => console.error(`❌ Failed to play video: ${currentSlide.name}`, e)}
-            />
-          ) : (
-            <img
-              key={currentSlide.url}
-              src={currentSlide.url}
-              alt={currentSlide.name}
-              style={styles.image}
-              onLoad={() => console.log(`🖼️ Displayed: ${currentSlide.name}`)}
-              onError={(e) => console.error(`❌ Failed to display: ${currentSlide.name}`, e)}
-            />
-          )
+        {currentSlide && currentSlide.videoUrl && (
+          <video
+            key={currentSlide.videoUrl}
+            src={currentSlide.videoUrl}
+            autoPlay
+            muted
+            loop
+            style={styles.image}
+            onPlay={() => console.log(`▶️ Video playing - TV keep-awake: ${currentSlide.name}`)}
+            onError={(e) => console.error(`❌ Failed to play video: ${currentSlide.name}`, e)}
+          />
         )}
       </div>
 
@@ -1274,7 +1280,7 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Thumbnail grid */}
+          {/* Thumbnail grid - Video thumbnails */}
           <div style={styles.thumbnailGrid}>
             {slides.map((slide, index) => (
               <div
@@ -1283,26 +1289,56 @@ export default function Home() {
                 onClick={() => goToSlide(index)}
               >
                 <span style={styles.slideNumber}>{index + 1}</span>
-                <img
-                  src={slide.url}
-                  alt={slide.name}
-                  style={{
-                    ...styles.thumbnail,
-                    ...(index === currentIndex ? styles.thumbnailActive : {}),
-                  }}
-                  onMouseEnter={(e) => {
-                    if (index !== currentIndex) {
-                      e.currentTarget.style.border = "2px solid rgba(255, 255, 255, 0.5)";
-                      e.currentTarget.style.transform = "scale(1.05)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (index !== currentIndex) {
-                      e.currentTarget.style.border = "2px solid transparent";
-                      e.currentTarget.style.transform = "scale(1)";
-                    }
-                  }}
-                />
+                {slide.isVideo && slide.videoUrl ? (
+                  <>
+                    <video
+                      src={slide.videoUrl}
+                      muted
+                      style={{
+                        ...styles.thumbnail,
+                        ...(index === currentIndex ? styles.thumbnailActive : {}),
+                      }}
+                      onMouseEnter={(e) => {
+                        if (index !== currentIndex) {
+                          e.currentTarget.style.border = "2px solid rgba(255, 255, 255, 0.5)";
+                          e.currentTarget.style.transform = "scale(1.05)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (index !== currentIndex) {
+                          e.currentTarget.style.border = "2px solid transparent";
+                          e.currentTarget.style.transform = "scale(1)";
+                        }
+                      }}
+                    />
+                    <div style={styles.videoPlayIcon}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                  </>
+                ) : (
+                  <img
+                    src={slide.url}
+                    alt={slide.name}
+                    style={{
+                      ...styles.thumbnail,
+                      ...(index === currentIndex ? styles.thumbnailActive : {}),
+                    }}
+                    onMouseEnter={(e) => {
+                      if (index !== currentIndex) {
+                        e.currentTarget.style.border = "2px solid rgba(255, 255, 255, 0.5)";
+                        e.currentTarget.style.transform = "scale(1.05)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (index !== currentIndex) {
+                        e.currentTarget.style.border = "2px solid transparent";
+                        e.currentTarget.style.transform = "scale(1)";
+                      }
+                    }}
+                  />
+                )}
               </div>
             ))}
           </div>

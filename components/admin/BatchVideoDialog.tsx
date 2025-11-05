@@ -61,27 +61,27 @@ export const BatchVideoDialog: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Duration Slider */}
+        {/* Duration Input */}
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <label className="text-sm font-medium text-white">Total Duration</label>
+            <label className="text-sm font-medium text-white">Total Duration (seconds)</label>
             <span className="text-lg font-bold text-purple-300">
-              ⏱️ {duration}s
+              {duration}s
             </span>
           </div>
           <input
-            type="range"
-            min="10"
+            type="number"
+            min="1"
             max={300 * imageCount} // Max 300s per image
             step="1"
             value={duration}
             onChange={(e) => setDuration(Number(e.target.value))}
             disabled={isGenerating || isLoading}
-            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/20 accent-purple-500"
+            placeholder="Enter duration in seconds"
+            className="w-full rounded-xl border border-white/15 bg-slate-900/60 px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus:border-sky-400/70 focus:outline-none focus:ring-2 focus:ring-sky-500/30 disabled:opacity-50"
           />
-          <div className="mt-2 flex justify-between text-xs text-white/50">
-            <span>10s</span>
-            <span>{300 * imageCount}s</span>
+          <div className="mt-2 text-xs text-white/50">
+            Recommended: {imageCount * 5}s - {imageCount * 30}s for {imageCount} images
           </div>
         </div>
 

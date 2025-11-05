@@ -82,7 +82,13 @@ export const useImages = (authToken: string | null) => {
       });
 
       if (!response.ok) {
-        throw new Error(await response.text());
+        const errorText = await response.text();
+        try {
+          const parsed = JSON.parse(errorText);
+          throw new Error(parsed?.error || "Rename failed.");
+        } catch {
+          throw new Error(errorText || "Rename failed.");
+        }
       }
 
       const payload = await response.json();
@@ -99,6 +105,13 @@ export const useImages = (authToken: string | null) => {
           originalDurationSeconds: durationSeconds,
           originalCaption: caption,
           previewUrl: buildPreviewUrl(item.name),
+          isVideo: Boolean(item.isVideo && item.videoUrl),
+          videoUrl: item.videoUrl ?? undefined,
+          videoGeneratedAt: item.videoGeneratedAt ?? undefined,
+          videoDurationSeconds:
+            typeof item.videoDurationSeconds === "number"
+              ? item.videoDurationSeconds
+              : undefined,
         } as ImageAsset;
       });
 
@@ -331,6 +344,49 @@ export const useImages = (authToken: string | null) => {
     });
   }, []);
 
+  const renameImage = useCallback(
+    async (oldName: string, newName: string) => {
+      const trimmedNewName = newName.trim();
+      if (!trimmedNewName || trimmedNewName === oldName) {
+        return { success: false, filename: oldName };
+      }
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (authToken) {
+        headers.Authorization = `Token ${authToken}`;
+      }
+
+      const response = await fetch("/api/admin/rename-image", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ oldName, newName: trimmedNewName }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const data = await response.json();
+
+      setImagesState((prev) =>
+        prev.map((image) =>
+          image.name === oldName
+            ? {
+                ...image,
+                name: trimmedNewName,
+                previewUrl: buildPreviewUrl(trimmedNewName),
+              }
+            : image
+        )
+      );
+
+      return data;
+    },
+    [authToken, setImagesState]
+  );
+
   const generateVideo = useCallback(
     async (filename: string, durationSeconds: number) => {
       try {
@@ -463,6 +519,65 @@ export const useImages = (authToken: string | null) => {
     [authToken, setImagesState]
   );
 
+  const deleteVideo = useCallback(
+    async (filename: string) => {
+      console.log(`[useImages] Deleting video for: ${filename}`);
+      
+      // Find the image to get videoUrl
+      const image = imagesRef.current.find(img => img.name === filename);
+      if (!image || !image.videoUrl) {
+        throw new Error("Video not found for this image");
+      }
+
+      try {
+        // Call delete-video API to remove file from bucket and update database
+        const response = await fetch("/api/admin/delete-video", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
+          },
+          body: JSON.stringify({
+            filename,
+            videoUrl: image.videoUrl,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.details || "Failed to delete video");
+        }
+
+        const data = await response.json();
+        console.log(`[useImages] Video deleted successfully:`, data);
+
+        // Update local state to remove video flag
+        setImagesState((prev) =>
+          prev.map((img) =>
+            img.name === filename
+              ? {
+                  ...img,
+                  isVideo: false,
+                  videoUrl: undefined,
+                  videoGeneratedAt: undefined,
+                  videoDurationSeconds: undefined,
+                }
+              : img
+          )
+        );
+
+        console.log(`[useImages] Video deleted for: ${filename}`);
+        return { success: true };
+      } catch (error) {
+        console.error("[useImages] Delete video failed:", error);
+        // Revert local state on error
+        await refresh();
+        throw error;
+      }
+    },
+    [authToken, setImagesState, refresh]
+  );
+
   return {
     images,
     isLoading,
@@ -479,5 +594,7 @@ export const useImages = (authToken: string | null) => {
     reorderImages,
     generateVideo,
     generateBatchVideo,
+    deleteVideo,
+    renameImage,
   };
 };

@@ -1,171 +1,304 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { ImageAsset } from "../../hooks/useImages";
-import { GenerateVideoDialog } from "./GenerateVideoDialog";
 
 type Props = {
   image: ImageAsset;
   onChange: (filename: string, patch: Partial<Pick<ImageAsset, "durationSeconds" | "caption">>) => void;
   onReset: (filename: string) => void;
+  onSave: (filename: string) => Promise<void>;
   onDelete: (filename: string) => void;
-  onPreview?: (filename: string) => void;
-  onGenerateVideo?: (filename: string, durationSeconds: number) => Promise<void>;
+  onPreview: (filename: string) => void;
+  onGenerateVideo?: (filename: string, durationSeconds: number) => void;
   isGeneratingVideo?: boolean;
+  isSaving?: boolean;
+  onRename?: (filename: string) => void;
+  isRenaming?: boolean;
 };
 
-const formatBytes = (bytes: number) => {
-  if (!bytes) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / Math.pow(1024, exponent);
-  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[exponent]}`;
+const formatBytes = (size: number) => {
+  if (!Number.isFinite(size) || size <= 0) {
+    return "0 B";
+  }
+  const units = ["B", "KB", "MB", "GB", "TB"] as const;
+  const exponent = Math.min(Math.floor(Math.log(size) / Math.log(1024)), units.length - 1);
+  const value = size / Math.pow(1024, exponent);
+  const rounded = value >= 10 || Number.isInteger(value) ? Math.round(value) : Number(value.toFixed(1));
+  return `${rounded} ${units[exponent]}`;
 };
 
 const formatDate = (iso: string | null) => {
-  if (!iso) return "–";
+  if (!iso) {
+    return "Unknown";
+  }
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "–";
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
   return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(date);
 };
 
-export const ImageCard = ({ image, onChange, onReset, onDelete, onPreview, onGenerateVideo, isGeneratingVideo = false }: Props) => {
-  const [showVideoDialog, setShowVideoDialog] = useState(false);
-  const hasChanges =
-    image.durationSeconds !== image.originalDurationSeconds ||
-    image.caption !== image.originalCaption;
+const formatRelativeTime = (iso?: string) => {
+  if (!iso) {
+    return null;
+  }
+  const target = new Date(iso);
+  if (Number.isNaN(target.getTime())) {
+    return null;
+  }
+  const diffSeconds = Math.round((target.getTime() - Date.now()) / 1000);
+  const divisions: [number, Intl.RelativeTimeFormatUnit][] = [
+    [60, "second"],
+    [60, "minute"],
+    [24, "hour"],
+    [7, "day"],
+    [4.34524, "week"],
+    [12, "month"],
+    [Number.POSITIVE_INFINITY, "year"],
+  ];
 
-  const durationValue = useMemo(() => {
-    if (image.durationSeconds === null || Number.isNaN(image.durationSeconds)) {
-      return "";
+  let value = diffSeconds;
+  let unit: Intl.RelativeTimeFormatUnit = "second";
+
+  for (const [amount, nextUnit] of divisions) {
+    if (Math.abs(value) < amount) {
+      unit = nextUnit;
+      break;
     }
-    return String(image.durationSeconds);
-  }, [image.durationSeconds]);
+    value /= amount;
+  }
+
+  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  return formatter.format(Math.round(value), unit);
+};
+
+export const ImageCard = ({
+  image,
+  onChange,
+  onReset,
+  onSave,
+  onDelete,
+  onPreview,
+  onGenerateVideo,
+  isGeneratingVideo = false,
+  isSaving = false,
+  onRename,
+  isRenaming = false,
+}: Props) => {
+  const durationValue = useMemo(() => image.durationSeconds ?? "", [image.durationSeconds]);
+
+  const hasChanges = useMemo(() => {
+    const currentDuration = image.durationSeconds ?? null;
+    const originalDuration = image.originalDurationSeconds ?? null;
+    const currentCaption = image.caption ?? "";
+    const originalCaption = image.originalCaption ?? "";
+    return currentDuration !== originalDuration || currentCaption !== originalCaption;
+  }, [image.durationSeconds, image.originalDurationSeconds, image.caption, image.originalCaption]);
+
+  const readableSize = useMemo(() => formatBytes(image.size), [image.size]);
+  const createdLabel = useMemo(() => formatDate(image.createdAt), [image.createdAt]);
+  const updatedLabel = useMemo(() => formatDate(image.updatedAt), [image.updatedAt]);
+  const relativeVideoTime = useMemo(() => formatRelativeTime(image.videoGeneratedAt), [image.videoGeneratedAt]);
+
+  const handleDurationChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+    if (value === "") {
+      onChange(image.name, { durationSeconds: null });
+      return;
+    }
+
+    const numeric = Number(value);
+    if (Number.isNaN(numeric)) {
+      return;
+    }
+    onChange(image.name, { durationSeconds: Math.max(0, Math.round(numeric)) });
+  };
+
+  const handleCaptionChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onChange(image.name, { caption: event.target.value.slice(0, 320) });
+  };
 
   return (
-    <article className="group flex flex-col gap-5 rounded-3xl border border-white/10 bg-white/5 p-5 text-white shadow-glass transition hover:border-sky-400/50 hover:bg-white/10">
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60">
+    <article className="flex h-full flex-col gap-4 rounded-2xl border border-white/10 bg-slate-900/60 p-4 shadow-xl transition hover:border-sky-500/30">
+      <div className="group relative overflow-hidden rounded-xl border border-white/10 bg-slate-900">
         <img
           src={image.previewUrl}
           alt={image.name}
           className="h-48 w-full object-cover transition duration-500 group-hover:scale-[1.02]"
         />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent opacity-0 transition group-hover:opacity-100" />
         <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-full bg-slate-950/70 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white/60 backdrop-blur-sm">
-          <span>{formatBytes(image.size)}</span>
+          <span>{readableSize}</span>
+          {image.isVideo ? <span className="text-emerald-300">Video</span> : null}
         </div>
-        {/* Preview and Hide buttons overlay */}
-        <div className="absolute right-3 top-3 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-          {onPreview && (
-            <button
-              type="button"
-              onClick={() => onPreview(image.name)}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950/80 text-white/90 backdrop-blur-sm transition hover:bg-sky-500 hover:text-white active:scale-95"
-              title="Preview fullscreen"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-              </svg>
-            </button>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={() => onPreview(image.name)}
+          className="absolute right-3 bottom-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-950/80 text-white/90 backdrop-blur-sm transition hover:bg-sky-500 hover:text-white active:scale-95"
+          title="Preview fullscreen"
+          aria-label="Preview fullscreen"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h6M4 10h6m-6 4h6m4 2v2m0-2v-2m0 2h-2m2 0h2" />
+          </svg>
+          <span className="sr-only">Preview fullscreen</span>
+        </button>
       </div>
+
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <h3 className="truncate text-lg font-semibold text-white/95" title={image.name}>
             {image.name}
           </h3>
-          <p className="text-xs tracking-wide text-white/60">
-            Uploaded {formatDate(image.createdAt)}
-          </p>
+          <p className="text-xs tracking-wide text-white/60">Uploaded {createdLabel}</p>
+          {image.updatedAt ? (
+            <p className="text-xs text-white/40">Updated {updatedLabel}</p>
+          ) : null}
         </div>
-        <div className="flex flex-col gap-3 select-text">
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-white/70">
-              Display duration (seconds)
-            </span>
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={durationValue}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                const parsed = nextValue === "" ? null : Math.max(1, Math.round(Number(nextValue)));
-                onChange(image.name, { durationSeconds: Number.isNaN(parsed) ? null : parsed });
-              }}
-              placeholder="Default slideshow"
-              className="w-full rounded-xl border border-white/15 bg-slate-900/60 px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus:border-sky-400/70 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-            />
-          </label>
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-white/70">Caption</span>
-            <textarea
-              value={image.caption}
-              onChange={(event) => onChange(image.name, { caption: event.target.value.slice(0, 320) })}
-              rows={3}
-              className="w-full resize-none rounded-xl border border-white/15 bg-slate-900/60 px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus:border-sky-400/70 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-              placeholder="Add a short description"
-            />
-          </label>
-        </div>
-      </div>
-      <div className="mt-auto flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
-        {/* Video Status */}
-        {image.isVideo && (
-          <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-4 py-2">
-            <p className="text-xs font-medium text-emerald-300">✅ Video Generated</p>
-            <p className="text-xs text-emerald-200/70 mt-1">
-              Duration: {image.videoDurationSeconds}s
-            </p>
-          </div>
-        )}
 
-        <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row">
-          <button
-            type="button"
-            onClick={() => onDelete(image.name)}
-            className="inline-flex items-center justify-center rounded-xl border border-rose-400/40 bg-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:border-rose-300/60 hover:bg-rose-500/30"
-          >
-            Delete image
-          </button>
-          {hasChanges && (
+        <label className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-white/70">Display duration (seconds)</span>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={durationValue}
+            onChange={handleDurationChange}
+            className="w-full rounded-xl border border-white/15 bg-slate-900/60 px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus:border-sky-400/70 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+          />
+        </label>
+
+        <label className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-white/70">Caption</span>
+          <textarea
+            value={image.caption}
+            onChange={handleCaptionChange}
+            rows={3}
+            className="w-full resize-none rounded-xl border border-white/15 bg-slate-900/60 px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus:border-sky-400/70 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+            placeholder="Add a short description"
+          />
+        </label>
+      </div>
+
+      <div className="mt-auto flex flex-col gap-3 pt-2">
+        {image.isVideo ? (
+          <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-200">
+            <p className="font-medium text-emerald-300">✅ Video Generated</p>
+            {image.videoDurationSeconds ? (
+              <p className="mt-1">Duration: {image.videoDurationSeconds}s</p>
+            ) : null}
+            {relativeVideoTime ? (
+              <p className="mt-1">Updated {relativeVideoTime}</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap gap-2">
+          {hasChanges ? (
+            <button
+              type="button"
+              onClick={() => {
+                void onSave(image.name);
+              }}
+              disabled={isSaving}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-sky-400/40 bg-gradient-to-r from-sky-500/20 to-blue-500/20 text-sky-100 transition hover:border-sky-300/60 hover:from-sky-500/30 hover:to-blue-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Save changes"
+              aria-label="Save changes"
+            >
+              {isSaving ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-200 border-t-transparent" />
+                  <span className="sr-only">Saving</span>
+                </>
+              ) : (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </button>
+          ) : null}
+
+          {hasChanges ? (
             <button
               type="button"
               onClick={() => onReset(image.name)}
-              className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:bg-white/10"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/5 text-white/80 transition hover:border-white/40 hover:bg-white/10"
+              title="Reset changes"
+              aria-label="Reset changes"
             >
-              Reset changes
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
             </button>
-          )}
-          
-          {!image.isVideo && (
+          ) : null}
+
+          {onRename ? (
             <button
               type="button"
-              onClick={() => setShowVideoDialog(true)}
+              onClick={() => {
+                void onRename?.(image.name);
+              }}
+              disabled={isRenaming}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/5 text-white/80 transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Rename image"
+              aria-label="Rename image"
+            >
+              {isRenaming ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-transparent" />
+                  <span className="sr-only">Renaming</span>
+                </>
+              ) : (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M4 20h4l10.586-10.586a2 2 0 00-2.828-2.828L4 17.172V20z" />
+                </svg>
+              )}
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => onDelete(image.name)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-rose-400/40 bg-rose-500/20 text-rose-100 transition hover:border-rose-300/60 hover:bg-rose-500/30"
+            title="Delete image"
+            aria-label="Delete image"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+
+          {!image.isVideo && onGenerateVideo ? (
+            <button
+              type="button"
+              onClick={() => {
+                void onGenerateVideo?.(image.name, image.durationSeconds || 5);
+              }}
               disabled={isGeneratingVideo}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-purple-400/40 bg-gradient-to-r from-purple-500/20 to-pink-500/20 px-4 py-2 text-sm font-semibold text-purple-100 transition hover:border-purple-300/60 hover:from-purple-500/30 hover:to-pink-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-purple-400/40 bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-100 transition hover:border-purple-300/60 hover:from-purple-500/30 hover:to-pink-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Generate video"
+              aria-label="Generate video"
             >
               {isGeneratingVideo ? (
                 <>
-                  <div className="h-4 w-4 border-2 border-purple-200 border-t-transparent rounded-full animate-spin" />
-                  Generating...
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-200 border-t-transparent" />
+                  <span className="sr-only">Generating</span>
                 </>
               ) : (
-                "🎬 Generate Video"
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
               )}
             </button>
-          )}
+          ) : null}
         </div>
       </div>
-
-      <GenerateVideoDialog
-        filename={image.name}
-        isOpen={showVideoDialog}
-        onClose={() => setShowVideoDialog(false)}
-        onGenerate={onGenerateVideo || (() => Promise.resolve())}
-        isLoading={isGeneratingVideo}
-      />
     </article>
   );
 };

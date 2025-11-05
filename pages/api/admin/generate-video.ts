@@ -232,20 +232,48 @@ export default async function handler(
     console.log(`[Video Gen] Updating database for ${imagesToProcess.length} image(s)...`);
 
     for (const imgFilename of imagesToProcess) {
-      const { error: updateError } = await supabase
+      const durationSecondsForImage = imageDurations.get(imgFilename) ?? 5;
+      const durationMs = Math.max(1, Math.round(durationSecondsForImage)) * 1000;
+      const timestamp = new Date().toISOString();
+
+      const { data: updatedRows, error: updateError } = await supabase
         .from('image_durations')
         .update({
           is_video: true,
           video_url: videoUrl,
           video_duration_seconds: totalDurationSeconds,
-          video_generated_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          video_generated_at: timestamp,
+          updated_at: timestamp,
         })
-        .eq('filename', imgFilename);
+        .eq('filename', imgFilename)
+        .select('filename');
 
       if (updateError) {
         console.error(`[Video Gen] Database update error for ${imgFilename}:`, updateError);
         throw new Error(`Database update failed for ${imgFilename}: ${updateError.message}`);
+      }
+
+      if (!updatedRows || updatedRows.length === 0) {
+        console.log(`[Video Gen] No existing metadata for ${imgFilename}, inserting new row.`);
+        const { error: insertError } = await supabase
+          .from('image_durations')
+          .insert({
+            filename: imgFilename,
+            duration_ms: durationMs,
+            caption: null,
+            order_index: imagesToProcess.indexOf(imgFilename),
+            hidden: false,
+            is_video: true,
+            video_url: videoUrl,
+            video_duration_seconds: totalDurationSeconds,
+            video_generated_at: timestamp,
+            updated_at: timestamp,
+          });
+
+        if (insertError) {
+          console.error(`[Video Gen] Database insert error for ${imgFilename}:`, insertError);
+          throw new Error(`Database insert failed for ${imgFilename}: ${insertError.message}`);
+        }
       }
     }
 

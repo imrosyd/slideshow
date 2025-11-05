@@ -75,22 +75,22 @@ export const GenerateVideoDialog: React.FC<GenerateVideoDialogProps> = ({
         </div>
 
         <div className="mb-8">
-          <label className="block text-sm font-semibold mb-4">
-            ⏱️ Video Duration: <span className="text-blue-600">{durationMinutes}:{String(durationSeconds).padStart(2, '0')}</span>
+          <label className="block text-sm font-semibold mb-3 text-gray-700">
+            Video Duration: <span className="text-blue-600">{durationMinutes}:{String(durationSeconds).padStart(2, '0')}</span>
           </label>
           <input
-            type="range"
-            min="10"
+            type="number"
+            min="1"
             max="300"
-            step="10"
+            step="1"
             value={duration}
             onChange={(e) => setDuration(Number(e.target.value))}
             disabled={isGenerating}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+            placeholder="Enter duration in seconds"
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50"
           />
-          <div className="flex justify-between text-xs text-gray-500 mt-2">
-            <span>10s</span>
-            <span>5 min</span>
+          <div className="text-xs text-gray-500 mt-2">
+            Recommended: 5s - 300s (5 minutes)
           </div>
         </div>
 

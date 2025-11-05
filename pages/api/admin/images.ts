@@ -10,6 +10,10 @@ type AdminImage = {
   durationMs: number | null;
   caption: string | null;
   hidden: boolean;
+  isVideo?: boolean;
+  videoUrl?: string;
+  videoDurationSeconds?: number;
+  videoGeneratedAt?: string;
 };
 
 type Data =
@@ -70,7 +74,16 @@ export default async function handler(
     const supabaseServiceRole = getSupabaseServiceRoleClient();
 
     // Load metadata from database
-    const metadataMap = new Map<string, { duration_ms: number; caption: string | null; order: number; hidden: boolean }>();
+    const metadataMap = new Map<string, { 
+      duration_ms: number; 
+      caption: string | null; 
+      order: number; 
+      hidden: boolean;
+      is_video?: boolean;
+      video_url?: string;
+      video_duration_seconds?: number;
+      video_generated_at?: string;
+    }>();
     
     // Try to load from database (with fallback if migration not run yet)
     const { data: dbMetadata, error: dbError } = await supabaseServiceRole
@@ -86,6 +99,10 @@ export default async function handler(
           caption: row.caption ?? null,
           order: row.order_index ?? 999,
           hidden: row.hidden ?? false,
+          is_video: row.is_video ?? false,
+          video_url: row.video_url ?? null,
+          video_duration_seconds: row.video_duration_seconds ?? null,
+          video_generated_at: row.video_generated_at ?? null,
         });
       });
       console.log(`[Admin Images] Loaded ${metadataMap.size} metadata entries from database`);
@@ -117,6 +134,10 @@ export default async function handler(
           durationMs,
           caption: metadataEntry?.caption ?? null,
           hidden: metadataEntry?.hidden ?? false,
+          isVideo: metadataEntry?.is_video ?? false,
+          videoUrl: metadataEntry?.video_url ?? undefined,
+          videoDurationSeconds: metadataEntry?.video_duration_seconds ?? undefined,
+          videoGeneratedAt: metadataEntry?.video_generated_at ?? undefined,
         };
       });
 
