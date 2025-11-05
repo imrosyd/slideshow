@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { ImageAsset } from "../../hooks/useImages";
+import { GenerateVideoDialog } from "./GenerateVideoDialog";
 
 type Props = {
   image: ImageAsset;
@@ -7,6 +8,8 @@ type Props = {
   onReset: (filename: string) => void;
   onDelete: (filename: string) => void;
   onPreview?: (filename: string) => void;
+  onGenerateVideo?: (filename: string, durationSeconds: number) => Promise<void>;
+  isGeneratingVideo?: boolean;
 };
 
 const formatBytes = (bytes: number) => {
@@ -27,7 +30,8 @@ const formatDate = (iso: string | null) => {
   }).format(date);
 };
 
-export const ImageCard = ({ image, onChange, onReset, onDelete, onPreview }: Props) => {
+export const ImageCard = ({ image, onChange, onReset, onDelete, onPreview, onGenerateVideo, isGeneratingVideo = false }: Props) => {
+  const [showVideoDialog, setShowVideoDialog] = useState(false);
   const hasChanges =
     image.durationSeconds !== image.originalDurationSeconds ||
     image.caption !== image.originalCaption;
@@ -107,23 +111,61 @@ export const ImageCard = ({ image, onChange, onReset, onDelete, onPreview }: Pro
         </div>
       </div>
       <div className="mt-auto flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
-        <button
-          type="button"
-          onClick={() => onDelete(image.name)}
-          className="inline-flex items-center justify-center rounded-xl border border-rose-400/40 bg-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:border-rose-300/60 hover:bg-rose-500/30"
-        >
-          Delete image
-        </button>
-        {hasChanges && (
+        {/* Video Status */}
+        {image.isVideo && (
+          <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-4 py-2">
+            <p className="text-xs font-medium text-emerald-300">✅ Video Generated</p>
+            <p className="text-xs text-emerald-200/70 mt-1">
+              Duration: {image.videoDurationSeconds}s
+            </p>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row">
           <button
             type="button"
-            onClick={() => onReset(image.name)}
-            className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:bg-white/10"
+            onClick={() => onDelete(image.name)}
+            className="inline-flex items-center justify-center rounded-xl border border-rose-400/40 bg-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:border-rose-300/60 hover:bg-rose-500/30"
           >
-            Reset changes
+            Delete image
           </button>
-        )}
+          {hasChanges && (
+            <button
+              type="button"
+              onClick={() => onReset(image.name)}
+              className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:bg-white/10"
+            >
+              Reset changes
+            </button>
+          )}
+          
+          {!image.isVideo && (
+            <button
+              type="button"
+              onClick={() => setShowVideoDialog(true)}
+              disabled={isGeneratingVideo}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-purple-400/40 bg-gradient-to-r from-purple-500/20 to-pink-500/20 px-4 py-2 text-sm font-semibold text-purple-100 transition hover:border-purple-300/60 hover:from-purple-500/30 hover:to-pink-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isGeneratingVideo ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-purple-200 border-t-transparent rounded-full animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                "🎬 Generate Video"
+              )}
+            </button>
+          )}
+        </div>
       </div>
+
+      <GenerateVideoDialog
+        filename={image.name}
+        isOpen={showVideoDialog}
+        onClose={() => setShowVideoDialog(false)}
+        onGenerate={onGenerateVideo || (() => Promise.resolve())}
+        isLoading={isGeneratingVideo}
+      />
     </article>
   );
 };

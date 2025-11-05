@@ -79,6 +79,8 @@ type Slide = {
   name: string;
   url: string;
   durationSeconds: number;
+  isVideo?: boolean;
+  videoUrl?: string;
 };
 
 const styles: Record<string, CSSProperties> = {
@@ -319,7 +321,7 @@ export default function Home() {
       if (!response.ok) {
         throw new Error(`Failed to load image list: ${response.statusText}`);
       }
-      const payload: { images: string[]; durations?: Record<string, number | null>; captions?: Record<string, string | null> } = await response.json();
+      const payload: { images: Array<{ name: string; isVideo?: boolean; videoUrl?: string }>; durations?: Record<string, number | null>; captions?: Record<string, string | null> } = await response.json();
 
       // Fetch durations
       let imageDurations: Record<string, number> = {};
@@ -359,7 +361,11 @@ export default function Home() {
 
       console.log("[Slideshow] Duration data received:", imageDurations);
 
-      const fetchedSlides = payload.images.map((filename) => {
+      const fetchedSlides = payload.images.map((imageItem) => {
+        const filename = typeof imageItem === 'string' ? imageItem : imageItem.name;
+        const isVideo = typeof imageItem === 'string' ? false : (imageItem.isVideo || false);
+        const videoUrl = typeof imageItem === 'string' ? undefined : imageItem.videoUrl;
+        
         const durationMs = imageDurations[filename];
         const durationSeconds =
           typeof durationMs === "number" && durationMs > 0
@@ -374,6 +380,8 @@ export default function Home() {
           name: filename,
           url: `/api/image/${encodeURIComponent(filename)}`,
           durationSeconds,
+          isVideo,
+          videoUrl,
         };
       });
 
@@ -387,7 +395,9 @@ export default function Home() {
           return (
             slide.name !== next.name ||
             slide.durationSeconds !== next.durationSeconds ||
-            slide.url !== next.url
+            slide.url !== next.url ||
+            slide.isVideo !== next.isVideo ||
+            slide.videoUrl !== next.videoUrl
           );
         });
 
@@ -1140,14 +1150,27 @@ export default function Home() {
         style={getTransitionStyle()}
       >
         {currentSlide && (
-          <img
-            key={currentSlide.url}
-            src={currentSlide.url}
-            alt={currentSlide.name}
-            style={styles.image}
-            onLoad={() => console.log(`🖼️ Displayed: ${currentSlide.name}`)}
-            onError={(e) => console.error(`❌ Failed to display: ${currentSlide.name}`, e)}
-          />
+          currentSlide.isVideo && currentSlide.videoUrl ? (
+            <video
+              key={currentSlide.videoUrl}
+              src={currentSlide.videoUrl}
+              autoPlay
+              muted
+              loop
+              style={styles.image}
+              onPlay={() => console.log(`▶️ Video playing - TV keep-awake: ${currentSlide.name}`)}
+              onError={(e) => console.error(`❌ Failed to play video: ${currentSlide.name}`, e)}
+            />
+          ) : (
+            <img
+              key={currentSlide.url}
+              src={currentSlide.url}
+              alt={currentSlide.name}
+              style={styles.image}
+              onLoad={() => console.log(`🖼️ Displayed: ${currentSlide.name}`)}
+              onError={(e) => console.error(`❌ Failed to display: ${currentSlide.name}`, e)}
+            />
+          )
         )}
       </div>
 

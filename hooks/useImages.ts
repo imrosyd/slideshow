@@ -20,6 +20,16 @@ export type ImageAsset = {
   originalDurationSeconds: number | null;
   originalCaption: string;
   previewUrl: string;
+  // Video properties
+  isVideo?: boolean;
+  videoUrl?: string;
+  videoGeneratedAt?: string;
+  videoDurationSeconds?: number;
+};
+
+export type VideoImageData = {
+  filename: string;
+  durationSeconds: number;
 };
 
 type FetchState = "idle" | "loading" | "success" | "error";
@@ -321,6 +331,138 @@ export const useImages = (authToken: string | null) => {
     });
   }, []);
 
+  const generateVideo = useCallback(
+    async (filename: string, durationSeconds: number) => {
+      try {
+        console.log(`[useImages] Generating video for ${filename}, duration: ${durationSeconds}s`);
+        
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (authToken) {
+          headers.Authorization = `Token ${authToken}`;
+        }
+
+        const response = await fetch("/api/admin/generate-video", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            filename,
+            durationSeconds,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Video generation failed");
+        }
+
+        const data = await response.json();
+        console.log("[useImages] Video generation success:", data);
+
+        // Update local state
+        setImagesState((prev) =>
+          prev.map((img) =>
+            img.name === filename
+              ? {
+                  ...img,
+                  isVideo: true,
+                  videoUrl: data.videoUrl,
+                  videoGeneratedAt: new Date().toISOString(),
+                  videoDurationSeconds: durationSeconds,
+                }
+              : img
+          )
+        );
+
+        return data;
+      } catch (error) {
+        console.error("[useImages] Video generation failed:", error);
+        throw error;
+      }
+    },
+    [authToken, setImagesState]
+  );
+
+  const generateBatchVideo = useCallback(
+    async (
+      filenames: string[],
+      totalDurationSeconds?: number,
+      videoData?: VideoImageData[]
+    ) => {
+      try {
+        // Support both legacy format (filenames + total) and new format (videoData with per-image durations)
+        let requestBody: any;
+        let logMessage: string;
+
+        if (videoData && videoData.length > 0) {
+          // New format: per-image durations
+          const totalDuration = videoData.reduce((sum, v) => sum + v.durationSeconds, 0);
+          logMessage = `[useImages] Generating batch video for ${videoData.length} image(s), total duration: ${totalDuration}s (per-image durations)`;
+          requestBody = { videoData };
+        } else if (filenames.length > 0 && typeof totalDurationSeconds === "number") {
+          // Legacy format: total duration distributed evenly
+          logMessage = `[useImages] Generating batch video for ${filenames.length} image(s), total duration: ${totalDurationSeconds}s`;
+          requestBody = { filenames, durationSeconds: totalDurationSeconds };
+        } else {
+          throw new Error("Missing required parameters: either (videoData) or (filenames + totalDurationSeconds)");
+        }
+
+        console.log(logMessage);
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (authToken) {
+          headers.Authorization = `Token ${authToken}`;
+        }
+
+        const response = await fetch("/api/admin/generate-video", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Batch video generation failed");
+        }
+
+        const data = await response.json();
+        console.log("[useImages] Batch video generation success:", data);
+
+        // Update local state for all images
+        const imagesToUpdate = videoData
+          ? videoData.map((v) => v.filename)
+          : filenames;
+
+        const videoDuration = videoData
+          ? videoData.reduce((sum, v) => sum + v.durationSeconds, 0)
+          : totalDurationSeconds || 0;
+
+        setImagesState((prev) =>
+          prev.map((img) =>
+            imagesToUpdate.includes(img.name)
+              ? {
+                  ...img,
+                  isVideo: true,
+                  videoUrl: data.videoUrl,
+                  videoGeneratedAt: new Date().toISOString(),
+                  videoDurationSeconds: videoDuration,
+                }
+              : img
+          )
+        );
+
+        return data;
+      } catch (error) {
+        console.error("[useImages] Batch video generation failed:", error);
+        throw error;
+      }
+    },
+    [authToken, setImagesState]
+  );
+
   return {
     images,
     isLoading,
@@ -335,5 +477,7 @@ export const useImages = (authToken: string | null) => {
     resetMetadataDraft,
     saveMetadata,
     reorderImages,
+    generateVideo,
+    generateBatchVideo,
   };
 };

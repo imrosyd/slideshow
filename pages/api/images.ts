@@ -14,10 +14,14 @@ const IMAGE_EXTENSIONS = new Set([
 ]);
 
 type Data =
-  | { images: string[]; durations?: Record<string, number | null>; captions?: Record<string, string | null> }
+  | { images: Array<{ name: string; isVideo?: boolean; videoUrl?: string }>; durations?: Record<string, number | null>; captions?: Record<string, string | null> }
   | { error: string };
 
-async function readImageList(): Promise<{ names: string[]; durations: Record<string, number | null>; captions: Record<string, string | null> }> {
+async function readImageList(): Promise<{ 
+  imageData: Array<{ name: string; isVideo: boolean; videoUrl?: string }>; 
+  durations: Record<string, number | null>; 
+  captions: Record<string, string | null> 
+}> {
   const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
 
   if (!SUPABASE_STORAGE_BUCKET) {
@@ -68,6 +72,7 @@ async function readImageList(): Promise<{ names: string[]; durations: Record<str
   const captionMap: Record<string, string | null> = {};
   const hiddenSet = new Set<string>();
   const orderMap: Record<string, number> = {};
+  const videoMap: Record<string, { isVideo: boolean; videoUrl?: string }> = {};
 
   if (allDbMetadata) {
     allDbMetadata.forEach((row) => {
@@ -85,6 +90,14 @@ async function readImageList(): Promise<{ names: string[]; durations: Record<str
       // Track order for all images
       if (row.order_index !== undefined) {
         orderMap[row.filename] = row.order_index;
+      }
+
+      // Track video info
+      if (row.is_video) {
+        videoMap[row.filename] = {
+          isVideo: true,
+          videoUrl: row.video_url,
+        };
       }
     });
   }
@@ -120,7 +133,14 @@ async function readImageList(): Promise<{ names: string[]; durations: Record<str
     return a.localeCompare(b);
   });
 
-  return { names, durations: durationMap, captions: captionMap };
+  // Build image data with video info
+  const imageData = names.map((name) => ({
+    name,
+    isVideo: videoMap[name]?.isVideo || false,
+    videoUrl: videoMap[name]?.videoUrl,
+  }));
+
+  return { imageData, durations: durationMap, captions: captionMap };
 }
 
 export default async function handler(
@@ -128,12 +148,12 @@ export default async function handler(
   res: NextApiResponse<Data>
 ) {
   try {
-    const { names, durations, captions } = await readImageList();
+    const { imageData, durations, captions } = await readImageList();
 
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
-    res.status(200).json({ images: names.slice(), durations, captions });
+    res.status(200).json({ images: imageData, durations, captions });
   } catch (error: any) {
     console.error(error);
     res
