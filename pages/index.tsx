@@ -784,6 +784,13 @@ export default function Home() {
     let activityInterval: NodeJS.Timeout | null = null;
     let reloadInterval: NodeJS.Timeout | null = null;
 
+    // Detect webOS browser
+    const isWebOS = /webOS|hpwOS/.test(navigator.userAgent);
+    
+    if (isWebOS) {
+      console.log('📺 webOS browser detected - activating webOS-specific keep-awake');
+    }
+
     // 1. Wake Lock API (modern browsers and some Smart TVs)
     const requestWakeLock = async () => {
       try {
@@ -801,7 +808,34 @@ export default function Home() {
       }
     };
 
-    // 2. Activity simulation for LG TV
+    // 2. webOS-specific keep-awake trigger
+    const webOSKeepAwake = () => {
+      try {
+        // Try webOS specific API if available
+        if ((window as any).webOS && (window as any).webOS.service) {
+          const bridge = (window as any).webOS.service.request('luna://com.palm.powermanager/', {
+            method: 'activityStart',
+            parameters: {
+              id: 'slideshow-app',
+              reason: 'Display slideshow content'
+            },
+            onSuccess: () => {
+              console.log('✅ webOS activity started');
+            },
+            onFailure: () => {
+              console.log('⚠️ webOS activity start failed');
+            }
+          });
+        } else if ((window as any).webOS && (window as any).webOS.platformBack) {
+          // Alternative: use webOS keyboard API
+          console.log('📺 webOS detected but using alternative keep-awake method');
+        }
+      } catch (e) {
+        // Silently ignore
+      }
+    };
+
+    // 3. Activity simulation for LG TV (includes webOS triggers)
     const simulateActivity = () => {
       // Multiple types of events to keep LG TV awake
       const events = [
@@ -833,17 +867,25 @@ export default function Home() {
         }
       });
       
+      // Additional webOS activity trigger
+      if (isWebOS) {
+        webOSKeepAwake();
+      }
+      
       console.log('🖱️ Activity simulation triggered to keep LG TV awake');
     };
 
-    // 3. Prevent visibility change sleep
+    // 4. Prevent visibility change sleep
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         requestWakeLock();
+        if (isWebOS) {
+          webOSKeepAwake();
+        }
       }
     };
 
-    // 4. Force full screen mode (helps prevent LG TV timeout)
+    // 5. Force full screen mode (helps prevent LG TV timeout)
     const requestFullscreen = () => {
       const elem = document.documentElement;
       if (elem.requestFullscreen) {
@@ -862,6 +904,11 @@ export default function Home() {
     
     // Try to enter fullscreen (helps with LG TV)
     setTimeout(requestFullscreen, 2000);
+    
+    // webOS keep-awake on startup
+    if (isWebOS) {
+      setTimeout(webOSKeepAwake, 1000);
+    }
     
     // Activity simulation every 30 minutes
     activityInterval = setInterval(() => {

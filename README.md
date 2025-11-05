@@ -34,8 +34,9 @@ Aplikasi slideshow modern berbasis Next.js dengan panel admin profesional untuk 
 - **Multi-language** dengan auto-rotate (English, Korean, Indonesian)
 - **LG TV optimization**:
   - Wake Lock API untuk mencegah sleep mode
-  - Auto-reload setiap 30 menit
+  - webOS browser keep-awake triggers
   - Activity simulation setiap 30 menit
+  - Auto-reload setiap 30 menit
   - Fullscreen mode auto-request
 
 ### 🎮 Kontrol Slideshow
@@ -664,6 +665,7 @@ Setelah deploy berhasil, Anda akan mendapatkan 3 URL:
 **Problem:** Screen goes to sleep/screensaver
 - **Solusi**: Aplikasi sudah implement keep-awake feature dengan:
   - Wake Lock API
+  - webOS browser keep-awake triggers (untuk LG TV dengan webOS)
   - Hidden video element trick
   - Periodic activity simulation
   - Refresh halaman jika masih terjadi
@@ -673,6 +675,29 @@ Setelah deploy berhasil, Anda akan mendapatkan 3 URL:
 
 **Problem:** Fullscreen keluar otomatis
 - **Solusi**: Tekan `F11` lagi atau gunakan browser fullscreen mode yang persistent
+
+### webOS Browser Support
+
+Aplikasi ini memiliki dukungan khusus untuk browser webOS di LG TV:
+
+**Features:**
+- ✅ Deteksi otomatis webOS browser
+- ✅ Activity management via webOS Luna Service API
+- ✅ Prevent screensaver dengan webOS system services
+- ✅ Periodic keep-alive triggers setiap 5 menit
+- ✅ Graceful fallback ke metode standar jika API tidak tersedia
+
+**Console Logs (untuk debugging):**
+- `📺 webOS browser detected - initializing keep-awake system` - webOS terdeteksi
+- `✅ webOS activity started successfully` - Keep-awake berhasil diaktifkan
+- `🔄 webOS keep-alive triggered` - Periodic refresh triggered
+- `ℹ️ Not running on webOS browser` - Bukan webOS browser
+
+**Untuk pengguna LG TV:**
+1. Buka `http://your-slideshow-url` di webOS browser
+2. Aplikasi akan otomatis mendeteksi webOS dan mengaktifkan keep-awake
+3. Lihat console (F12) untuk konfirmasi bahwa webOS keep-awake aktif
+4. TV akan tetap menyala selama aplikasi berjalan
 
 ## 🛣️ Roadmap & Future Features
 
