@@ -377,6 +377,11 @@ export default function Home() {
       console.log("[Slideshow] Duration data received:", imageDurations);
 
       const fetchedSlides = payload.images
+        .filter((imageItem) => {
+          // Only include items that have video generated
+          const isVideo = typeof imageItem === 'string' ? false : (imageItem.isVideo || false);
+          return isVideo;
+        })
         .map((imageItem) => {
           const filename = typeof imageItem === 'string' ? imageItem : imageItem.name;
           const isVideo = typeof imageItem === 'string' ? false : (imageItem.isVideo || false);
@@ -388,7 +393,7 @@ export default function Home() {
               ? Math.max(1, Math.round(durationMs / 1000))
               : DEFAULT_SLIDE_DURATION_SECONDS;
           
-          console.log(`[Slideshow] ${isVideo ? 'Video' : 'Image'}: ${filename} -> ${durationSeconds}s`);
+          console.log(`[Slideshow] Video: ${filename} -> ${durationSeconds}s, URL: ${videoUrl || 'none'}`);
           
           return {
             name: filename,
@@ -1207,7 +1212,11 @@ export default function Home() {
             onError={(e) => {
               const target = e.target as HTMLVideoElement;
               const error = target.error;
-              console.error(`❌ Video error - ${currentSlide.name}`, error);
+              console.error(`❌ Video error - ${currentSlide.name}`);
+              console.error(`   Error code: ${error?.code}`);
+              console.error(`   Error message: ${error?.message}`);
+              console.error(`   Video URL: ${currentSlide.videoUrl}`);
+              console.error(`   MEDIA_ERR_ABORTED: 1, MEDIA_ERR_NETWORK: 2, MEDIA_ERR_DECODE: 3, MEDIA_ERR_SRC_NOT_SUPPORTED: 4`);
             }}
             onCanPlayThrough={() => {
               console.log(`✅ Can play through: ${currentSlide.name}`);
@@ -1220,15 +1229,28 @@ export default function Home() {
             }}
           />
         ) : currentSlide ? (
-          <img
-            src={currentSlide.url}
-            alt={currentSlide.name}
-            style={styles.image}
-            onLoad={() => console.log(`✅ Image loaded: ${currentSlide.name}`)}
-            onError={(e) => {
-              console.error(`❌ Image failed to load: ${currentSlide.name}`);
-            }}
-          />
+          <div style={{
+            ...styles.image,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#1a1a1a',
+            color: '#fff',
+            fontSize: '18px',
+            textAlign: 'center',
+            padding: '40px',
+            gap: '20px',
+          }}>
+            <div style={{ fontSize: '24px', color: '#ff6b6b' }}>⚠️ No Video Available</div>
+            <div style={{ fontSize: '16px', color: '#aaa' }}>{currentSlide.name}</div>
+            <div style={{ fontSize: '14px', color: '#666', maxWidth: '600px', wordBreak: 'break-all' }}>
+              Video URL: {currentSlide.videoUrl || 'Not generated'}
+            </div>
+            <div style={{ fontSize: '14px', color: '#666' }}>
+              Please generate video from admin panel
+            </div>
+          </div>
         ) : (
           <div style={{
             ...styles.image,
