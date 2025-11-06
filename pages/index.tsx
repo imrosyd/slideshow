@@ -293,6 +293,13 @@ const getErrorMessage = (appError: AppError, language: Language) => {
   return appError.detail ? `${base} (${appError.detail})` : base;
 };
 
+// Helper function to extract YouTube video ID
+const getYouTubeVideoId = (url: string): string | null => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+};
+
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -509,27 +516,29 @@ export default function Home() {
       .catch(err => console.error('Failed to load settings:', err));
   }, [fetchSlides]);
 
-  // Helper function to extract YouTube video ID
-  const getYouTubeVideoId = (url: string): string | null => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-  };
-
   // Handle regular audio playback
   useEffect(() => {
-    if (!audioRef.current) return;
+    console.log('[Music] Audio useEffect triggered:', { musicEnabled, musicSourceType, musicUrl, musicVolume, musicLoop });
+    
+    if (!audioRef.current) {
+      console.log('[Music] No audio ref');
+      return;
+    }
 
     if (musicEnabled && musicSourceType !== 'youtube' && musicUrl) {
+      console.log('[Music] Setting up audio playback:', musicUrl);
       audioRef.current.src = musicUrl;
       audioRef.current.volume = musicVolume / 100;
       audioRef.current.loop = musicLoop;
       
       // Auto-play music
-      audioRef.current.play().catch(err => {
-        console.log('Auto-play blocked, waiting for user interaction:', err);
-      });
+      audioRef.current.play()
+        .then(() => console.log('[Music] ✅ Audio playing'))
+        .catch(err => {
+          console.log('[Music] Auto-play blocked, waiting for user interaction:', err);
+        });
     } else {
+      console.log('[Music] Pausing audio');
       audioRef.current.pause();
       audioRef.current.src = '';
     }
@@ -537,7 +546,10 @@ export default function Home() {
 
   // Handle YouTube player
   useEffect(() => {
+    console.log('[Music] YouTube useEffect triggered:', { musicEnabled, musicSourceType, musicYoutubeUrl });
+    
     if (!musicEnabled || musicSourceType !== 'youtube' || !musicYoutubeUrl) {
+      console.log('[Music] YouTube not needed, cleaning up');
       // Destroy player if it exists
       if (youtubePlayerRef.current) {
         youtubePlayerRef.current.destroy();
@@ -548,9 +560,11 @@ export default function Home() {
 
     const videoId = getYouTubeVideoId(musicYoutubeUrl);
     if (!videoId) {
-      console.error('Invalid YouTube URL');
+      console.error('[Music] Invalid YouTube URL:', musicYoutubeUrl);
       return;
     }
+
+    console.log('[Music] YouTube video ID:', videoId);
 
     // Load YouTube IFrame API
     if (!(window as any).YT) {
@@ -1355,7 +1369,17 @@ export default function Home() {
               console.log(`⏳ Video waiting - ${currentSlide.name}`);
             }}
           />
+        ) : currentSlide ? (
+          // Display image if no video
+          <img
+            src={currentSlide.url}
+            alt={currentSlide.name}
+            style={styles.image}
+            onLoad={() => console.log(`✅ Image loaded: ${currentSlide.name}`)}
+            onError={() => console.error(`❌ Image failed: ${currentSlide.name}`)}
+          />
         ) : (
+          // No slides at all
           <div style={{
             ...styles.image,
             display: 'flex',
@@ -1367,7 +1391,7 @@ export default function Home() {
             textAlign: 'center',
             padding: '40px',
           }}>
-            {currentSlide ? `No video URL for: ${currentSlide.name}` : 'No slides available'}
+            No slides available
           </div>
         )}
       </div>
