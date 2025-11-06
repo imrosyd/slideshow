@@ -624,7 +624,7 @@ export const useImages = (authToken: string | null) => {
           
           // Create canvas
           const canvas = document.createElement('canvas');
-          const context = canvas.getContext('2d');
+          const context = canvas.getContext('2d', { willReadFrequently: true } as any) as CanvasRenderingContext2D | null;
           if (!context) {
             throw new Error('Could not get canvas context');
           }
@@ -634,7 +634,7 @@ export const useImages = (authToken: string | null) => {
           
           // Render page to canvas
           await page.render({
-            canvasContext: context,
+            canvasContext: context as unknown as CanvasRenderingContext2D,
             viewport: viewport,
           }).promise;
           

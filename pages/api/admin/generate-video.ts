@@ -241,7 +241,7 @@ export default async function handler(
       }
     }
 
-    // 2. Build FFmpeg command with looped images for each duration
+  // 2. Build FFmpeg command with looped images for each duration
     const tempVideoPath = path.join(tempDir, `video-${Date.now()}.mp4`);
     console.log(`[Video Gen] Running FFmpeg with looped images...`);
     
@@ -253,11 +253,16 @@ export default async function handler(
     
     console.log(`[Video Gen] Using FFmpeg from: ${ffmpegPath}`);
     
+    // Compute effective total duration with clamping (>=1s per image)
+    let totalDurationEffective = 0;
+
     for (let i = 0; i < imagePaths.length; i++) {
       const imgFilename = imagesToProcess[i];
-      const imageDuration = imageDurations.get(imgFilename) || 0;
+      const imageDurationRaw = imageDurations.get(imgFilename) || 0;
+      const imageDuration = Math.max(1, Math.floor(imageDurationRaw));
       ffmpegCmd += ` -loop 1 -framerate ${defaultEnc.fps} -t ${imageDuration} -i "${imagePaths[i]}"`;
       console.log(`[Video Gen] FFmpeg Input ${i + 1}: ${imageDuration}s`);
+      totalDurationEffective += imageDuration;
     }
     
     // Concat all videos and apply scale filter
@@ -272,7 +277,7 @@ export default async function handler(
     }
 
     filterComplex += inputCount === 1
-      ? `[v0][v0]concat=n=1:v=1:a=0,format=yuv420p[out]`
+      ? `[v0]null[out]`
       : Array.from({ length: inputCount }, (_, i) => `[v${i}]`).join('') + `concat=n=${inputCount}:v=1:a=0,format=yuv420p[out]`;
 
     // Encoding tuned for webOS playback stability and progressive start
@@ -296,7 +301,8 @@ export default async function handler(
     }
 
     const videoSize = fs.statSync(tempVideoPath).size;
-    console.log(`[Video Gen] Video created: ${(videoSize / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`[Video Gen] Video created: ${(videoSize / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`[Video Gen] Effective total duration: ${totalDurationEffective}s`);
 
     // 4. Upload video to Supabase Storage
     // Use image name as video name (without timestamp) to prevent duplicates
@@ -342,7 +348,7 @@ export default async function handler(
         .update({
           is_video: true,
           video_url: videoUrl,
-          video_duration_seconds: totalDurationSeconds,
+          video_duration_seconds: totalDurationEffective,
           video_generated_at: timestamp,
           updated_at: timestamp,
         })
@@ -366,7 +372,7 @@ export default async function handler(
             hidden: false,
             is_video: true,
             video_url: videoUrl,
-            video_duration_seconds: totalDurationSeconds,
+            video_duration_seconds: totalDurationEffective,
             video_generated_at: timestamp,
             updated_at: timestamp,
           });
@@ -392,7 +398,7 @@ export default async function handler(
       success: true,
       videoUrl,
       videoFileName,
-      duration: totalDurationSeconds,
+  duration: totalDurationEffective,
       imageCount: imagesToProcess.length,
       message: `Batch video generated successfully for ${imagesToProcess.length} image(s)`,
     });
