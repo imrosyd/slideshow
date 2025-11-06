@@ -294,6 +294,8 @@ const getErrorMessage = (appError: AppError, language: Language) => {
 };
 
 export default function Home() {
+  console.log('🚀 ============ SLIDESHOW APP RENDER ============');
+  
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [error, setError] = useState<AppError | null>(null);
@@ -308,6 +310,15 @@ export default function Home() {
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  console.log('📊 [STATE CHECK]', {
+    slidesCount: slides.length,
+    currentIndex,
+    loading,
+    hasError: !!error,
+    errorType: error?.kind,
+    isPaused
+  });
+
   useEffect(() => {
     slidesRef.current = slides;
   }, [slides]);
@@ -318,13 +329,18 @@ export default function Home() {
 
   // Fetch slides from API (reusable function)
   const fetchSlides = useCallback(async (isAutoRefresh = false) => {
+    console.log('🔄 [FETCH START]', { isAutoRefresh, timestamp: new Date().toISOString() });
+    
     try {
       if (!isAutoRefresh) {
+        console.log('⏳ Setting loading = true');
         setLoading(true);
       }
       
       // Fetch image list with cache busting
       const cacheBuster = `?t=${Date.now()}`;
+      console.log('📡 Fetching /api/images...');
+      
       const response = await fetch(`/api/images${cacheBuster}`, { 
         cache: "no-store",
         headers: {
@@ -333,10 +349,15 @@ export default function Home() {
           'Expires': '0'
         }
       });
+      
+      console.log('📡 Response:', response.status, response.statusText);
+      
       if (!response.ok) {
         throw new Error(`Failed to load image list: ${response.statusText}`);
       }
       const payload: { images: Array<{ name: string; isVideo?: boolean; videoUrl?: string }>; durations?: Record<string, number | null>; captions?: Record<string, string | null> } = await response.json();
+      
+      console.log('📦 Payload received:', payload.images?.length || 0, 'images');
 
       // Fetch durations
       let imageDurations: Record<string, number> = {};
@@ -420,18 +441,27 @@ export default function Home() {
         });
 
       if (slidesChanged) {
-        console.log(`${isAutoRefresh ? '🔄 Auto-refresh:' : '✅'} Fetched ${fetchedSlides.length} slides${slidesChanged && isAutoRefresh ? ' (UPDATED!)' : ''}`, fetchedSlides.map(s => s.name));
+        console.log(`✅ [SLIDES CHANGED] Count: ${fetchedSlides.length}`);
+        console.log('📋 Slides:', fetchedSlides.map(s => s.name).join(', '));
         
         // Preload first image only on initial load
         if (!isAutoRefresh && fetchedSlides.length > 0) {
+          console.log('🖼️  Preloading first slide...');
           const img = new Image();
           img.src = fetchedSlides[0].url;
           await new Promise((resolve) => {
-            img.onload = resolve;
-            img.onerror = resolve;
+            img.onload = () => {
+              console.log('✅ First slide loaded');
+              resolve(null);
+            };
+            img.onerror = (e) => {
+              console.error('❌ First slide failed:', e);
+              resolve(null);
+            };
           });
         }
         
+        console.log('💾 Updating slides state...');
         setSlides(fetchedSlides);
         slidesRef.current = fetchedSlides;
         
@@ -448,13 +478,14 @@ export default function Home() {
         }
         
         setError(null);
+        console.log('✅ [FETCH COMPLETE]');
       } else if (isAutoRefresh) {
-        console.log(`🔄 Auto-refresh: No changes detected (${fetchedSlides.length} slides)`);
+        console.log(`🔄 Auto-refresh: No changes (${fetchedSlides.length} slides)`);
       }
       
       return fetchedSlides;
     } catch (err) {
-      console.error("❌ Error fetching slides:", err);
+      console.error("❌ [FETCH ERROR]:", err);
       const detail = err instanceof Error ? err.message : undefined;
       if (!isAutoRefresh) {
         setError({ kind: "fetch", detail });
@@ -462,6 +493,7 @@ export default function Home() {
       return null;
     } finally {
       if (!isAutoRefresh) {
+        console.log('✅ Setting loading = false');
         setLoading(false);
       }
     }
@@ -1172,10 +1204,30 @@ export default function Home() {
     }
   };
 
+  // RENDER DECISION LOGIC
+  const shouldShowLoading = loading;
+  const shouldShowError = !loading && error;
+  const shouldShowEmpty = !loading && !error && slides.length === 0;
+  const shouldShowSlide = !loading && !error && slides.length > 0 && currentSlide;
+
+  console.log('🎬 [RENDER DECISION]', {
+    loading,
+    hasError: !!error,
+    slidesCount: slides.length,
+    currentIndex,
+    currentSlideName: currentSlide?.name || 'none',
+    showLoading: shouldShowLoading,
+    showError: shouldShowError,
+    showEmpty: shouldShowEmpty,
+    showSlide: shouldShowSlide
+  });
+
   return (
     <main style={styles.container}>
       <Head>
         <title>Slideshow</title>
+```
+```
       </Head>
       <div 
         style={getTransitionStyle()}
