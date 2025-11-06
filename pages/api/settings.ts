@@ -24,6 +24,14 @@ export default async function handler(
         transitionEffect: 'fade',
         autoRefreshInterval: 60000,
         defaultDuration: 15000,
+        // Music settings defaults
+        music_enabled: 'false',
+        music_source_type: 'upload',
+        music_file_url: '',
+        music_external_url: '',
+        music_youtube_url: '',
+        music_volume: '50',
+        music_loop: 'true',
       };
 
       data?.forEach((row) => {
@@ -34,6 +42,9 @@ export default async function handler(
           settings.autoRefreshInterval = parseInt(row.value, 10);
         } else if (row.key === 'default_duration') {
           settings.defaultDuration = parseInt(row.value, 10);
+        } else if (row.key.startsWith('music_')) {
+          // Pass through all music settings
+          settings[row.key] = row.value;
         }
       });
 
