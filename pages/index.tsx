@@ -484,6 +484,15 @@ export default function Home() {
     }
   }, []);
 
+  // Debug slideshow state
+  useEffect(() => {
+    console.log('📊 [Slideshow State]', {
+      totalSlides: slides.length,
+      currentIndex,
+      isPaused
+    });
+  }, [slides, currentIndex, isPaused]);
+
   // Initial fetch on mount
   useEffect(() => {
     fetchSlides(false);
@@ -504,7 +513,7 @@ export default function Home() {
         const volume = parseInt(data.music_volume || '50');
         const loop = data.music_loop !== 'false';
         
-        console.log('[Music Settings]', {
+        console.log('🎵 [Music Settings] Parsed from API:', {
           enabled,
           sourceType,
           file_url: data.music_file_url,
@@ -520,14 +529,23 @@ export default function Home() {
         setMusicLoop(loop);
         
         if (enabled) {
+          console.log('✅ Music is ENABLED, setting URL based on source type:', sourceType);
           if (sourceType === 'youtube') {
-            setMusicYoutubeUrl(data.music_youtube_url || '');
+            const ytUrl = data.music_youtube_url || '';
+            console.log('🎬 YouTube URL:', ytUrl);
+            setMusicYoutubeUrl(ytUrl);
           } else if (sourceType === 'url') {
-            setMusicUrl(data.music_external_url || '');
+            const extUrl = data.music_external_url || '';
+            console.log('🔗 External URL:', extUrl);
+            setMusicUrl(extUrl);
           } else {
             // sourceType === 'upload'
-            setMusicUrl(data.music_file_url || '');
+            const fileUrl = data.music_file_url || '';
+            console.log('📁 Upload file URL:', fileUrl);
+            setMusicUrl(fileUrl);
           }
+        } else {
+          console.log('❌ Music is DISABLED');
         }
       })
       .catch(err => console.error('Failed to load settings:', err));
@@ -535,27 +553,38 @@ export default function Home() {
 
   // Handle regular audio playback
   useEffect(() => {
-    console.log('[Music] Audio useEffect triggered:', { musicEnabled, musicSourceType, musicUrl, musicVolume, musicLoop });
+    console.log('🎵 [Music] Audio useEffect triggered:', { 
+      musicEnabled, 
+      musicSourceType, 
+      musicUrl: musicUrl ? musicUrl.substring(0, 50) + '...' : 'empty',
+      musicVolume, 
+      musicLoop 
+    });
     
     if (!audioRef.current) {
-      console.log('[Music] No audio ref');
+      console.log('⚠️ [Music] No audio ref element');
       return;
     }
 
     if (musicEnabled && musicSourceType !== 'youtube' && musicUrl) {
-      console.log('[Music] Setting up audio playback:', musicUrl);
+      console.log('▶️ [Music] Setting up audio playback');
+      console.log('   - Source:', musicUrl);
+      console.log('   - Volume:', musicVolume);
+      console.log('   - Loop:', musicLoop);
+      
       audioRef.current.src = musicUrl;
       audioRef.current.volume = musicVolume / 100;
       audioRef.current.loop = musicLoop;
       
       // Auto-play music
       audioRef.current.play()
-        .then(() => console.log('[Music] ✅ Audio playing'))
+        .then(() => console.log('✅ [Music] Audio is now playing'))
         .catch(err => {
-          console.log('[Music] Auto-play blocked, waiting for user interaction:', err);
+          console.error('❌ [Music] Auto-play blocked or failed:', err.message);
+          console.log('💡 Click anywhere on the page to start music');
         });
     } else {
-      console.log('[Music] Pausing audio');
+      console.log('⏸️ [Music] Stopping audio (enabled:', musicEnabled, 'type:', musicSourceType, 'url:', !!musicUrl, ')');
       audioRef.current.pause();
       audioRef.current.src = '';
     }
@@ -563,10 +592,10 @@ export default function Home() {
 
   // Handle YouTube player
   useEffect(() => {
-    console.log('[Music] YouTube useEffect triggered:', { musicEnabled, musicSourceType, musicYoutubeUrl });
+    console.log('🎬 [Music] YouTube useEffect triggered:', { musicEnabled, musicSourceType, musicYoutubeUrl });
     
     if (!musicEnabled || musicSourceType !== 'youtube' || !musicYoutubeUrl) {
-      console.log('[Music] YouTube not needed, cleaning up');
+      console.log('⏹️ [Music] YouTube not needed, cleaning up');
       // Destroy player if it exists
       if (youtubePlayerRef.current) {
         youtubePlayerRef.current.destroy();
