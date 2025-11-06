@@ -1299,34 +1299,8 @@ export default function Home() {
       </div>
 
       <div 
-        style={{
-          ...getTransitionStyle(),
-          backgroundColor: '#ff0000', // RED BACKGROUND FOR TESTING
-          border: '10px solid yellow', // YELLOW BORDER FOR TESTING
-          position: 'relative'
-        }}
+        style={getTransitionStyle()}
       >
-        {/* Show filename overlay for debugging */}
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          color: 'white',
-          fontSize: '48px',
-          fontWeight: 'bold',
-          textAlign: 'center',
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          padding: '40px',
-          borderRadius: '20px',
-          zIndex: 100
-        }}>
-          <div>📄 {currentSlide?.name || 'NO SLIDE'}</div>
-          <div style={{ fontSize: '24px', marginTop: '20px' }}>
-            {currentSlide?.videoUrl ? '🎥 VIDEO MODE' : '🖼️ IMAGE MODE'}
-          </div>
-        </div>
-        
         {currentSlide && currentSlide.videoUrl ? (
           <video
             ref={videoRef}
@@ -1336,7 +1310,11 @@ export default function Home() {
             muted
             playsInline
             loop
-            style={styles.image}
+            style={{
+              ...styles.image,
+              backgroundColor: '#000',
+              objectFit: 'contain' // Ensure video is visible
+            }}
             onLoadStart={() => {
               console.log(`🔵 Video load started - ${currentSlide.name}`);
             }}
@@ -1345,21 +1323,14 @@ export default function Home() {
             }}
             onLoadedData={() => {
               const video = videoRef.current;
-              console.log(`📺 WebOS: Video loaded, attempting play - ${currentSlide.name}`);
+              console.log(`📺 Video loaded, attempting play - ${currentSlide.name}`);
               if (video) {
                 video.play()
                   .then(() => {
                     console.log(`✅ Play success - ${currentSlide.name}`);
                   })
                   .catch((e) => {
-                    console.error(`❌ WebOS: Autoplay blocked - ${currentSlide.name}`, e);
-                    setTimeout(() => {
-                      video.play()
-                        .then(() => console.log(`✅ Play success (retry) - ${currentSlide.name}`))
-                        .catch((err) => {
-                          console.error('❌ WebOS: Retry failed', err);
-                        });
-                    }, 100);
+                    console.error(`❌ Autoplay blocked - ${currentSlide.name}`, e);
                   });
               }
             }}
@@ -1369,16 +1340,10 @@ export default function Home() {
             onError={(e) => {
               const target = e.target as HTMLVideoElement;
               const error = target.error;
-              console.error(`❌ Video error - ${currentSlide.name}`, error);
-            }}
-            onCanPlayThrough={() => {
-              console.log(`✅ Can play through: ${currentSlide.name}`);
-            }}
-            onStalled={() => {
-              console.warn(`⚠️ Video stalled - ${currentSlide.name}`);
-            }}
-            onWaiting={() => {
-              console.log(`⏳ Video waiting - ${currentSlide.name}`);
+              console.error(`❌ Video error - ${currentSlide.name}:`, {
+                code: error?.code,
+                message: error?.message
+              });
             }}
           />
         ) : currentSlide ? (
@@ -1386,9 +1351,16 @@ export default function Home() {
           <img
             src={currentSlide.url}
             alt={currentSlide.name}
-            style={styles.image}
+            style={{
+              ...styles.image,
+              backgroundColor: '#000',
+              objectFit: 'contain' // Ensure image is visible
+            }}
             onLoad={() => console.log(`✅ Image loaded: ${currentSlide.name}`)}
-            onError={() => console.error(`❌ Image failed: ${currentSlide.name}`)}
+            onError={(e) => {
+              console.error(`❌ Image failed: ${currentSlide.name}`);
+              console.error('Image URL:', currentSlide.url);
+            }}
           />
         ) : (
           // No slides at all
