@@ -189,48 +189,6 @@ export const ImageCard = ({
       </div>
 
       <div className="mt-auto flex flex-col gap-3 pt-2">
-        {image.isVideo ? (
-          <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-xs">
-            <div className="flex items-center justify-between">
-              <p className="font-medium text-emerald-300">✅ Video Generated</p>
-              <div className="flex gap-2">
-                {image.videoUrl && (
-                  <a
-                    href={image.videoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-emerald-300 hover:text-emerald-200 underline"
-                    title="Open video in new tab"
-                  >
-                    View
-                  </a>
-                )}
-                {onDeleteVideo && (
-                  <button
-                    type="button"
-                    onClick={() => onDeleteVideo(image.name)}
-                    className="text-red-400 hover:text-red-300 underline"
-                    title="Delete video"
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-            </div>
-            {image.videoDurationSeconds ? (
-              <p className="mt-1 text-emerald-200">Duration: {image.videoDurationSeconds}s</p>
-            ) : null}
-            {relativeVideoTime ? (
-              <p className="mt-1 text-emerald-200/80">Created {relativeVideoTime}</p>
-            ) : null}
-            {image.videoUrl && (
-              <p className="mt-2 text-emerald-200/60 break-all text-[10px]">
-                {image.videoUrl.split('/').pop()}
-              </p>
-            )}
-          </div>
-        ) : null}
-
         {/* Action Buttons - Always show all 5 buttons for consistent layout */}
         <div className="grid grid-cols-5 gap-2">
           {/* Button 1: Rename */}
