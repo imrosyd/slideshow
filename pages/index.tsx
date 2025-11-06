@@ -1257,6 +1257,16 @@ export default function Home() {
           <div>🔢 Index: {currentIndex}</div>
           <div>🎬 Current: <span style={{ color: currentSlide ? '#00ff00' : '#ff0000' }}>{currentSlide?.name || 'NONE'}</span></div>
           <div>🎥 Is Video: {currentSlide?.videoUrl ? 'YES' : 'NO'}</div>
+          {currentSlide?.videoUrl && (
+            <div style={{ fontSize: '12px', color: '#888', wordBreak: 'break-all' }}>
+              Video URL: {currentSlide.videoUrl.substring(0, 60)}...
+            </div>
+          )}
+          {currentSlide && !currentSlide.videoUrl && (
+            <div style={{ fontSize: '12px', color: '#888', wordBreak: 'break-all' }}>
+              Image URL: {currentSlide.url.substring(0, 60)}...
+            </div>
+          )}
           <div>⏸️ Paused: {isPaused ? 'YES' : 'NO'}</div>
         </div>
         <div style={{ marginTop: '10px', borderTop: '1px solid #00ff00', paddingTop: '10px' }}>
@@ -1264,7 +1274,13 @@ export default function Home() {
           <div>⏳ Show Loading: {shouldShowLoading ? 'YES' : 'NO'}</div>
           <div>⚠️ Show Error: {shouldShowError ? 'YES' : 'NO'}</div>
           <div>📭 Show Empty: {shouldShowEmpty ? 'YES' : 'NO'}</div>
-          <div>✅ Show Slide: {shouldShowSlide ? 'YES' : 'NO'}</div>
+          <div>✅ Show Slide: <span style={{ color: shouldShowSlide ? '#00ff00' : '#ff0000', fontWeight: 'bold' }}>{shouldShowSlide ? 'YES' : 'NO'}</span></div>
+          {shouldShowSlide && currentSlide && (
+            <div style={{ marginTop: '5px', padding: '5px', backgroundColor: 'rgba(0,255,0,0.2)' }}>
+              <div style={{ color: '#ffff00' }}>RENDERING:</div>
+              <div>{currentSlide.videoUrl ? '🎥 VIDEO ELEMENT' : '🖼️ IMAGE ELEMENT'}</div>
+            </div>
+          )}
         </div>
         {slides.length > 0 && (
           <div style={{ marginTop: '10px', borderTop: '1px solid #00ff00', paddingTop: '10px' }}>
@@ -1283,7 +1299,11 @@ export default function Home() {
       </div>
 
       <div 
-        style={getTransitionStyle()}
+        style={{
+          ...getTransitionStyle(),
+          backgroundColor: '#ff0000', // RED BACKGROUND FOR TESTING
+          border: '10px solid yellow' // YELLOW BORDER FOR TESTING
+        }}
       >
         {currentSlide && currentSlide.videoUrl ? (
           <video
