@@ -215,12 +215,16 @@ const AdminContent = () => {
         }
 
         // Update local state after successful save
-        setMusicSettings(prev => ({
-          ...prev,
-          ...newSettings,
-        }));
+        setMusicSettings(prev => {
+          const updated = {
+            ...prev,
+            ...newSettings,
+          };
+          console.log('[Admin] Updated local musicSettings state:', updated);
+          return updated;
+        });
         
-        console.log('[Admin] All music settings saved successfully, updated state:', newSettings);
+        console.log('[Admin] All music settings saved successfully');
       } catch (error) {
         console.error('Failed to save music settings:', error);
         throw error;

@@ -107,8 +107,10 @@ export const MusicSettingsPanel = ({ settings, onSave, authToken }: Props) => {
 
   const handleToggleEnabled = useCallback(async () => {
     const newValue = !localSettings.music_enabled;
+    console.log('[MusicPanel] Toggling enabled from', localSettings.music_enabled, 'to', newValue);
     await onSave({ music_enabled: newValue });
     setLocalSettings(prev => ({ ...prev, music_enabled: newValue }));
+    console.log('[MusicPanel] Enabled toggled successfully');
   }, [localSettings.music_enabled, onSave]);
 
   const handleSourceTypeChange = useCallback(async (type: 'upload' | 'url' | 'youtube') => {
