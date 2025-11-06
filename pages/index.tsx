@@ -1229,6 +1229,59 @@ export default function Home() {
 ```
 ```
       </Head>
+      
+      {/* Debug Overlay - Always visible on screen */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        color: '#00ff00',
+        padding: '20px',
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        zIndex: 9999,
+        maxWidth: '500px',
+        lineHeight: '1.6',
+        borderRight: '3px solid #00ff00',
+        borderBottom: '3px solid #00ff00'
+      }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '18px', color: '#ffff00' }}>
+          🔍 DEBUG INFO
+        </div>
+        <div>⏱️ Time: {new Date().toLocaleTimeString()}</div>
+        <div style={{ marginTop: '10px', borderTop: '1px solid #00ff00', paddingTop: '10px' }}>
+          <div>📊 Loading: <span style={{ color: loading ? '#ff0000' : '#00ff00' }}>{loading ? 'TRUE' : 'FALSE'}</span></div>
+          <div>❌ Error: <span style={{ color: error ? '#ff0000' : '#00ff00' }}>{error ? (error as any).kind : 'NONE'}</span></div>
+          <div>📦 Slides: <span style={{ color: slides.length > 0 ? '#00ff00' : '#ff0000' }}>{slides.length}</span></div>
+          <div>🔢 Index: {currentIndex}</div>
+          <div>🎬 Current: <span style={{ color: currentSlide ? '#00ff00' : '#ff0000' }}>{currentSlide?.name || 'NONE'}</span></div>
+          <div>🎥 Is Video: {currentSlide?.videoUrl ? 'YES' : 'NO'}</div>
+          <div>⏸️ Paused: {isPaused ? 'YES' : 'NO'}</div>
+        </div>
+        <div style={{ marginTop: '10px', borderTop: '1px solid #00ff00', paddingTop: '10px' }}>
+          <div style={{ color: '#ffff00' }}>RENDER STATUS:</div>
+          <div>⏳ Show Loading: {shouldShowLoading ? 'YES' : 'NO'}</div>
+          <div>⚠️ Show Error: {shouldShowError ? 'YES' : 'NO'}</div>
+          <div>📭 Show Empty: {shouldShowEmpty ? 'YES' : 'NO'}</div>
+          <div>✅ Show Slide: {shouldShowSlide ? 'YES' : 'NO'}</div>
+        </div>
+        {slides.length > 0 && (
+          <div style={{ marginTop: '10px', borderTop: '1px solid #00ff00', paddingTop: '10px' }}>
+            <div style={{ color: '#ffff00' }}>SLIDES LIST:</div>
+            {slides.slice(0, 5).map((slide, idx) => (
+              <div key={idx} style={{ 
+                color: idx === currentIndex ? '#00ff00' : '#888',
+                fontWeight: idx === currentIndex ? 'bold' : 'normal'
+              }}>
+                {idx === currentIndex ? '→ ' : '  '}{slide.name}
+              </div>
+            ))}
+            {slides.length > 5 && <div style={{ color: '#888' }}>... and {slides.length - 5} more</div>}
+          </div>
+        )}
+      </div>
+
       <div 
         style={getTransitionStyle()}
       >
