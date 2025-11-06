@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type MusicSettings = {
   music_enabled: boolean;
@@ -21,6 +21,12 @@ export const MusicSettingsPanel = ({ settings, onSave, authToken }: Props) => {
   const [localSettings, setLocalSettings] = useState(settings);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Sync localSettings with props.settings when they change
+  useEffect(() => {
+    console.log('[MusicPanel] Settings from props:', settings);
+    setLocalSettings(settings);
+  }, [settings]);
+
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -31,6 +37,7 @@ export const MusicSettingsPanel = ({ settings, onSave, authToken }: Props) => {
       return;
     }
 
+    console.log('[MusicPanel] Starting file upload:', file.name);
     setIsUploading(true);
     try {
       const formData = new FormData();
@@ -47,22 +54,26 @@ export const MusicSettingsPanel = ({ settings, onSave, authToken }: Props) => {
       }
 
       const data = await response.json();
+      console.log('[MusicPanel] Upload successful, response:', data);
       
       // Update settings
-      await onSave({
+      const newSettings = {
         music_file_url: data.url,
-        music_source_type: 'upload',
-      });
+        music_source_type: 'upload' as const,
+      };
+      
+      console.log('[MusicPanel] Calling onSave with:', newSettings);
+      await onSave(newSettings);
 
       setLocalSettings(prev => ({
         ...prev,
-        music_file_url: data.url,
-        music_source_type: 'upload',
+        ...newSettings,
       }));
 
+      console.log('[MusicPanel] Upload complete');
       alert('Music uploaded successfully!');
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('[MusicPanel] Upload error:', error);
       alert('Failed to upload music file');
     } finally {
       setIsUploading(false);

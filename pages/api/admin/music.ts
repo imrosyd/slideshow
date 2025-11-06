@@ -96,6 +96,8 @@ export default async function handler(
         .from(MUSIC_BUCKET)
         .getPublicUrl(sanitizedFilename);
 
+      console.log('[Music API] File uploaded, public URL:', urlData.publicUrl);
+
       // Update music_file_url setting
       const { error: dbError } = await supabase
         .from('slideshow_settings')
@@ -107,9 +109,12 @@ export default async function handler(
         });
 
       if (dbError) {
-        console.error("Database error:", dbError);
+        console.error("[Music API] Database error:", dbError);
+      } else {
+        console.log('[Music API] Database updated with music_file_url');
       }
 
+      console.log('[Music API] Upload complete, returning response');
       return res.status(200).json({
         success: true,
         url: urlData.publicUrl,

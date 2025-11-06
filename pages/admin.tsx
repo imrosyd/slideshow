@@ -158,7 +158,9 @@ const AdminContent = () => {
         const response = await fetch('/api/admin/settings');
         if (response.ok) {
           const settings = await response.json();
-          setMusicSettings({
+          console.log('[Admin] Loaded settings from API:', settings);
+          
+          const musicSettings = {
             music_enabled: settings.music_enabled === 'true',
             music_source_type: settings.music_source_type || 'upload',
             music_file_url: settings.music_file_url || '',
@@ -166,7 +168,10 @@ const AdminContent = () => {
             music_youtube_url: settings.music_youtube_url || '',
             music_volume: parseInt(settings.music_volume || '50'),
             music_loop: settings.music_loop !== 'false',
-          });
+          };
+          
+          console.log('[Admin] Parsed music settings:', musicSettings);
+          setMusicSettings(musicSettings);
         }
       } catch (error) {
         console.error('Failed to load music settings:', error);
@@ -183,8 +188,12 @@ const AdminContent = () => {
       if (!authToken) return;
 
       try {
+        console.log('[Admin] Saving music settings:', newSettings);
+        
         // Update each setting individually
         for (const [key, value] of Object.entries(newSettings)) {
+          console.log(`[Admin] Saving ${key}:`, value);
+          
           const response = await fetch('/api/admin/settings', {
             method: 'PUT',
             headers: {
@@ -200,9 +209,18 @@ const AdminContent = () => {
           if (!response.ok) {
             throw new Error(`Failed to save ${key}`);
           }
+          
+          const result = await response.json();
+          console.log(`[Admin] Saved ${key}, result:`, result);
         }
 
-        console.log('Music settings saved:', newSettings);
+        // Update local state after successful save
+        setMusicSettings(prev => ({
+          ...prev,
+          ...newSettings,
+        }));
+        
+        console.log('[Admin] All music settings saved successfully, updated state:', newSettings);
       } catch (error) {
         console.error('Failed to save music settings:', error);
         throw error;

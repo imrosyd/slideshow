@@ -492,25 +492,42 @@ export default function Home() {
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
+        console.log('[Settings] Loaded from API:', data);
+        
         if (data.transitionEffect) {
           setTransitionEffect(data.transitionEffect);
         }
+        
         // Load music settings
-        if (data.music_enabled === 'true') {
-          setMusicEnabled(true);
-          const sourceType = data.music_source_type || 'upload';
-          setMusicSourceType(sourceType);
-          
+        const enabled = data.music_enabled === 'true';
+        const sourceType = (data.music_source_type || 'upload') as 'upload' | 'url' | 'youtube';
+        const volume = parseInt(data.music_volume || '50');
+        const loop = data.music_loop !== 'false';
+        
+        console.log('[Music Settings]', {
+          enabled,
+          sourceType,
+          file_url: data.music_file_url,
+          external_url: data.music_external_url,
+          youtube_url: data.music_youtube_url,
+          volume,
+          loop
+        });
+        
+        setMusicEnabled(enabled);
+        setMusicSourceType(sourceType);
+        setMusicVolume(volume);
+        setMusicLoop(loop);
+        
+        if (enabled) {
           if (sourceType === 'youtube') {
             setMusicYoutubeUrl(data.music_youtube_url || '');
+          } else if (sourceType === 'url') {
+            setMusicUrl(data.music_external_url || '');
           } else {
-            const url = sourceType === 'upload' ? data.music_file_url : data.music_external_url;
-            if (url) {
-              setMusicUrl(url);
-            }
+            // sourceType === 'upload'
+            setMusicUrl(data.music_file_url || '');
           }
-          setMusicVolume(parseInt(data.music_volume || '50'));
-          setMusicLoop(data.music_loop !== 'false');
         }
       })
       .catch(err => console.error('Failed to load settings:', err));
