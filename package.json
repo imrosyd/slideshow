@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@supabase/supabase-js": "^2.76.1",
     "dotenv": "^17.2.3",
     "formidable": "^3.5.4",

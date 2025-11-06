@@ -5,8 +5,10 @@ import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import https from 'https';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 
 const execAsync = promisify(exec);
+const ffmpegPath = ffmpegInstaller.path;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -159,7 +161,9 @@ export default async function handler(
     // -loop 1: Loop the image
     // -framerate 24: 24 fps
     // -t <duration>: Display for this many seconds
-    let ffmpegCmd = `ffmpeg`;
+    let ffmpegCmd = `"${ffmpegPath}"`;
+    
+    console.log(`[Video Gen] Using FFmpeg from: ${ffmpegPath}`);
     
     for (let i = 0; i < imagePaths.length; i++) {
       const imgFilename = imagesToProcess[i];
