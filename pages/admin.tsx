@@ -793,7 +793,7 @@ const AdminContent = () => {
               <div className="flex flex-col gap-2">
                 <h2 className="text-2xl font-semibold tracking-tight text-white/95">Rename File</h2>
                 <p className="text-sm leading-relaxed text-white/70">
-                  Enter a new name for "{renameDialog.filename}"
+                  Enter a new name for &quot;{renameDialog.filename}&quot;
                 </p>
               </div>
               <input

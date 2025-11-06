@@ -73,26 +73,26 @@ export default function RemoteControl() {
     console.log('Sent command:', command, data);
   }, [channel]);
 
-  const handlePrevious = () => sendCommand('previous');
-  const handleNext = () => sendCommand('next');
-  const handlePlayPause = () => sendCommand('toggle-pause');
-  const handleGoToSlide = (index: number) => sendCommand('goto', { index });
-  const handleFirst = () => sendCommand('goto', { index: 0 });
-  const handleLast = () => sendCommand('goto', { index: slideCount - 1 });
-  const handleRestart = () => sendCommand('restart');
-  const handleRefresh = () => sendCommand('refresh');
-  const handleSetTransition = (effect: string) => {
+  const handlePrevious = useCallback(() => sendCommand('previous'), [sendCommand]);
+  const handleNext = useCallback(() => sendCommand('next'), [sendCommand]);
+  const handlePlayPause = useCallback(() => sendCommand('toggle-pause'), [sendCommand]);
+  const handleGoToSlide = useCallback((index: number) => sendCommand('goto', { index }), [sendCommand]);
+  const handleFirst = useCallback(() => sendCommand('goto', { index: 0 }), [sendCommand]);
+  const handleLast = useCallback(() => sendCommand('goto', { index: slideCount - 1 }), [sendCommand, slideCount]);
+  const handleRestart = useCallback(() => sendCommand('restart'), [sendCommand]);
+  const handleRefresh = useCallback(() => sendCommand('refresh'), [sendCommand]);
+  const handleSetTransition = useCallback((effect: string) => {
     setTransitionEffect(effect);
     sendCommand('set-transition', { effect });
     console.log('🎨 Setting transition effect to:', effect);
-  };
-  const handleJumpTo = () => {
+  }, [sendCommand]);
+  const handleJumpTo = useCallback(() => {
     const slideNumber = parseInt(jumpToSlide);
     if (!isNaN(slideNumber) && slideNumber >= 1 && slideNumber <= slideCount) {
       handleGoToSlide(slideNumber - 1);
       setJumpToSlide("");
     }
-  };
+  }, [jumpToSlide, slideCount, handleGoToSlide]);
 
   // Keyboard shortcuts
   useEffect(() => {
