@@ -32,6 +32,15 @@ export default async function handler(
         music_youtube_url: '',
         music_volume: '50',
         music_loop: 'true',
+        // Video encoding defaults (exposed for visibility/tuning)
+        video_crf: '22',
+        video_preset: 'veryfast',
+        video_profile: 'high',
+        video_level: '4.0',
+        video_fps: '24',
+        video_gop: '48',
+        video_width: '1920',
+        video_height: '1080',
       };
 
       data?.forEach((row) => {
@@ -44,6 +53,9 @@ export default async function handler(
           settings.defaultDuration = parseInt(row.value, 10);
         } else if (row.key.startsWith('music_')) {
           // Pass through all music settings
+          settings[row.key] = row.value;
+        } else if (row.key.startsWith('video_')) {
+          // Pass through video encoding settings as-is (snake_case)
           settings[row.key] = row.value;
         }
       });

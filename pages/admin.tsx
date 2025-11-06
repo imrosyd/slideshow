@@ -2,16 +2,30 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
-import { QRCodeSVG } from 'qrcode.react';
+import dynamic from "next/dynamic";
+const QRCodeSVG = dynamic(async () => (await import('qrcode.react')).QRCodeSVG as any, { ssr: false }) as any;
+
+// Precompute Supabase origin for resource hints on admin page
+const SUPABASE_ORIGIN = (() => {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
+    return url ? new URL(url).origin : "";
+  } catch {
+    return "";
+  }
+})();
 import { ToastProvider } from "../components/admin/ToastProvider";
-import { UploadBox } from "../components/admin/UploadBox";
-import { ImageCard } from "../components/admin/ImageCard";
-import { ConfirmModal } from "../components/admin/ConfirmModal";
+
+// Lazy-load komponen berat untuk memperkecil bundle awal halaman admin
+const UploadBox = dynamic(async () => (await import("../components/admin/UploadBox")).UploadBox as any, { ssr: false }) as any;
+const ImageCard = dynamic(async () => (await import("../components/admin/ImageCard")).ImageCard as any, { ssr: false }) as any;
+const ConfirmModal = dynamic(async () => (await import("../components/admin/ConfirmModal")).ConfirmModal as any, { ssr: false }) as any;
 import { useImages } from "../hooks/useImages";
 import { useToast } from "../hooks/useToast";
 import { getAdminAuthCookieName, getExpectedAdminToken } from "../lib/auth";
 
 const AdminContent = () => {
+  // (Reserved) additional admin-only state
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -792,10 +806,10 @@ const AdminContent = () => {
                           onChange={updateMetadataDraft}
                           onReset={resetMetadataDraft}
                           onSave={handleSaveIndividual}
-                          onDelete={(filename) => setConfirmTarget(filename)}
+                          onDelete={(filename: string) => setConfirmTarget(filename)}
                           onPreview={openFullscreen}
                           onGenerateVideo={handleGenerateVideo}
-                          onDeleteVideo={(filename) => setDeleteVideoConfirm(filename)}
+                          onDeleteVideo={(filename: string) => setDeleteVideoConfirm(filename)}
                           isGeneratingVideo={generatingVideoFor === image.name}
                           isSaving={savingImageFor === image.name}
                           onRename={handleRenameImage}
@@ -937,6 +951,12 @@ export default function AdminPage() {
     <ToastProvider>
       <Head>
         <title>Admin Dashboard · Slideshow</title>
+        {SUPABASE_ORIGIN && (
+          <>
+            <link rel="preconnect" href={SUPABASE_ORIGIN} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={SUPABASE_ORIGIN} />
+          </>
+        )}
       </Head>
       <AdminContent />
     </ToastProvider>

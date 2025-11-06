@@ -13,6 +13,16 @@ const LANGUAGE_SEQUENCE: Language[] = ["en", "ko", "id"];
 type TransitionEffect = "fade" | "slide" | "zoom" | "none";
 const DEFAULT_TRANSITION: TransitionEffect = "fade";
 
+// Precompute Supabase origin for resource hints
+const SUPABASE_ORIGIN = (() => {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
+    return url ? new URL(url).origin : "";
+  } catch {
+    return "";
+  }
+})();
+
 const translations = {
   loading: {
     en: "Loading images…",
@@ -298,6 +308,48 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [error, setError] = useState<AppError | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Resource hints to reduce connection latency to Supabase (storage, realtime)
+  // Safe for webOS; ignored if duplicate
+  // Placed here to ensure it’s included on TV display page
+  const ResourceHints = (
+    <Head>
+      {SUPABASE_ORIGIN && (
+        <>
+          <link rel="preconnect" href={SUPABASE_ORIGIN} crossOrigin="" />
+          <link rel="dns-prefetch" href={SUPABASE_ORIGIN} />
+        </>
+      )}
+    </Head>
+  );
+
+  // Prefetch slide berikutnya untuk memperhalus transisi pemutaran di TV
+  useEffect(() => {
+    try {
+      if (!slides || slides.length === 0) return;
+      const nextIdx = (currentIndex + 1) % slides.length;
+      const next = slides[nextIdx];
+      if (!next) return;
+
+      const href = next.videoUrl || next.url;
+      if (!href) return;
+
+      const id = "slideshow-prefetch-link";
+      // Hapus prefetch sebelumnya agar tidak menumpuk
+      const existing = document.getElementById(id);
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "prefetch";
+      link.href = href;
+      // Ajukan sebagai fetch sumber daya pasif
+      (link as any).as = "video";
+      document.head.appendChild(link);
+    } catch (e) {
+      // Prefetch bersifat best-effort, aman diabaikan jika gagal
+    }
+  }, [currentIndex, slides]);
   const [language, setLanguage] = useState<Language>("en");
   const [fadeIn, setFadeIn] = useState(true);
   const [isPaused, setIsPaused] = useState(false);

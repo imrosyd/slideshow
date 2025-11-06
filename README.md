@@ -1,4 +1,191 @@
 # 🎬 Slideshow Dashboard System# Slideshow Dashboard System
+# 🎞️ Slideshow
+
+Dashboard slideshow untuk TV/Display dengan admin panel sederhana, penyimpanan di Supabase, konversi gambar/PDF menjadi video, dan optimisasi webOS agar layar tetap menyala selama pemutaran.
+
+## 🎯 Apa itu Slideshow?
+
+Slideshow adalah aplikasi Next.js untuk menampilkan rotasi konten di layar TV secara terus‑menerus. Admin dapat mengunggah gambar/PDF, mengatur durasi dan urutan, serta mengonversi menjadi video MP4. Pemutar di sisi TV dioptimalkan agar stabil di perangkat webOS (LG TV), termasuk mekanisme keep‑awake dan loop native.
+
+## ✨ Fitur
+
+### 🗂️ Manajemen Konten (Admin)
+- Upload banyak file sekaligus (gambar/PDF) ke Supabase Storage
+- Rename file, ubah durasi tampil, caption, urutan, dan visibilitas (hidden)
+- Generate video MP4 dari gambar/PDF (libx264, yuv420p) untuk pemutaran yang lebih mulus di TV
+- Hapus file beserta metadata terkait
+
+### 📺 Pemutar Slideshow (Display/TV)
+- Pemutaran video secara loop tanpa jeda dengan retry/backoff
+- Keep‑awake agresif (Wake Lock API, event video, dan webOS API)
+- Optimisasi webOS: throttled triggers dan native loop
+- Auto refresh konten berkala
+
+### 🧰 Infrastruktur
+- Supabase Storage: `slideshow-images` dan `slideshow-videos`
+- Database: tabel `image_durations` dan `slideshow_settings`
+- Row Level Security (RLS) untuk keamanan data produksi
+- API server-side memakai Service Role Key (tidak terekspos ke client)
+
+### 🔐 Keamanan
+- Cookie HttpOnly untuk sesi admin
+- Header keamanan (HSTS, X-Frame-Options, CSP, dll.)
+- Sanitasi nama file dan batas ukuran upload
+- Rekomendasi: aktifkan RLS (tersedia migration) dan rate limiting
+
+## 🧱 Tech Stack
+
+- Next.js 14 + TypeScript + Tailwind CSS
+- Supabase (Postgres, Storage, Realtime)
+- FFmpeg (via `@ffmpeg-installer/ffmpeg`)
+
+## 🛠️ Instalasi
+
+### 1️⃣ Clone & Masuk Folder
+
+```bash
+git clone https://github.com/imrosyd/slideshow.git
+cd slideshow
+```
+
+### 2️⃣ Install Dependencies
+
+```bash
+npm install
+```
+
+### 3️⃣ Konfigurasi Environment
+
+Buat file `.env.local` di root proyek:
+
+```bash
+# Admin panel
+ADMIN_PASSWORD=your_secure_password
+
+# Supabase (public - aman di client)
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+
+# Supabase (server only)
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...   # JANGAN diekspos ke client
+
+# Storage & DB
+SUPABASE_STORAGE_BUCKET=slideshow-images
+SUPABASE_DURATIONS_TABLE=image_durations
+```
+
+## 🗄️ Setup Supabase
+
+1. Buat Storage Buckets:
+   - `slideshow-images` (untuk gambar)
+   - `slideshow-videos` (untuk video hasil generate)
+
+2. Jalankan migration SQL secara berurutan (Supabase Dashboard → SQL Editor):
+   - `supabase/001_create_image_durations_table.sql`
+   - `supabase/002_create_slideshow_settings_table.sql`
+   - `supabase/003_add_video_metadata_columns.sql`
+   - `supabase/004_enable_row_level_security.sql` (ENABLE RLS + policies)
+
+3. Buat Storage Policies (manual di Dashboard → Storage → [bucket] → Policies):
+   - Public read (SELECT) untuk kedua bucket
+   - Service role full access (SELECT/INSERT/UPDATE/DELETE)
+
+### ⚙️ Opsi Encoding Video (opsional)
+
+Anda bisa mengatur parameter encoding FFmpeg melalui tabel `slideshow_settings` tanpa rebuild. Nilai default sudah aman untuk webOS.
+
+- `video_crf` (default: `22`) — kualitas 18–28 (lebih kecil = lebih bagus/lebih besar file)
+- `video_preset` (default: `veryfast`) — `ultrafast`…`veryslow`
+- `video_profile` (default: `high`) — `baseline` | `main` | `high`
+- `video_level` (default: `4.0`) — contoh: `3.1`, `4.0`
+- `video_fps` (default: `24`) — 15–60
+- `video_gop` (default: `2 × fps`, ex: `48` untuk 24fps)
+- `video_width` (default: `1920`) — 320–3840
+- `video_height` (default: `1080`) — 240–2160
+
+Catatan: Server akan memvalidasi rentang nilai dan jatuh ke default bila invalid. Scale akan menjaga rasio aspek (scale+pad) dan memakai `yuv420p` untuk kompatibilitas luas.
+
+## 🔒 Testing RLS
+
+Gunakan alat uji yang sudah disertakan:
+
+1. Buka file `test-rls.html` di browser
+2. Isi Supabase URL dan Anon Key
+3. Klik “Initialize” lalu “Run All Tests”
+4. Semua tes harus PASS (anon hanya bisa membaca konten non‑hidden)
+
+## 💡 Cara Menjalankan
+
+### Development
+
+```bash
+npm run dev
+# Buka: http://localhost:3000 (atau 3001 jika 3000 sedang dipakai)
+```
+
+Halaman penting:
+- `/admin` — panel admin (login pakai `ADMIN_PASSWORD`)
+- `/` — pemutar slideshow untuk TV
+
+### Production Build
+
+```bash
+npm run build
+npm start
+```
+
+## 🚀 Deploy
+
+Platform yang disarankan: Vercel.
+
+1. Push repo ke GitHub
+2. Hubungkan ke Vercel, set Environment Variables sesuai `.env.local`
+3. Deploy. Pastikan migrasi SQL (bagian Supabase) sudah dijalankan.
+
+## 📁 Struktur Direktori
+
+```
+slideshow/
+├── components/
+├── hooks/
+├── lib/
+├── pages/
+│   ├── index.tsx             # Pemutar slideshow (TV)
+│   ├── admin.tsx             # Panel admin
+│   └── api/                  # API routes (server side)
+├── supabase/                 # SQL migrations
+│   ├── 001_create_image_durations_table.sql
+│   ├── 002_create_slideshow_settings_table.sql
+│   ├── 003_add_video_metadata_columns.sql
+│   └── 004_enable_row_level_security.sql
+├── public/
+├── styles/
+└── test-rls.html             # Alat uji RLS
+```
+
+## 🧪 Scripts yang Tersedia
+
+| Script      | Fungsi                              |
+|-------------|-------------------------------------|
+| `dev`       | Menjalankan Next.js (development)    |
+| `build`     | Build production                     |
+| `start`     | Menjalankan server production        |
+| `lint`      | Menjalankan ESLint                   |
+
+## 🧰 Troubleshooting
+
+- 401 saat akses `/admin`: cek `ADMIN_PASSWORD` di environment
+- 403 saat upload ke Storage: cek Storage Policies dan Service Role Key
+- Anon bisa menulis data: pastikan migration RLS `004` sudah dijalankan dan policies benar
+- Layar TV sleep/blank: pastikan video hasil generate (MP4/h264/yuv420p) dan koneksi stabil
+
+## 🤝 Kontribusi
+
+Saran fitur/bug report/pull request sangat diterima. Silakan gunakan tab Issues atau ajukan PR langsung.
+
+---
+
+Made with ❤️ for always‑on TV dashboards.
 
 
 

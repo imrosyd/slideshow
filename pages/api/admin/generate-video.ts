@@ -106,6 +106,59 @@ export default async function handler(
   console.log(`[Video Gen] Starting video generation for ${imagesToProcess.length} image(s) with total duration ${totalDurationSeconds}s`);
 
   try {
+    // Load optional encoding settings from database (with safe defaults)
+    const defaultEnc = {
+      fps: 24,
+      gop: 48,
+      profile: 'high',
+      level: '4.0',
+      preset: 'veryfast',
+      crf: 22,
+      width: 1920,
+      height: 1080,
+    };
+
+    try {
+      const { data: encRows, error: encErr } = await supabase
+        .from('slideshow_settings')
+        .select('key,value')
+        .in('key', [
+          'video_fps',
+          'video_gop',
+          'video_profile',
+          'video_level',
+          'video_preset',
+          'video_crf',
+          'video_width',
+          'video_height',
+        ]);
+
+      if (!encErr && encRows && encRows.length > 0) {
+        const map = new Map<string, string>(encRows.map(r => [r.key, r.value]));
+        const fps = parseInt(map.get('video_fps') || '', 10);
+        if (!Number.isNaN(fps) && fps >= 15 && fps <= 60) defaultEnc.fps = fps;
+        const gop = parseInt(map.get('video_gop') || '', 10);
+        if (!Number.isNaN(gop) && gop >= defaultEnc.fps && gop <= defaultEnc.fps * 10) defaultEnc.gop = gop;
+        const profile = (map.get('video_profile') || '').toLowerCase();
+        if (['baseline','main','high'].includes(profile)) defaultEnc.profile = profile as any;
+        const level = map.get('video_level') || '';
+        if (/^\d(\.\d)?$/.test(level)) defaultEnc.level = level;
+        const preset = (map.get('video_preset') || '').toLowerCase();
+        if (['ultrafast','superfast','veryfast','faster','fast','medium','slow','slower','veryslow'].includes(preset)) defaultEnc.preset = preset as any;
+        const crf = parseInt(map.get('video_crf') || '', 10);
+        if (!Number.isNaN(crf) && crf >= 15 && crf <= 35) defaultEnc.crf = crf;
+        const width = parseInt(map.get('video_width') || '', 10);
+        if (!Number.isNaN(width) && width >= 320 && width <= 3840) defaultEnc.width = width;
+        const height = parseInt(map.get('video_height') || '', 10);
+        if (!Number.isNaN(height) && height >= 240 && height <= 2160) defaultEnc.height = height;
+        // If gop not explicitly set, derive as 2x fps
+        if (!map.get('video_gop')) defaultEnc.gop = defaultEnc.fps * 2;
+      }
+      console.log(`[Video Gen] Encoder config -> fps=${defaultEnc.fps}, gop=${defaultEnc.gop}, profile=${defaultEnc.profile}, level=${defaultEnc.level}, preset=${defaultEnc.preset}, crf=${defaultEnc.crf}, scale=${defaultEnc.width}x${defaultEnc.height}`);
+    } catch (e) {
+      console.log(`[Video Gen] Using default encoder config (db fetch failed or not set): ${e}`);
+    }
+
     // Check if video already exists for single image generation
     if (imagesToProcess.length === 1) {
       const imageName = imagesToProcess[0];
@@ -203,7 +256,7 @@ export default async function handler(
     for (let i = 0; i < imagePaths.length; i++) {
       const imgFilename = imagesToProcess[i];
       const imageDuration = imageDurations.get(imgFilename) || 0;
-      ffmpegCmd += ` -loop 1 -framerate 24 -t ${imageDuration} -i "${imagePaths[i]}"`;
+      ffmpegCmd += ` -loop 1 -framerate ${defaultEnc.fps} -t ${imageDuration} -i "${imagePaths[i]}"`;
       console.log(`[Video Gen] FFmpeg Input ${i + 1}: ${imageDuration}s`);
     }
     
@@ -212,14 +265,22 @@ export default async function handler(
     let filterComplex = '';
     
     for (let i = 0; i < inputCount; i++) {
-      filterComplex += `[${i}:v]scale=trunc(iw/2)*2:trunc(ih/2)*2[v${i}];`;
+      // Scale down to fit 1920x1080 preserving aspect ratio, then pad to exactly 1920x1080 (even dimensions)
+      // Also ensure 4:2:0 pixel format for broad device compatibility
+      filterComplex += `[${i}:v]scale=${defaultEnc.width}:${defaultEnc.height}:force_original_aspect_ratio=decrease:eval=frame,` +
+        `pad=${defaultEnc.width}:${defaultEnc.height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p[v${i}];`;
     }
-    
-    filterComplex += inputCount === 1 
-      ? `[v0]format=yuv420p[out]`
+
+    filterComplex += inputCount === 1
+      ? `[v0][v0]concat=n=1:v=1:a=0,format=yuv420p[out]`
       : Array.from({ length: inputCount }, (_, i) => `[v${i}]`).join('') + `concat=n=${inputCount}:v=1:a=0,format=yuv420p[out]`;
-    
-    ffmpegCmd += ` -filter_complex "${filterComplex}" -map "[out]" -c:v libx264 -pix_fmt yuv420p -b:v 1500k -r 24 "${tempVideoPath}" 2>&1`;
+
+    // Encoding tuned for webOS playback stability and progressive start
+    // -movflags +faststart to move moov atom to the beginning for quicker start
+    // CRF for quality/size balance, preset for speed, yuv420p for compatibility
+    ffmpegCmd += ` -filter_complex "${filterComplex}" -map "[out]" ` +
+      `-c:v libx264 -r ${defaultEnc.fps} -g ${defaultEnc.gop} -profile:v ${defaultEnc.profile} -level ${defaultEnc.level} -preset ${defaultEnc.preset} -crf ${defaultEnc.crf} -pix_fmt yuv420p ` +
+      `-movflags +faststart -tune stillimage "${tempVideoPath}" 2>&1`;
 
     console.log(`[Video Gen] FFmpeg Command: ${ffmpegCmd.substring(0, 300)}...`);
 
