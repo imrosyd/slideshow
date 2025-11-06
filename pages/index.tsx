@@ -1302,9 +1302,31 @@ export default function Home() {
         style={{
           ...getTransitionStyle(),
           backgroundColor: '#ff0000', // RED BACKGROUND FOR TESTING
-          border: '10px solid yellow' // YELLOW BORDER FOR TESTING
+          border: '10px solid yellow', // YELLOW BORDER FOR TESTING
+          position: 'relative'
         }}
       >
+        {/* Show filename overlay for debugging */}
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          color: 'white',
+          fontSize: '48px',
+          fontWeight: 'bold',
+          textAlign: 'center',
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          padding: '40px',
+          borderRadius: '20px',
+          zIndex: 100
+        }}>
+          <div>📄 {currentSlide?.name || 'NO SLIDE'}</div>
+          <div style={{ fontSize: '24px', marginTop: '20px' }}>
+            {currentSlide?.videoUrl ? '🎥 VIDEO MODE' : '🖼️ IMAGE MODE'}
+          </div>
+        </div>
+        
         {currentSlide && currentSlide.videoUrl ? (
           <video
             ref={videoRef}
