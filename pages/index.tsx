@@ -1214,17 +1214,24 @@ export default function Home() {
               }
             }}
             onTimeUpdate={(e) => {
-              // Trigger keep-awake every 30 seconds during playback
+              // Trigger keep-awake every 10 seconds during playback (more aggressive)
               const video = e.target as HTMLVideoElement;
-              if (video.currentTime > 0 && Math.floor(video.currentTime) % 30 === 0) {
+              if (video.currentTime > 0 && Math.floor(video.currentTime) % 10 === 0) {
                 if (typeof document !== 'undefined') {
                   document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
                 }
               }
             }}
             onEnded={() => {
-              // Trigger keep-awake when video loops
-              console.log(`🔄 Video ended, will loop - ${currentSlide.name}`);
+              // Force video to loop and trigger keep-awake
+              console.log(`🔄 Video ended, forcing loop - ${currentSlide.name}`);
+              const video = videoRef.current;
+              if (video) {
+                // Force replay
+                video.currentTime = 0;
+                video.play().catch(err => console.error('Loop play failed:', err));
+              }
+              // Trigger keep-awake
               if (typeof document !== 'undefined') {
                 document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
               }
