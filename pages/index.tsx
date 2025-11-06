@@ -307,6 +307,13 @@ export default function Home() {
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  
+  // Music settings state
+  const [musicEnabled, setMusicEnabled] = useState(false);
+  const [musicUrl, setMusicUrl] = useState<string>('');
+  const [musicVolume, setMusicVolume] = useState(50);
+  const [musicLoop, setMusicLoop] = useState(true);
 
   useEffect(() => {
     slidesRef.current = slides;
@@ -471,16 +478,46 @@ export default function Home() {
   useEffect(() => {
     fetchSlides(false);
     
-    // Load transition effect from settings
+    // Load transition effect and music settings from settings
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
         if (data.transitionEffect) {
           setTransitionEffect(data.transitionEffect);
         }
+        // Load music settings
+        if (data.music_enabled === 'true') {
+          setMusicEnabled(true);
+          const sourceType = data.music_source_type || 'upload';
+          const url = sourceType === 'upload' ? data.music_file_url : data.music_external_url;
+          if (url) {
+            setMusicUrl(url);
+          }
+          setMusicVolume(parseInt(data.music_volume || '50'));
+          setMusicLoop(data.music_loop !== 'false');
+        }
       })
       .catch(err => console.error('Failed to load settings:', err));
   }, [fetchSlides]);
+
+  // Handle music playback
+  useEffect(() => {
+    if (!audioRef.current) return;
+
+    if (musicEnabled && musicUrl) {
+      audioRef.current.src = musicUrl;
+      audioRef.current.volume = musicVolume / 100;
+      audioRef.current.loop = musicLoop;
+      
+      // Auto-play music
+      audioRef.current.play().catch(err => {
+        console.log('Auto-play blocked, waiting for user interaction:', err);
+      });
+    } else {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+    }
+  }, [musicEnabled, musicUrl, musicVolume, musicLoop]);
 
   // Auto-refresh: Check for new images periodically
   useEffect(() => {
@@ -1239,6 +1276,13 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Background Music Audio */}
+      <audio
+        ref={audioRef}
+        style={{ display: 'none' }}
+        preload="auto"
+      />
 
       {/* Controls Overlay */}
       <div 
