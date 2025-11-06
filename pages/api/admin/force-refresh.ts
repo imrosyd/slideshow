@@ -16,9 +16,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     await channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        // Send refresh command
-        await channel.send({
-          type: 'broadcast',
+        // Send refresh command explicitly using httpSend
+        await channel.httpSend('broadcast', {
           event: 'force-refresh',
           payload: { timestamp: Date.now() }
         });

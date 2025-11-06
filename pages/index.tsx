@@ -293,6 +293,18 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "0.7rem",
     fontWeight: 600,
   },
+  countdownBadge: {
+    position: "absolute",
+    top: "4px",
+    right: "4px",
+    backgroundColor: "rgba(15, 23, 42, 0.85)",
+    color: "#ffffff",
+    padding: "2px 6px",
+    borderRadius: "4px",
+    fontSize: "0.7rem",
+    fontWeight: 600,
+    letterSpacing: "0.02em",
+  },
 } as const;
 
 const getErrorMessage = (appError: AppError, language: Language) => {
@@ -355,11 +367,13 @@ export default function Home() {
   const [isPaused, setIsPaused] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [transitionEffect, setTransitionEffect] = useState<TransitionEffect>(DEFAULT_TRANSITION);
+  const [slideCountdowns, setSlideCountdowns] = useState<number[]>([]);
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastKeepAwakeTimeRef = useRef<number>(0);
+  const slideStartTimeRef = useRef<number>(Date.now());
 
   useEffect(() => {
     slidesRef.current = slides;
@@ -581,6 +595,48 @@ export default function Home() {
     };
   }, [fetchSlides]);
 
+  const computeCountdowns = useCallback((): number[] => {
+    if (!slides.length) {
+      return [];
+    }
+
+    const now = Date.now();
+    const startTime = slideStartTimeRef.current ?? now;
+    const countdowns = new Array(slides.length).fill(0);
+    let accumulatedMs = 0;
+
+    for (let offset = 0; offset < slides.length; offset += 1) {
+      const idx = (currentIndex + offset) % slides.length;
+      const slide = slides[idx];
+      const slideStart = startTime + accumulatedMs;
+      const slideEnd = slideStart + slide.durationSeconds * 1000;
+      const remainingMs = slideEnd - now;
+      countdowns[idx] = Math.max(0, Math.ceil(remainingMs / 1000));
+      accumulatedMs += slide.durationSeconds * 1000;
+    }
+
+    return countdowns;
+  }, [slides, currentIndex]);
+
+  useEffect(() => {
+    if (!slides.length) {
+      setSlideCountdowns([]);
+      return;
+    }
+    slideStartTimeRef.current = Date.now();
+    setSlideCountdowns(computeCountdowns());
+  }, [slides, currentIndex, computeCountdowns]);
+
+  useEffect(() => {
+    if (!slides.length) return;
+
+    const interval = setInterval(() => {
+      setSlideCountdowns(computeCountdowns());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [slides.length, computeCountdowns]);
+
   // Auto-rotate slides with smooth fade
   useEffect(() => {
     if (slides.length <= 1 || isPaused) {
@@ -599,22 +655,21 @@ export default function Home() {
       
       console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}: ${nextSlide?.name}`);
       
-      // Preload next image before transition
+      // Preload next slide before transition (handle both video and image)
       if (nextSlide) {
-        const img = new Image();
-        img.src = nextSlide.url;
-        img.onload = () => {
+        const preloadComplete = () => {
           console.log(`🔄 Preloaded: ${nextSlide.name}`);
           // Fade out current
           setFadeIn(false);
           
-          // After fade out, switch image and fade in
+          // After fade out, switch slide and fade in
           setTimeout(() => {
             setCurrentIndex(nextIndex);
             setFadeIn(true);
           }, FADE_DURATION_MS);
         };
-        img.onerror = () => {
+        
+        const preloadFailed = () => {
           // If preload fails, just switch anyway
           console.error(`❌ Failed to preload: ${nextSlide.name}`);
           setFadeIn(false);
@@ -623,6 +678,23 @@ export default function Home() {
             setFadeIn(true);
           }, FADE_DURATION_MS);
         };
+        
+        // If next slide is a video, preload as video; otherwise preload as image
+        if (nextSlide.isVideo && nextSlide.videoUrl) {
+          const video = document.createElement('video');
+          video.preload = 'auto';
+          video.src = nextSlide.videoUrl;
+          video.oncanplaythrough = preloadComplete;
+          video.onerror = preloadFailed;
+          // Trigger load by setting src
+          video.load();
+        } else {
+          // Preload as image (fallback)
+          const img = new Image();
+          img.src = nextSlide.url;
+          img.onload = preloadComplete;
+          img.onerror = preloadFailed;
+        }
       }
     }, currentSlide.durationSeconds * 1000);
 
@@ -755,6 +827,39 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [slides.length, isPaused, goToNextSlide, goToPreviousSlide, goToSlide]);
 
+  // Updated logic for control overlay visibility
+  useEffect(() => {
+    const handleUserInteraction = (event: Event) => {
+      if (!event.isTrusted) return; // Ignore synthetic events from keep-awake routines
+
+      setShowControls(true);
+
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 5000); // Auto-hide after 5 seconds of inactivity
+    };
+
+    // Attach event listeners for user interactions
+    window.addEventListener('mousemove', handleUserInteraction);
+    window.addEventListener('touchstart', handleUserInteraction);
+    window.addEventListener('keydown', handleUserInteraction);
+
+    return () => {
+      // Cleanup event listeners and timeout on unmount
+      window.removeEventListener('mousemove', handleUserInteraction);
+      window.removeEventListener('touchstart', handleUserInteraction);
+      window.removeEventListener('keydown', handleUserInteraction);
+
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Auto-hide controls after 5 seconds
   useEffect(() => {
     if (showControls) {
@@ -778,7 +883,9 @@ export default function Home() {
   useEffect(() => {
     let moveTimeout: NodeJS.Timeout;
     
-    const handleMouseMove = () => {
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!event.isTrusted) return;
+
       setShowControls(true);
       clearTimeout(moveTimeout);
       moveTimeout = setTimeout(() => {
@@ -1175,6 +1282,15 @@ export default function Home() {
 
   // Display current slide
   const currentSlide = slides[currentIndex];
+  const formatCountdown = (seconds?: number) => {
+    if (typeof seconds !== "number" || Number.isNaN(seconds)) {
+      return "--:--";
+    }
+    const totalSeconds = Math.max(0, Math.round(seconds));
+    const minutes = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
+  };
 
   // Get transition styles based on selected effect
   const getTransitionStyle = (): CSSProperties => {
@@ -1362,6 +1478,11 @@ export default function Home() {
         }}
       >
         <div style={styles.controlsContainer}>
+          {currentSlide && (
+            <div style={styles.slideInfo}>
+              {currentSlide.name} • Sisa waktu: {formatCountdown(slideCountdowns[currentIndex] ?? currentSlide.durationSeconds)}
+            </div>
+          )}
           {/* Slide info and playback controls */}
           <div style={styles.controlsRow}>
             <button
@@ -1461,6 +1582,9 @@ export default function Home() {
                 onClick={() => goToSlide(index)}
               >
                 <span style={styles.slideNumber}>{index + 1}</span>
+                <span style={styles.countdownBadge}>
+                  {formatCountdown(slideCountdowns[index] ?? slide.durationSeconds)}
+                </span>
                 {slide.isVideo && slide.videoUrl ? (
                   <>
                     <video
