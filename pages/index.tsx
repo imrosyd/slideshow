@@ -307,6 +307,7 @@ export default function Home() {
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const lastKeepAwakeTimeRef = useRef<number>(0);
 
   useEffect(() => {
     slidesRef.current = slides;
@@ -1179,6 +1180,9 @@ export default function Home() {
             muted
             playsInline
             loop
+            preload="auto"
+            webkit-playsinline="true"
+            x-webkit-airplay="allow"
             style={styles.image}
             onLoadStart={() => {
               console.log(`🔵 Video load started - ${currentSlide.name}`);
@@ -1190,20 +1194,22 @@ export default function Home() {
               const video = videoRef.current;
               console.log(`📺 WebOS: Video loaded, attempting play - ${currentSlide.name}`);
               if (video) {
-                video.play()
-                  .then(() => {
-                    console.log(`✅ Play success - ${currentSlide.name}`);
-                  })
-                  .catch((e) => {
-                    console.error(`❌ WebOS: Autoplay blocked - ${currentSlide.name}`, e);
-                    setTimeout(() => {
-                      video.play()
-                        .then(() => console.log(`✅ Play success (retry) - ${currentSlide.name}`))
-                        .catch((err) => {
-                          console.error('❌ WebOS: Retry failed', err);
-                        });
-                    }, 100);
-                  });
+                // WebOS-friendly play with multiple retries
+                const attemptPlay = (retryCount = 0) => {
+                  video.play()
+                    .then(() => {
+                      console.log(`✅ Play success - ${currentSlide.name}`);
+                    })
+                    .catch((e) => {
+                      if (retryCount < 3) {
+                        console.warn(`⚠️ WebOS: Play attempt ${retryCount + 1} failed, retrying...`);
+                        setTimeout(() => attemptPlay(retryCount + 1), 200 * (retryCount + 1));
+                      } else {
+                        console.error(`❌ WebOS: All play attempts failed - ${currentSlide.name}`, e);
+                      }
+                    });
+                };
+                attemptPlay();
               }
             }}
             onPlay={() => {
@@ -1214,23 +1220,22 @@ export default function Home() {
               }
             }}
             onTimeUpdate={(e) => {
-              // Trigger keep-awake every 10 seconds during playback (more aggressive)
+              // Trigger keep-awake every 10 seconds during playback (throttled for webOS performance)
               const video = e.target as HTMLVideoElement;
-              if (video.currentTime > 0 && Math.floor(video.currentTime) % 10 === 0) {
+              const now = Date.now();
+              const currentSecond = Math.floor(video.currentTime);
+              
+              // Only trigger if we haven't triggered in the last 9 seconds
+              if (currentSecond > 0 && currentSecond % 10 === 0 && (now - lastKeepAwakeTimeRef.current) > 9000) {
+                lastKeepAwakeTimeRef.current = now;
                 if (typeof document !== 'undefined') {
                   document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
                 }
               }
             }}
             onEnded={() => {
-              // Force video to loop and trigger keep-awake
-              console.log(`🔄 Video ended, forcing loop - ${currentSlide.name}`);
-              const video = videoRef.current;
-              if (video) {
-                // Force replay
-                video.currentTime = 0;
-                video.play().catch(err => console.error('Loop play failed:', err));
-              }
+              // webOS: Native loop attribute handles replay, just trigger keep-awake
+              console.log(`🔄 Video loop restart - ${currentSlide.name}`);
               // Trigger keep-awake
               if (typeof document !== 'undefined') {
                 document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
