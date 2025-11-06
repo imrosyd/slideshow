@@ -595,53 +595,84 @@ export const useImages = (authToken: string | null) => {
       try {
         console.log(`[useImages] Converting PDF: ${file.name}`);
         
-        // Read file as base64
-        const reader = new FileReader();
-        const pdfBase64 = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => {
-            const result = reader.result as string;
-            const base64 = result.split(',')[1]; // Remove data:application/pdf;base64,
-            resolve(base64 || '');
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
+        // Dynamically import PDF.js for client-side rendering
+        const pdfjsLib = await import('pdfjs-dist');
+        
+        // Set worker path
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        
+        // Read PDF file
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        // Load PDF document
+        const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+        const pdfDoc = await loadingTask.promise;
+        const pageCount = pdfDoc.numPages;
+        
+        console.log(`[useImages] PDF has ${pageCount} page(s)`);
+        
+        const baseFilename = file.name.replace(/\.pdf$/i, '');
+        const uploadedImages: File[] = [];
+        
+        // Convert each page to image
+        for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+          console.log(`[useImages] Rendering page ${pageNum}/${pageCount}`);
+          
+          const page = await pdfDoc.getPage(pageNum);
+          const viewport = page.getViewport({ scale: 2.0 }); // High quality
+          
+          // Create canvas
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          if (!context) {
+            throw new Error('Could not get canvas context');
+          }
+          
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          
+          // Render page to canvas
+          await page.render({
+            canvasContext: context,
+            viewport: viewport,
+          }).promise;
+          
+          // Convert canvas to blob
+          const blob = await new Promise<Blob>((resolve, reject) => {
+            canvas.toBlob((b) => {
+              if (b) resolve(b);
+              else reject(new Error('Failed to create blob'));
+            }, 'image/png');
+          });
+          
+          // Create filename
+          const imageFilename = pageCount > 1 
+            ? `${baseFilename}-page-${pageNum}.png`
+            : `${baseFilename}.png`;
+          
+          // Create File object
+          const imageFile = new File([blob], imageFilename, { type: 'image/png' });
+          uploadedImages.push(imageFile);
+        }
+        
+        console.log(`[useImages] Converted ${uploadedImages.length} pages, uploading...`);
+        
+        // Upload all images
+        const uploadResult = await uploadImages(uploadedImages);
+        
+        return {
+          success: uploadResult.success,
+          images: uploadedImages.map(f => f.name),
+          pageCount: pageCount,
         };
-        if (authToken) {
-          headers.Authorization = `Token ${authToken}`;
-        }
-
-        const response = await fetch("/api/admin/convert-pdf", {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            pdfBase64,
-            filename: file.name,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-          console.error("[useImages] PDF conversion error:", errorData);
-          throw new Error(errorData.error || errorData.details || "PDF conversion failed");
-        }
-
-        const data = await response.json();
-        console.log("[useImages] PDF conversion success:", data);
-
-        // Refresh to show new images
-        await refresh();
-
-        return data;
+        
       } catch (error) {
         console.error("[useImages] PDF conversion failed:", error);
         throw error;
       }
     },
-    [authToken, refresh]
+    [uploadImages]
   );
 
   return {

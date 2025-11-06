@@ -166,7 +166,7 @@ const AdminContent = () => {
       
       try {
         const result = await convertPdfToImages(file);
-        if (result.success && result.images) {
+        if (result.success && result.images && result.images.length > 0) {
           pushToast({ 
             variant: "success", 
             description: `Successfully converted PDF to ${result.images.length} image${result.images.length > 1 ? "s" : ""}` 
@@ -174,14 +174,14 @@ const AdminContent = () => {
         } else {
           pushToast({ 
             variant: "error", 
-            description: result.error || "Failed to convert PDF" 
+            description: "Failed to convert PDF - no images generated" 
           });
         }
       } catch (error) {
         console.error("PDF conversion error:", error);
         pushToast({ 
           variant: "error", 
-          description: "An error occurred while converting PDF" 
+          description: error instanceof Error ? error.message : "An error occurred while converting PDF" 
         });
       }
     },
