@@ -17,6 +17,13 @@ const AdminContent = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [togglingImage, setTogglingImage] = useState<string | null>(null); // Track which image is being toggled
+  
+  // States for custom dialogs
+  const [renameDialog, setRenameDialog] = useState<{ filename: string } | null>(null);
+  const [renameInput, setRenameInput] = useState("");
+  const [cleanupConfirm, setCleanupConfirm] = useState(false);
+  const [deleteVideoConfirm, setDeleteVideoConfirm] = useState<string | null>(null);
+  
   const { pushToast } = useToast();
   const router = useRouter();
 
@@ -287,12 +294,22 @@ const AdminContent = () => {
       const extension = extensionIndex >= 0 ? filename.slice(extensionIndex) : "";
       const currentBase = extensionIndex >= 0 ? filename.slice(0, extensionIndex) : filename;
 
-      const input = prompt("Rename file", currentBase);
-      if (input === null) {
-        return;
-      }
+      // Open custom rename dialog
+      setRenameInput(currentBase);
+      setRenameDialog({ filename });
+    },
+    []
+  );
 
-      const trimmedBase = input.trim();
+  const handleRenameConfirm = useCallback(
+    async () => {
+      if (!renameDialog) return;
+      
+      const { filename } = renameDialog;
+      const extensionIndex = filename.lastIndexOf(".");
+      const extension = extensionIndex >= 0 ? filename.slice(extensionIndex) : "";
+
+      const trimmedBase = renameInput.trim();
       if (!trimmedBase) {
         pushToast({ 
           variant: "error", 
@@ -321,6 +338,8 @@ const AdminContent = () => {
           variant: "success", 
           description: `Successfully renamed to "${nextName}"` 
         });
+        setRenameDialog(null);
+        setRenameInput("");
       } catch (error) {
         console.error("Rename error:", error);
         pushToast({
@@ -331,8 +350,52 @@ const AdminContent = () => {
         setRenamingImage(null);
       }
     },
-    [renameImage, pushToast]
+    [renameDialog, renameInput, renameImage, pushToast]
   );
+
+  const handleCleanupVideos = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/cleanup-videos', {
+        method: 'POST',
+        headers: {
+          ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        pushToast({
+          variant: "success",
+          description: data.message,
+        });
+        setCleanupConfirm(false);
+      } else {
+        throw new Error(data.error || 'Cleanup failed');
+      }
+    } catch (error) {
+      pushToast({
+        variant: "error",
+        description: `Cleanup failed: ${error}`,
+      });
+    }
+  }, [authToken, pushToast]);
+
+  const handleDeleteVideoConfirm = useCallback(async () => {
+    if (!deleteVideoConfirm) return;
+    
+    try {
+      await deleteVideo(deleteVideoConfirm);
+      pushToast({
+        variant: "success",
+        description: `Video deleted for ${deleteVideoConfirm}`,
+      });
+      setDeleteVideoConfirm(null);
+    } catch (error) {
+      pushToast({
+        variant: "error",
+        description: `Failed to delete video: ${error}`,
+      });
+    }
+  }, [deleteVideoConfirm, deleteVideo, pushToast]);
 
   const handleForceRefresh = useCallback(async () => {
     if (isForceRefreshing) return;
@@ -531,32 +594,7 @@ const AdminContent = () => {
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-purple-200">Generated Videos</h3>
                 <button
-                  onClick={async () => {
-                    if (confirm('Cleanup orphaned videos in storage?\n\nThis will remove video files that are not referenced in the database.')) {
-                      try {
-                        const response = await fetch('/api/admin/cleanup-videos', {
-                          method: 'POST',
-                          headers: {
-                            ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
-                          },
-                        });
-                        const data = await response.json();
-                        if (data.success) {
-                          pushToast({
-                            variant: "success",
-                            description: data.message,
-                          });
-                        } else {
-                          throw new Error(data.error || 'Cleanup failed');
-                        }
-                      } catch (error) {
-                        pushToast({
-                          variant: "error",
-                          description: `Cleanup failed: ${error}`,
-                        });
-                      }
-                    }
-                  }}
+                  onClick={() => setCleanupConfirm(true)}
                   className="rounded-lg border border-purple-400/40 bg-purple-500/20 px-3 py-1.5 text-xs font-medium text-purple-200 transition hover:bg-purple-500/30"
                   title="Remove video files from storage that are not in database"
                 >
@@ -603,22 +641,7 @@ const AdminContent = () => {
                               Preview
                             </button>
                             <button
-                              onClick={async () => {
-                                if (confirm(`Delete video for "${img.name}"?\n\nThis will remove the video but keep the image.`)) {
-                                  try {
-                                    await deleteVideo(img.name);
-                                    pushToast({
-                                      variant: "success",
-                                      description: `Video deleted for ${img.name}`,
-                                    });
-                                  } catch (error) {
-                                    pushToast({
-                                      variant: "error",
-                                      description: `Failed to delete video: ${error}`,
-                                    });
-                                  }
-                                }
-                              }}
+                              onClick={() => setDeleteVideoConfirm(img.name)}
                               className="rounded px-2 py-1 text-xs text-red-300 transition hover:bg-red-500/20"
                               title="Delete video"
                             >
@@ -756,6 +779,79 @@ const AdminContent = () => {
             }
           }
         }}
+      />
+
+      {/* Rename dialog */}
+      {renameDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => {
+            setRenameDialog(null);
+            setRenameInput("");
+          }} />
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80 p-8 shadow-glass backdrop-blur-2xl">
+            <div className="flex flex-col gap-5 text-white">
+              <div className="flex flex-col gap-2">
+                <h2 className="text-2xl font-semibold tracking-tight text-white/95">Rename File</h2>
+                <p className="text-sm leading-relaxed text-white/70">
+                  Enter a new name for "{renameDialog.filename}"
+                </p>
+              </div>
+              <input
+                type="text"
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    void handleRenameConfirm();
+                  }
+                }}
+                className="w-full rounded-xl border border-white/15 bg-slate-900/60 px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus:border-sky-400/70 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                placeholder="Enter new filename"
+                autoFocus
+              />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRenameDialog(null);
+                    setRenameInput("");
+                  }}
+                  className="inline-flex items-center justify-center rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleRenameConfirm()}
+                  disabled={!renameInput.trim()}
+                  className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/30 transition hover:shadow-sky-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Rename
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cleanup videos confirm dialog */}
+      <ConfirmModal
+        open={cleanupConfirm}
+        title="Cleanup orphaned videos?"
+        description="This will remove video files that are not referenced in the database. This action cannot be undone."
+        confirmLabel="Cleanup"
+        onCancel={() => setCleanupConfirm(false)}
+        onConfirm={handleCleanupVideos}
+      />
+
+      {/* Delete video confirm dialog */}
+      <ConfirmModal
+        open={Boolean(deleteVideoConfirm)}
+        title="Delete video?"
+        description={deleteVideoConfirm ? `This will remove the video for "${deleteVideoConfirm}" but keep the image.` : ""}
+        confirmLabel="Delete Video"
+        onCancel={() => setDeleteVideoConfirm(null)}
+        onConfirm={handleDeleteVideoConfirm}
       />
 
       {/* Fullscreen preview modal */}

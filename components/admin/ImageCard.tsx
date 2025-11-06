@@ -199,73 +199,100 @@ export const ImageCard = ({
           </div>
         ) : null}
 
-        <div className="flex flex-wrap gap-2">
-          {hasChanges ? (
-            <button
-              type="button"
-              onClick={() => {
-                void onSave(image.name);
-              }}
-              disabled={isSaving}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-sky-400/40 bg-gradient-to-r from-sky-500/20 to-blue-500/20 text-sky-100 transition hover:border-sky-300/60 hover:from-sky-500/30 hover:to-blue-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-              title="Save changes"
-              aria-label="Save changes"
-            >
-              {isSaving ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-200 border-t-transparent" />
-                  <span className="sr-only">Saving</span>
-                </>
-              ) : (
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </button>
-          ) : null}
-
-          {hasChanges ? (
-            <button
-              type="button"
-              onClick={() => onReset(image.name)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/5 text-white/80 transition hover:border-white/40 hover:bg-white/10"
-              title="Reset changes"
-              aria-label="Reset changes"
-            >
+        {/* Action Buttons - Always show all 5 buttons for consistent layout */}
+        <div className="grid grid-cols-5 gap-2">
+          {/* Button 1: Rename */}
+          <button
+            type="button"
+            onClick={() => {
+              void onRename?.(image.name);
+            }}
+            disabled={isRenaming || !onRename}
+            className="inline-flex h-10 items-center justify-center rounded-xl border border-white/20 bg-white/5 text-white/80 transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+            title="Rename image"
+            aria-label="Rename image"
+          >
+            {isRenaming ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-transparent" />
+                <span className="sr-only">Renaming</span>
+              </>
+            ) : (
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M4 20h4l10.586-10.586a2 2 0 00-2.828-2.828L4 17.172V20z" />
               </svg>
-            </button>
-          ) : null}
+            )}
+          </button>
 
-          {onRename ? (
-            <button
-              type="button"
-              onClick={() => {
-                void onRename?.(image.name);
-              }}
-              disabled={isRenaming}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/5 text-white/80 transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-              title="Rename image"
-              aria-label="Rename image"
-            >
-              {isRenaming ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-transparent" />
-                  <span className="sr-only">Renaming</span>
-                </>
-              ) : (
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M4 20h4l10.586-10.586a2 2 0 00-2.828-2.828L4 17.172V20z" />
-                </svg>
-              )}
-            </button>
-          ) : null}
+          {/* Button 2: Generate Video */}
+          <button
+            type="button"
+            onClick={() => {
+              void onGenerateVideo?.(image.name, image.durationSeconds || 5);
+            }}
+            disabled={!onGenerateVideo || isGeneratingVideo || image.isVideo}
+            className="inline-flex h-10 items-center justify-center rounded-xl border border-purple-400/40 bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-100 transition hover:border-purple-300/60 hover:from-purple-500/30 hover:to-pink-500/30 disabled:cursor-not-allowed disabled:opacity-30"
+            title={image.isVideo ? "Video already generated" : "Generate video"}
+            aria-label={image.isVideo ? "Video already generated" : "Generate video"}
+          >
+            {isGeneratingVideo ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-200 border-t-transparent" />
+                <span className="sr-only">Generating</span>
+              </>
+            ) : image.isVideo ? (
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            )}
+          </button>
 
+          {/* Button 3: Reset */}
+          <button
+            type="button"
+            onClick={() => onReset(image.name)}
+            disabled={!hasChanges}
+            className="inline-flex h-10 items-center justify-center rounded-xl border border-white/20 bg-white/5 text-white/80 transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+            title={hasChanges ? "Reset changes" : "No changes to reset"}
+            aria-label="Reset changes"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+
+          {/* Button 4: Save */}
+          <button
+            type="button"
+            onClick={() => {
+              void onSave(image.name);
+            }}
+            disabled={!hasChanges || isSaving}
+            className="inline-flex h-10 items-center justify-center rounded-xl border border-sky-400/40 bg-gradient-to-r from-sky-500/20 to-blue-500/20 text-sky-100 transition hover:border-sky-300/60 hover:from-sky-500/30 hover:to-blue-500/30 disabled:cursor-not-allowed disabled:opacity-30"
+            title={hasChanges ? "Save changes" : "No changes to save"}
+            aria-label="Save changes"
+          >
+            {isSaving ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-200 border-t-transparent" />
+                <span className="sr-only">Saving</span>
+              </>
+            ) : (
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </button>
+
+          {/* Button 5: Delete */}
           <button
             type="button"
             onClick={() => onDelete(image.name)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-rose-400/40 bg-rose-500/20 text-rose-100 transition hover:border-rose-300/60 hover:bg-rose-500/30"
+            className="inline-flex h-10 items-center justify-center rounded-xl border border-rose-400/40 bg-rose-500/20 text-rose-100 transition hover:border-rose-300/60 hover:bg-rose-500/30"
             title="Delete image"
             aria-label="Delete image"
           >
@@ -273,30 +300,6 @@ export const ImageCard = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
-
-          {!image.isVideo && onGenerateVideo ? (
-            <button
-              type="button"
-              onClick={() => {
-                void onGenerateVideo?.(image.name, image.durationSeconds || 5);
-              }}
-              disabled={isGeneratingVideo}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-purple-400/40 bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-100 transition hover:border-purple-300/60 hover:from-purple-500/30 hover:to-pink-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-              title="Generate video"
-              aria-label="Generate video"
-            >
-              {isGeneratingVideo ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-200 border-t-transparent" />
-                  <span className="sr-only">Generating</span>
-                </>
-              ) : (
-                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
-            </button>
-          ) : null}
         </div>
       </div>
     </article>

@@ -761,9 +761,17 @@ export default function Home() {
               goToSlide(data.index);
             }
             break;
+          case 'restart':
+            goToSlide(0);
+            setIsPaused(false);
+            break;
+          case 'refresh':
+            void fetchSlides(true);
+            break;
+          case 'set-transition':
           case 'change-transition':
             if (data?.effect) {
-              setTransitionEffect(data.effect);
+              void saveTransitionEffect(data.effect);
               console.log('🎨 Transition effect changed to:', data.effect);
             }
             break;
@@ -778,7 +786,9 @@ export default function Home() {
           payload: {
             total: slides.length,
             current: currentIndex,
+            currentImage: slides[currentIndex]?.name || '',
             paused: isPaused,
+            transitionEffect: transitionEffect,
           }
         });
       })
@@ -787,7 +797,7 @@ export default function Home() {
     return () => {
       supabase.removeChannel(remoteChannel);
     };
-  }, [slides.length, currentIndex, isPaused, goToNextSlide, goToPreviousSlide, goToSlide]);
+  }, [slides, currentIndex, isPaused, transitionEffect, goToNextSlide, goToPreviousSlide, goToSlide, saveTransitionEffect, fetchSlides]);
 
   // Broadcast status updates
   useEffect(() => {
@@ -798,10 +808,12 @@ export default function Home() {
       payload: {
         total: slides.length,
         current: currentIndex,
+        currentImage: slides[currentIndex]?.name || '',
         paused: isPaused,
+        transitionEffect: transitionEffect,
       }
     });
-  }, [slides.length, currentIndex, isPaused]);
+  }, [slides, currentIndex, isPaused, transitionEffect]);
 
   // Keep screen awake and auto-reload for LG TV - aggressive multi-method approach
   useEffect(() => {

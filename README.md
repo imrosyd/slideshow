@@ -188,11 +188,73 @@ slideshow/
    SUPABASE_DURATIONS_TABLE=image_durations
    ```
 
-4. **Setup Supabase** (lihat [SUPABASE_SETUP.md](./SUPABASE_SETUP.md)):
-   - Buat Storage bucket `slideshow-images`
-   - Buat table `image_durations` dengan schema yang sesuai
-   - Konfigurasi RLS policies
-   - Enable Realtime untuk table `image_durations`
+4. **Setup Supabase**:
+   
+   **A. Buat Storage Bucket**
+   - Buka Supabase Dashboard → Storage
+   - Klik "New bucket"
+   - Nama: `slideshow-images`
+   - Public bucket: ✅ Yes
+   
+   **B. Buat Database Tables**
+   - Buka Supabase Dashboard → SQL Editor
+   - Klik "New query"
+   - Copy-paste SQL berikut dan Run:
+   
+   ```sql
+   -- Table untuk menyimpan metadata gambar
+   CREATE TABLE image_durations (
+     id SERIAL PRIMARY KEY,
+     filename VARCHAR(255) UNIQUE NOT NULL,
+     duration_ms INTEGER,
+     caption TEXT,
+     order_index INTEGER DEFAULT 0,
+     hidden BOOLEAN DEFAULT false,
+     video_url TEXT,
+     video_generated_at TIMESTAMP WITH TIME ZONE,
+     video_duration_seconds NUMERIC,
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+   );
+   
+   CREATE INDEX idx_image_durations_filename ON image_durations(filename);
+   CREATE INDEX idx_image_durations_order ON image_durations(order_index);
+   
+   -- Table untuk settings slideshow
+   CREATE TABLE slideshow_settings (
+     id SERIAL PRIMARY KEY,
+     key VARCHAR(255) UNIQUE NOT NULL,
+     value TEXT NOT NULL,
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+   );
+   
+   INSERT INTO slideshow_settings (key, value) 
+   VALUES ('transition_effect', 'fade');
+   
+   -- Trigger untuk auto-update timestamp
+   CREATE OR REPLACE FUNCTION update_updated_at_column()
+   RETURNS TRIGGER AS $$
+   BEGIN
+     NEW.updated_at = NOW();
+     RETURN NEW;
+   END;
+   $$ LANGUAGE plpgsql;
+   
+   CREATE TRIGGER update_image_durations_updated_at
+     BEFORE UPDATE ON image_durations
+     FOR EACH ROW
+     EXECUTE FUNCTION update_updated_at_column();
+   
+   CREATE TRIGGER update_slideshow_settings_updated_at
+     BEFORE UPDATE ON slideshow_settings
+     FOR EACH ROW
+     EXECUTE FUNCTION update_updated_at_column();
+   ```
+   
+   **C. Enable Realtime** (Opsional)
+   - Buka Database → Replication
+   - Klik "0 tables" → Enable untuk `image_durations`
 
 5. **Run development server**:
    ```bash
