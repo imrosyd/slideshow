@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import Head from "next/head";
 import { supabase } from "../lib/supabase";
 
-const DEFAULT_SLIDE_DURATION_SECONDS = 15;
+const DEFAULT_SLIDE_DURATION_SECONDS = 20;
 const LANGUAGE_SWAP_INTERVAL_MS = 4_000;
 const FADE_DURATION_MS = 500;
 const AUTO_REFRESH_INTERVAL_MS = 60_000; // Check for new images every 60 seconds

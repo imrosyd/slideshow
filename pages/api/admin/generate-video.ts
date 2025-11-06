@@ -272,7 +272,7 @@ export default async function handler(
     console.log(`[Video Gen] Updating database for ${imagesToProcess.length} image(s)...`);
 
     for (const imgFilename of imagesToProcess) {
-      const durationSecondsForImage = imageDurations.get(imgFilename) ?? 5;
+      const durationSecondsForImage = imageDurations.get(imgFilename) ?? 20;
       const durationMs = Math.max(1, Math.round(durationSecondsForImage)) * 1000;
       const timestamp = new Date().toISOString();
 

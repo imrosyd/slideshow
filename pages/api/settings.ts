@@ -23,7 +23,7 @@ export default async function handler(
       const settings: Record<string, any> = {
         transitionEffect: 'fade',
         autoRefreshInterval: 60000,
-        defaultDuration: 15000,
+        defaultDuration: 20000,
         // Music settings defaults
         music_enabled: 'false',
         music_source_type: 'upload',

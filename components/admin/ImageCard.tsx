@@ -218,7 +218,7 @@ export const ImageCard = ({
           <button
             type="button"
             onClick={() => {
-              void onGenerateVideo?.(image.name, image.durationSeconds || 5);
+              void onGenerateVideo?.(image.name, image.durationSeconds || 20);
             }}
             disabled={!onGenerateVideo || isGeneratingVideo || image.isVideo}
             className="inline-flex h-10 items-center justify-center rounded-xl border border-purple-400/40 bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-100 transition hover:border-purple-300/60 hover:from-purple-500/30 hover:to-pink-500/30 disabled:cursor-not-allowed disabled:opacity-30"

@@ -10,7 +10,10 @@ type MetadataPayload = {
   hidden?: boolean;
 };
 
-const DEFAULT_DURATION_MS = 5000;
+  }
+}
+
+const DEFAULT_DURATION_MS = 20000;
 
 type UpsertRecord = {
   filename: string;
