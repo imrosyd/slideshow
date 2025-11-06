@@ -293,13 +293,6 @@ const getErrorMessage = (appError: AppError, language: Language) => {
   return appError.detail ? `${base} (${appError.detail})` : base;
 };
 
-// Helper function to extract YouTube video ID
-const getYouTubeVideoId = (url: string): string | null => {
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : null;
-};
-
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -314,16 +307,6 @@ export default function Home() {
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const youtubePlayerRef = useRef<any>(null);
-  
-  // Music settings state
-  const [musicEnabled, setMusicEnabled] = useState(false);
-  const [musicSourceType, setMusicSourceType] = useState<'upload' | 'url' | 'youtube'>('upload');
-  const [musicUrl, setMusicUrl] = useState<string>('');
-  const [musicYoutubeUrl, setMusicYoutubeUrl] = useState<string>('');
-  const [musicVolume, setMusicVolume] = useState(50);
-  const [musicLoop, setMusicLoop] = useState(true);
 
   useEffect(() => {
     slidesRef.current = slides;
@@ -497,7 +480,7 @@ export default function Home() {
   useEffect(() => {
     fetchSlides(false);
     
-    // Load transition effect and music settings from settings
+    // Load transition effect from settings
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
@@ -506,173 +489,9 @@ export default function Home() {
         if (data.transitionEffect) {
           setTransitionEffect(data.transitionEffect);
         }
-        
-        // Load music settings
-        const enabled = data.music_enabled === 'true';
-        const sourceType = (data.music_source_type || 'upload') as 'upload' | 'url' | 'youtube';
-        const volume = parseInt(data.music_volume || '50');
-        const loop = data.music_loop !== 'false';
-        
-        console.log('🎵 [Music Settings] Parsed from API:', {
-          enabled,
-          sourceType,
-          file_url: data.music_file_url,
-          external_url: data.music_external_url,
-          youtube_url: data.music_youtube_url,
-          volume,
-          loop
-        });
-        
-        setMusicEnabled(enabled);
-        setMusicSourceType(sourceType);
-        setMusicVolume(volume);
-        setMusicLoop(loop);
-        
-        if (enabled) {
-          console.log('✅ Music is ENABLED, setting URL based on source type:', sourceType);
-          if (sourceType === 'youtube') {
-            const ytUrl = data.music_youtube_url || '';
-            console.log('🎬 YouTube URL:', ytUrl);
-            setMusicYoutubeUrl(ytUrl);
-          } else if (sourceType === 'url') {
-            const extUrl = data.music_external_url || '';
-            console.log('🔗 External URL:', extUrl);
-            setMusicUrl(extUrl);
-          } else {
-            // sourceType === 'upload'
-            const fileUrl = data.music_file_url || '';
-            console.log('📁 Upload file URL:', fileUrl);
-            setMusicUrl(fileUrl);
-          }
-        } else {
-          console.log('❌ Music is DISABLED');
-        }
       })
       .catch(err => console.error('Failed to load settings:', err));
   }, [fetchSlides]);
-
-  // Handle regular audio playback
-  useEffect(() => {
-    console.log('🎵 [Music] Audio useEffect triggered:', { 
-      musicEnabled, 
-      musicSourceType, 
-      musicUrl: musicUrl ? musicUrl.substring(0, 50) + '...' : 'empty',
-      musicVolume, 
-      musicLoop 
-    });
-    
-    if (!audioRef.current) {
-      console.log('⚠️ [Music] No audio ref element');
-      return;
-    }
-
-    if (musicEnabled && musicSourceType !== 'youtube' && musicUrl) {
-      console.log('▶️ [Music] Setting up audio playback');
-      console.log('   - Source:', musicUrl);
-      console.log('   - Volume:', musicVolume);
-      console.log('   - Loop:', musicLoop);
-      
-      audioRef.current.src = musicUrl;
-      audioRef.current.volume = musicVolume / 100;
-      audioRef.current.loop = musicLoop;
-      
-      // Auto-play music
-      audioRef.current.play()
-        .then(() => console.log('✅ [Music] Audio is now playing'))
-        .catch(err => {
-          console.error('❌ [Music] Auto-play blocked or failed:', err.message);
-          console.log('💡 Click anywhere on the page to start music');
-        });
-    } else {
-      console.log('⏸️ [Music] Stopping audio (enabled:', musicEnabled, 'type:', musicSourceType, 'url:', !!musicUrl, ')');
-      audioRef.current.pause();
-      audioRef.current.src = '';
-    }
-  }, [musicEnabled, musicSourceType, musicUrl, musicVolume, musicLoop]);
-
-  // Handle YouTube player
-  useEffect(() => {
-    console.log('🎬 [Music] YouTube useEffect triggered:', { musicEnabled, musicSourceType, musicYoutubeUrl });
-    
-    if (!musicEnabled || musicSourceType !== 'youtube' || !musicYoutubeUrl) {
-      console.log('⏹️ [Music] YouTube not needed, cleaning up');
-      // Destroy player if it exists
-      if (youtubePlayerRef.current) {
-        youtubePlayerRef.current.destroy();
-        youtubePlayerRef.current = null;
-      }
-      return;
-    }
-
-    const videoId = getYouTubeVideoId(musicYoutubeUrl);
-    if (!videoId) {
-      console.error('[Music] Invalid YouTube URL:', musicYoutubeUrl);
-      return;
-    }
-
-    console.log('[Music] YouTube video ID:', videoId);
-
-    // Load YouTube IFrame API
-    if (!(window as any).YT) {
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-    }
-
-    // Initialize player when API is ready
-    (window as any).onYouTubeIframeAPIReady = () => {
-      if (!youtubePlayerRef.current) {
-        youtubePlayerRef.current = new (window as any).YT.Player('youtube-player', {
-          height: '0',
-          width: '0',
-          videoId: videoId,
-          playerVars: {
-            autoplay: 1,
-            controls: 0,
-            loop: musicLoop ? 1 : 0,
-            playlist: musicLoop ? videoId : undefined,
-          },
-          events: {
-            onReady: (event: any) => {
-              event.target.setVolume(musicVolume);
-              event.target.playVideo();
-            },
-          },
-        });
-      }
-    };
-
-    // If API already loaded, create player directly
-    if ((window as any).YT && (window as any).YT.Player) {
-      if (!youtubePlayerRef.current) {
-        youtubePlayerRef.current = new (window as any).YT.Player('youtube-player', {
-          height: '0',
-          width: '0',
-          videoId: videoId,
-          playerVars: {
-            autoplay: 1,
-            controls: 0,
-            loop: musicLoop ? 1 : 0,
-            playlist: musicLoop ? videoId : undefined,
-          },
-          events: {
-            onReady: (event: any) => {
-              event.target.setVolume(musicVolume);
-              event.target.playVideo();
-            },
-          },
-        });
-      }
-    }
-
-    return () => {
-      if (youtubePlayerRef.current) {
-        youtubePlayerRef.current.destroy();
-        youtubePlayerRef.current = null;
-      }
-    };
-  }, [musicEnabled, musicSourceType, musicYoutubeUrl, musicVolume, musicLoop]);
 
   // Auto-refresh: Check for new images periodically
   useEffect(() => {
@@ -1441,16 +1260,6 @@ export default function Home() {
           </div>
         )}
       </div>
-
-      {/* Background Music Audio */}
-      <audio
-        ref={audioRef}
-        style={{ display: 'none' }}
-        preload="auto"
-      />
-      
-      {/* YouTube Player (hidden) */}
-      <div id="youtube-player" style={{ display: 'none' }} />
 
       {/* Controls Overlay */}
       <div 
