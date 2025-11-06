@@ -377,13 +377,9 @@ export default function Home() {
       console.log("[Slideshow] Duration data received:", imageDurations);
 
       const fetchedSlides = payload.images
-        .filter((imageItem) => {
-          // Only include items that have video generated
-          const isVideo = typeof imageItem === 'string' ? false : (imageItem.isVideo || false);
-          return isVideo;
-        })
         .map((imageItem) => {
           const filename = typeof imageItem === 'string' ? imageItem : imageItem.name;
+          const isVideo = typeof imageItem === 'string' ? false : (imageItem.isVideo || false);
           const videoUrl = typeof imageItem === 'string' ? undefined : imageItem.videoUrl;
           
           const durationMs = imageDurations[filename];
@@ -392,13 +388,13 @@ export default function Home() {
               ? Math.max(1, Math.round(durationMs / 1000))
               : DEFAULT_SLIDE_DURATION_SECONDS;
           
-          console.log(`[Slideshow] Video: ${filename} -> ${durationSeconds}s`);
+          console.log(`[Slideshow] ${isVideo ? 'Video' : 'Image'}: ${filename} -> ${durationSeconds}s`);
           
           return {
             name: filename,
             url: videoUrl || `/api/image/${encodeURIComponent(filename)}`,
             durationSeconds,
-            isVideo: true,
+            isVideo,
             videoUrl,
           };
         });
@@ -1223,6 +1219,16 @@ export default function Home() {
               console.log(`⏳ Video waiting - ${currentSlide.name}`);
             }}
           />
+        ) : currentSlide ? (
+          <img
+            src={currentSlide.url}
+            alt={currentSlide.name}
+            style={styles.image}
+            onLoad={() => console.log(`✅ Image loaded: ${currentSlide.name}`)}
+            onError={(e) => {
+              console.error(`❌ Image failed to load: ${currentSlide.name}`);
+            }}
+          />
         ) : (
           <div style={{
             ...styles.image,
@@ -1235,7 +1241,7 @@ export default function Home() {
             textAlign: 'center',
             padding: '40px',
           }}>
-            {currentSlide ? `No video URL for: ${currentSlide.name}` : 'No slides available'}
+            No slides available
           </div>
         )}
       </div>
