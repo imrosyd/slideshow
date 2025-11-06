@@ -73,9 +73,10 @@ const AdminContent = () => {
   // Music settings state
   const [musicSettings, setMusicSettings] = useState({
     music_enabled: false,
-    music_source_type: 'upload' as 'upload' | 'url',
+    music_source_type: 'upload' as 'upload' | 'url' | 'youtube',
     music_file_url: '',
     music_external_url: '',
+    music_youtube_url: '',
     music_volume: 50,
     music_loop: true,
   });
@@ -162,6 +163,7 @@ const AdminContent = () => {
             music_source_type: settings.music_source_type || 'upload',
             music_file_url: settings.music_file_url || '',
             music_external_url: settings.music_external_url || '',
+            music_youtube_url: settings.music_youtube_url || '',
             music_volume: parseInt(settings.music_volume || '50'),
             music_loop: settings.music_loop !== 'false',
           });

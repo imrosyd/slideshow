@@ -11,9 +11,10 @@
 
 -- Settings Added:
 -- - music_enabled: Boolean to enable/disable background music
--- - music_source_type: Type of music source ('upload' or 'url')
+-- - music_source_type: Type of music source ('upload', 'url', or 'youtube')
 -- - music_file_url: URL of uploaded music file in Supabase storage
--- - music_external_url: External URL (YouTube, SoundCloud, etc.)
+-- - music_external_url: External audio URL (direct MP3, WAV, etc.)
+-- - music_youtube_url: YouTube video URL for background music
 -- - music_volume: Volume level (0-100)
 -- - music_loop: Whether to loop the music
 
@@ -28,6 +29,7 @@ VALUES
   ('music_source_type', 'upload'),
   ('music_file_url', ''),
   ('music_external_url', ''),
+  ('music_youtube_url', ''),
   ('music_volume', '50'),
   ('music_loop', 'true')
 ON CONFLICT (key) DO NOTHING;

@@ -308,10 +308,13 @@ export default function Home() {
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const youtubePlayerRef = useRef<any>(null);
   
   // Music settings state
   const [musicEnabled, setMusicEnabled] = useState(false);
+  const [musicSourceType, setMusicSourceType] = useState<'upload' | 'url' | 'youtube'>('upload');
   const [musicUrl, setMusicUrl] = useState<string>('');
+  const [musicYoutubeUrl, setMusicYoutubeUrl] = useState<string>('');
   const [musicVolume, setMusicVolume] = useState(50);
   const [musicLoop, setMusicLoop] = useState(true);
 
@@ -489,9 +492,15 @@ export default function Home() {
         if (data.music_enabled === 'true') {
           setMusicEnabled(true);
           const sourceType = data.music_source_type || 'upload';
-          const url = sourceType === 'upload' ? data.music_file_url : data.music_external_url;
-          if (url) {
-            setMusicUrl(url);
+          setMusicSourceType(sourceType);
+          
+          if (sourceType === 'youtube') {
+            setMusicYoutubeUrl(data.music_youtube_url || '');
+          } else {
+            const url = sourceType === 'upload' ? data.music_file_url : data.music_external_url;
+            if (url) {
+              setMusicUrl(url);
+            }
           }
           setMusicVolume(parseInt(data.music_volume || '50'));
           setMusicLoop(data.music_loop !== 'false');
@@ -500,11 +509,18 @@ export default function Home() {
       .catch(err => console.error('Failed to load settings:', err));
   }, [fetchSlides]);
 
-  // Handle music playback
+  // Helper function to extract YouTube video ID
+  const getYouTubeVideoId = (url: string): string | null => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  // Handle regular audio playback
   useEffect(() => {
     if (!audioRef.current) return;
 
-    if (musicEnabled && musicUrl) {
+    if (musicEnabled && musicSourceType !== 'youtube' && musicUrl) {
       audioRef.current.src = musicUrl;
       audioRef.current.volume = musicVolume / 100;
       audioRef.current.loop = musicLoop;
@@ -517,7 +533,86 @@ export default function Home() {
       audioRef.current.pause();
       audioRef.current.src = '';
     }
-  }, [musicEnabled, musicUrl, musicVolume, musicLoop]);
+  }, [musicEnabled, musicSourceType, musicUrl, musicVolume, musicLoop]);
+
+  // Handle YouTube player
+  useEffect(() => {
+    if (!musicEnabled || musicSourceType !== 'youtube' || !musicYoutubeUrl) {
+      // Destroy player if it exists
+      if (youtubePlayerRef.current) {
+        youtubePlayerRef.current.destroy();
+        youtubePlayerRef.current = null;
+      }
+      return;
+    }
+
+    const videoId = getYouTubeVideoId(musicYoutubeUrl);
+    if (!videoId) {
+      console.error('Invalid YouTube URL');
+      return;
+    }
+
+    // Load YouTube IFrame API
+    if (!(window as any).YT) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+    }
+
+    // Initialize player when API is ready
+    (window as any).onYouTubeIframeAPIReady = () => {
+      if (!youtubePlayerRef.current) {
+        youtubePlayerRef.current = new (window as any).YT.Player('youtube-player', {
+          height: '0',
+          width: '0',
+          videoId: videoId,
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            loop: musicLoop ? 1 : 0,
+            playlist: musicLoop ? videoId : undefined,
+          },
+          events: {
+            onReady: (event: any) => {
+              event.target.setVolume(musicVolume);
+              event.target.playVideo();
+            },
+          },
+        });
+      }
+    };
+
+    // If API already loaded, create player directly
+    if ((window as any).YT && (window as any).YT.Player) {
+      if (!youtubePlayerRef.current) {
+        youtubePlayerRef.current = new (window as any).YT.Player('youtube-player', {
+          height: '0',
+          width: '0',
+          videoId: videoId,
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            loop: musicLoop ? 1 : 0,
+            playlist: musicLoop ? videoId : undefined,
+          },
+          events: {
+            onReady: (event: any) => {
+              event.target.setVolume(musicVolume);
+              event.target.playVideo();
+            },
+          },
+        });
+      }
+    }
+
+    return () => {
+      if (youtubePlayerRef.current) {
+        youtubePlayerRef.current.destroy();
+        youtubePlayerRef.current = null;
+      }
+    };
+  }, [musicEnabled, musicSourceType, musicYoutubeUrl, musicVolume, musicLoop]);
 
   // Auto-refresh: Check for new images periodically
   useEffect(() => {
@@ -1283,6 +1378,9 @@ export default function Home() {
         style={{ display: 'none' }}
         preload="auto"
       />
+      
+      {/* YouTube Player (hidden) */}
+      <div id="youtube-player" style={{ display: 'none' }} />
 
       {/* Controls Overlay */}
       <div 

@@ -2,9 +2,10 @@ import { useCallback, useRef, useState } from "react";
 
 type MusicSettings = {
   music_enabled: boolean;
-  music_source_type: 'upload' | 'url';
+  music_source_type: 'upload' | 'url' | 'youtube';
   music_file_url: string;
   music_external_url: string;
+  music_youtube_url: string;
   music_volume: number;
   music_loop: boolean;
 };
@@ -99,7 +100,7 @@ export const MusicSettingsPanel = ({ settings, onSave, authToken }: Props) => {
     setLocalSettings(prev => ({ ...prev, music_enabled: newValue }));
   }, [localSettings.music_enabled, onSave]);
 
-  const handleSourceTypeChange = useCallback(async (type: 'upload' | 'url') => {
+  const handleSourceTypeChange = useCallback(async (type: 'upload' | 'url' | 'youtube') => {
     await onSave({ music_source_type: type });
     setLocalSettings(prev => ({ ...prev, music_source_type: type }));
   }, [onSave]);
@@ -107,6 +108,11 @@ export const MusicSettingsPanel = ({ settings, onSave, authToken }: Props) => {
   const handleExternalUrlChange = useCallback(async (url: string) => {
     await onSave({ music_external_url: url });
     setLocalSettings(prev => ({ ...prev, music_external_url: url }));
+  }, [onSave]);
+
+  const handleYoutubeUrlChange = useCallback(async (url: string) => {
+    await onSave({ music_youtube_url: url });
+    setLocalSettings(prev => ({ ...prev, music_youtube_url: url }));
   }, [onSave]);
 
   const handleVolumeChange = useCallback(async (volume: number) => {
@@ -147,10 +153,10 @@ export const MusicSettingsPanel = ({ settings, onSave, authToken }: Props) => {
             {/* Source Type Selection */}
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium text-white/80">Music Source</label>
-              <div className="flex gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => handleSourceTypeChange('upload')}
-                  className={`flex-1 rounded-lg border px-4 py-2 text-sm transition ${
+                  className={`rounded-lg border px-4 py-2 text-sm transition ${
                     localSettings.music_source_type === 'upload'
                       ? 'border-sky-400 bg-sky-500/20 text-sky-300'
                       : 'border-white/10 bg-white/5 text-white/60 hover:border-white/20'
@@ -160,13 +166,23 @@ export const MusicSettingsPanel = ({ settings, onSave, authToken }: Props) => {
                 </button>
                 <button
                   onClick={() => handleSourceTypeChange('url')}
-                  className={`flex-1 rounded-lg border px-4 py-2 text-sm transition ${
+                  className={`rounded-lg border px-4 py-2 text-sm transition ${
                     localSettings.music_source_type === 'url'
                       ? 'border-sky-400 bg-sky-500/20 text-sky-300'
                       : 'border-white/10 bg-white/5 text-white/60 hover:border-white/20'
                   }`}
                 >
-                  External URL
+                  Audio URL
+                </button>
+                <button
+                  onClick={() => handleSourceTypeChange('youtube')}
+                  className={`rounded-lg border px-4 py-2 text-sm transition ${
+                    localSettings.music_source_type === 'youtube'
+                      ? 'border-sky-400 bg-sky-500/20 text-sky-300'
+                      : 'border-white/10 bg-white/5 text-white/60 hover:border-white/20'
+                  }`}
+                >
+                  YouTube
                 </button>
               </div>
             </div>
@@ -224,6 +240,28 @@ export const MusicSettingsPanel = ({ settings, onSave, authToken }: Props) => {
                 <p className="text-xs text-white/50">
                   Enter direct link to audio file (MP3, WAV, OGG)
                 </p>
+              </div>
+            )}
+
+            {/* YouTube URL */}
+            {localSettings.music_source_type === 'youtube' && (
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-white/80">YouTube URL</label>
+                <input
+                  type="url"
+                  value={localSettings.music_youtube_url || ''}
+                  onChange={(e) => handleYoutubeUrlChange(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-white/40 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                />
+                <p className="text-xs text-white/50">
+                  Enter YouTube video URL (audio will be extracted and played in background)
+                </p>
+                <div className="rounded-lg border border-yellow-400/30 bg-yellow-500/10 p-3">
+                  <p className="text-xs text-yellow-200">
+                    ⚠️ Note: YouTube playback requires iframe embed. Video will be hidden but audio will play.
+                  </p>
+                </div>
               </div>
             )}
 
