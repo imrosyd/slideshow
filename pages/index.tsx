@@ -294,8 +294,6 @@ const getErrorMessage = (appError: AppError, language: Language) => {
 };
 
 export default function Home() {
-  console.log('🚀 ============ SLIDESHOW APP RENDER ============');
-  
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [error, setError] = useState<AppError | null>(null);
@@ -310,15 +308,6 @@ export default function Home() {
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  console.log('📊 [STATE CHECK]', {
-    slidesCount: slides.length,
-    currentIndex,
-    loading,
-    hasError: !!error,
-    errorType: error?.kind,
-    isPaused
-  });
-
   useEffect(() => {
     slidesRef.current = slides;
   }, [slides]);
@@ -329,18 +318,13 @@ export default function Home() {
 
   // Fetch slides from API (reusable function)
   const fetchSlides = useCallback(async (isAutoRefresh = false) => {
-    console.log('🔄 [FETCH START]', { isAutoRefresh, timestamp: new Date().toISOString() });
-    
     try {
       if (!isAutoRefresh) {
-        console.log('⏳ Setting loading = true');
         setLoading(true);
       }
       
       // Fetch image list with cache busting
       const cacheBuster = `?t=${Date.now()}`;
-      console.log('📡 Fetching /api/images...');
-      
       const response = await fetch(`/api/images${cacheBuster}`, { 
         cache: "no-store",
         headers: {
@@ -349,15 +333,10 @@ export default function Home() {
           'Expires': '0'
         }
       });
-      
-      console.log('📡 Response:', response.status, response.statusText);
-      
       if (!response.ok) {
         throw new Error(`Failed to load image list: ${response.statusText}`);
       }
       const payload: { images: Array<{ name: string; isVideo?: boolean; videoUrl?: string }>; durations?: Record<string, number | null>; captions?: Record<string, string | null> } = await response.json();
-      
-      console.log('📦 Payload received:', payload.images?.length || 0, 'images');
 
       // Fetch durations
       let imageDurations: Record<string, number> = {};
@@ -441,27 +420,18 @@ export default function Home() {
         });
 
       if (slidesChanged) {
-        console.log(`✅ [SLIDES CHANGED] Count: ${fetchedSlides.length}`);
-        console.log('📋 Slides:', fetchedSlides.map(s => s.name).join(', '));
+        console.log(`${isAutoRefresh ? '🔄 Auto-refresh:' : '✅'} Fetched ${fetchedSlides.length} slides${slidesChanged && isAutoRefresh ? ' (UPDATED!)' : ''}`, fetchedSlides.map(s => s.name));
         
         // Preload first image only on initial load
         if (!isAutoRefresh && fetchedSlides.length > 0) {
-          console.log('🖼️  Preloading first slide...');
           const img = new Image();
           img.src = fetchedSlides[0].url;
           await new Promise((resolve) => {
-            img.onload = () => {
-              console.log('✅ First slide loaded');
-              resolve(null);
-            };
-            img.onerror = (e) => {
-              console.error('❌ First slide failed:', e);
-              resolve(null);
-            };
+            img.onload = resolve;
+            img.onerror = resolve;
           });
         }
         
-        console.log('💾 Updating slides state...');
         setSlides(fetchedSlides);
         slidesRef.current = fetchedSlides;
         
@@ -478,14 +448,13 @@ export default function Home() {
         }
         
         setError(null);
-        console.log('✅ [FETCH COMPLETE]');
       } else if (isAutoRefresh) {
-        console.log(`🔄 Auto-refresh: No changes (${fetchedSlides.length} slides)`);
+        console.log(`🔄 Auto-refresh: No changes detected (${fetchedSlides.length} slides)`);
       }
       
       return fetchedSlides;
     } catch (err) {
-      console.error("❌ [FETCH ERROR]:", err);
+      console.error("❌ Error fetching slides:", err);
       const detail = err instanceof Error ? err.message : undefined;
       if (!isAutoRefresh) {
         setError({ kind: "fetch", detail });
@@ -493,20 +462,10 @@ export default function Home() {
       return null;
     } finally {
       if (!isAutoRefresh) {
-        console.log('✅ Setting loading = false');
         setLoading(false);
       }
     }
   }, []);
-
-  // Debug slideshow state
-  useEffect(() => {
-    console.log('📊 [Slideshow State]', {
-      totalSlides: slides.length,
-      currentIndex,
-      isPaused
-    });
-  }, [slides, currentIndex, isPaused]);
 
   // Initial fetch on mount
   useEffect(() => {
@@ -516,8 +475,6 @@ export default function Home() {
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
-        console.log('[Settings] Loaded from API:', data);
-        
         if (data.transitionEffect) {
           setTransitionEffect(data.transitionEffect);
         }
@@ -1204,100 +1161,11 @@ export default function Home() {
     }
   };
 
-  // RENDER DECISION LOGIC
-  const shouldShowLoading = loading;
-  const shouldShowError = !loading && error;
-  const shouldShowEmpty = !loading && !error && slides.length === 0;
-  const shouldShowSlide = !loading && !error && slides.length > 0 && currentSlide;
-
-  console.log('🎬 [RENDER DECISION]', {
-    loading,
-    hasError: !!error,
-    slidesCount: slides.length,
-    currentIndex,
-    currentSlideName: currentSlide?.name || 'none',
-    showLoading: shouldShowLoading,
-    showError: shouldShowError,
-    showEmpty: shouldShowEmpty,
-    showSlide: shouldShowSlide
-  });
-
   return (
     <main style={styles.container}>
       <Head>
         <title>Slideshow</title>
-```
-```
       </Head>
-      
-      {/* Debug Overlay - Always visible on screen */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.85)',
-        color: '#00ff00',
-        padding: '20px',
-        fontFamily: 'monospace',
-        fontSize: '16px',
-        zIndex: 9999,
-        maxWidth: '500px',
-        lineHeight: '1.6',
-        borderRight: '3px solid #00ff00',
-        borderBottom: '3px solid #00ff00'
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '18px', color: '#ffff00' }}>
-          🔍 DEBUG INFO
-        </div>
-        <div>⏱️ Time: {new Date().toLocaleTimeString()}</div>
-        <div style={{ marginTop: '10px', borderTop: '1px solid #00ff00', paddingTop: '10px' }}>
-          <div>📊 Loading: <span style={{ color: loading ? '#ff0000' : '#00ff00' }}>{loading ? 'TRUE' : 'FALSE'}</span></div>
-          <div>❌ Error: <span style={{ color: error ? '#ff0000' : '#00ff00' }}>{error ? (error as any).kind : 'NONE'}</span></div>
-          <div>📦 Slides: <span style={{ color: slides.length > 0 ? '#00ff00' : '#ff0000' }}>{slides.length}</span></div>
-          <div>🔢 Index: {currentIndex}</div>
-          <div>🎬 Current: <span style={{ color: currentSlide ? '#00ff00' : '#ff0000' }}>{currentSlide?.name || 'NONE'}</span></div>
-          <div>🎥 Is Video: {currentSlide?.videoUrl ? 'YES' : 'NO'}</div>
-          {currentSlide?.videoUrl && (
-            <div style={{ fontSize: '12px', color: '#888', wordBreak: 'break-all' }}>
-              Video URL: {currentSlide.videoUrl.substring(0, 60)}...
-            </div>
-          )}
-          {currentSlide && !currentSlide.videoUrl && (
-            <div style={{ fontSize: '12px', color: '#888', wordBreak: 'break-all' }}>
-              Image URL: {currentSlide.url.substring(0, 60)}...
-            </div>
-          )}
-          <div>⏸️ Paused: {isPaused ? 'YES' : 'NO'}</div>
-        </div>
-        <div style={{ marginTop: '10px', borderTop: '1px solid #00ff00', paddingTop: '10px' }}>
-          <div style={{ color: '#ffff00' }}>RENDER STATUS:</div>
-          <div>⏳ Show Loading: {shouldShowLoading ? 'YES' : 'NO'}</div>
-          <div>⚠️ Show Error: {shouldShowError ? 'YES' : 'NO'}</div>
-          <div>📭 Show Empty: {shouldShowEmpty ? 'YES' : 'NO'}</div>
-          <div>✅ Show Slide: <span style={{ color: shouldShowSlide ? '#00ff00' : '#ff0000', fontWeight: 'bold' }}>{shouldShowSlide ? 'YES' : 'NO'}</span></div>
-          {shouldShowSlide && currentSlide && (
-            <div style={{ marginTop: '5px', padding: '5px', backgroundColor: 'rgba(0,255,0,0.2)' }}>
-              <div style={{ color: '#ffff00' }}>RENDERING:</div>
-              <div>{currentSlide.videoUrl ? '🎥 VIDEO ELEMENT' : '🖼️ IMAGE ELEMENT'}</div>
-            </div>
-          )}
-        </div>
-        {slides.length > 0 && (
-          <div style={{ marginTop: '10px', borderTop: '1px solid #00ff00', paddingTop: '10px' }}>
-            <div style={{ color: '#ffff00' }}>SLIDES LIST:</div>
-            {slides.slice(0, 5).map((slide, idx) => (
-              <div key={idx} style={{ 
-                color: idx === currentIndex ? '#00ff00' : '#888',
-                fontWeight: idx === currentIndex ? 'bold' : 'normal'
-              }}>
-                {idx === currentIndex ? '→ ' : '  '}{slide.name}
-              </div>
-            ))}
-            {slides.length > 5 && <div style={{ color: '#888' }}>... and {slides.length - 5} more</div>}
-          </div>
-        )}
-      </div>
-
       <div 
         style={getTransitionStyle()}
       >
@@ -1310,11 +1178,7 @@ export default function Home() {
             muted
             playsInline
             loop
-            style={{
-              ...styles.image,
-              backgroundColor: '#000',
-              objectFit: 'contain' // Ensure video is visible
-            }}
+            style={styles.image}
             onLoadStart={() => {
               console.log(`🔵 Video load started - ${currentSlide.name}`);
             }}
@@ -1323,14 +1187,21 @@ export default function Home() {
             }}
             onLoadedData={() => {
               const video = videoRef.current;
-              console.log(`📺 Video loaded, attempting play - ${currentSlide.name}`);
+              console.log(`📺 WebOS: Video loaded, attempting play - ${currentSlide.name}`);
               if (video) {
                 video.play()
                   .then(() => {
                     console.log(`✅ Play success - ${currentSlide.name}`);
                   })
                   .catch((e) => {
-                    console.error(`❌ Autoplay blocked - ${currentSlide.name}`, e);
+                    console.error(`❌ WebOS: Autoplay blocked - ${currentSlide.name}`, e);
+                    setTimeout(() => {
+                      video.play()
+                        .then(() => console.log(`✅ Play success (retry) - ${currentSlide.name}`))
+                        .catch((err) => {
+                          console.error('❌ WebOS: Retry failed', err);
+                        });
+                    }, 100);
                   });
               }
             }}
@@ -1340,30 +1211,19 @@ export default function Home() {
             onError={(e) => {
               const target = e.target as HTMLVideoElement;
               const error = target.error;
-              console.error(`❌ Video error - ${currentSlide.name}:`, {
-                code: error?.code,
-                message: error?.message
-              });
+              console.error(`❌ Video error - ${currentSlide.name}`, error);
             }}
-          />
-        ) : currentSlide ? (
-          // Display image if no video
-          <img
-            src={currentSlide.url}
-            alt={currentSlide.name}
-            style={{
-              ...styles.image,
-              backgroundColor: '#000',
-              objectFit: 'contain' // Ensure image is visible
+            onCanPlayThrough={() => {
+              console.log(`✅ Can play through: ${currentSlide.name}`);
             }}
-            onLoad={() => console.log(`✅ Image loaded: ${currentSlide.name}`)}
-            onError={(e) => {
-              console.error(`❌ Image failed: ${currentSlide.name}`);
-              console.error('Image URL:', currentSlide.url);
+            onStalled={() => {
+              console.warn(`⚠️ Video stalled - ${currentSlide.name}`);
+            }}
+            onWaiting={() => {
+              console.log(`⏳ Video waiting - ${currentSlide.name}`);
             }}
           />
         ) : (
-          // No slides at all
           <div style={{
             ...styles.image,
             display: 'flex',
@@ -1375,7 +1235,7 @@ export default function Home() {
             textAlign: 'center',
             padding: '40px',
           }}>
-            No slides available
+            {currentSlide ? `No video URL for: ${currentSlide.name}` : 'No slides available'}
           </div>
         )}
       </div>
