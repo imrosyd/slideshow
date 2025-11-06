@@ -1,531 +1,1059 @@
-# Slideshow Dashboard System
+# 🎬 Slideshow Dashboard System# Slideshow Dashboard System
 
-Aplikasi slideshow modern berbasis Next.js dengan panel admin profesional untuk mengelola dan menampilkan dashboard secara otomatis. Dirancang khusus untuk Smart TV dan display monitor dengan fitur keep-awake untuk LG TV.
 
-> **Last Updated**: November 5, 2025  
+
+> **Digital Signage Solution untuk Smart TV & Display Monitor**Aplikasi slideshow modern berbasis Next.js dengan panel admin profesional untuk mengelola dan menampilkan dashboard secara otomatis. Dirancang khusus untuk Smart TV dan display monitor dengan fitur keep-awake untuk LG TV.
+
+
+
+Aplikasi slideshow modern berbasis Next.js dengan panel admin profesional untuk mengelola dan menampilkan konten visual secara otomatis. Dirancang khusus untuk Smart TV (khususnya LG webOS), display monitor, dan digital signage dengan fitur auto-convert image-to-video untuk performa optimal.> **Last Updated**: November 5, 2025  
+
 > **Status**: ✅ Production Ready
 
-## 🆕 Recent Changes (v1.1.0)
+[![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/)
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)## 🆕 Recent Changes (v1.1.0)
+
+[![Supabase](https://img.shields.io/badge/Supabase-Storage%20%26%20DB-green)](https://supabase.com/)
 
 ### ✨ Improvements
-- Removed hide/show feature for cleaner UI
-- Simplified admin panel with focused features
-- Improved image management workflow
-- Optimized database schema for better performance
-- Cleaned up codebase - removed 9 documentation files
 
-### 🔧 What's Working
-- ✅ Slideshow with smooth transitions
-- ✅ Image upload & management
-- ✅ Custom duration per image
-- ✅ Drag & drop reordering
-- ✅ Real-time sync with Supabase
-- ✅ Remote control page
-- ✅ LG TV keep-awake features
-- ✅ Admin authentication
+---- Removed hide/show feature for cleaner UI
+
+- Simplified admin panel with focused features
+
+## 📑 Daftar Isi- Improved image management workflow
+
+- Optimized database schema for better performance
+
+- [Gambaran Umum](#-gambaran-umum)- Cleaned up codebase - removed 9 documentation files
+
+- [Fitur Utama](#-fitur-utama)
+
+- [Teknologi](#-teknologi-yang-digunakan)### 🔧 What's Working
+
+- [Prasyarat](#-prasyarat)- ✅ Slideshow with smooth transitions
+
+- [Instalasi](#-instalasi)- ✅ Image upload & management
+
+- [Konfigurasi](#-konfigurasi)- ✅ Custom duration per image
+
+- [Cara Penggunaan](#-cara-penggunaan)- ✅ Drag & drop reordering
+
+- [Deployment](#-deployment)- ✅ Real-time sync with Supabase
+
+- [Security](#-security)- ✅ Remote control page
+
+- [Troubleshooting](#-troubleshooting)- ✅ LG TV keep-awake features
+
+- [FAQ](#-faq)- ✅ Admin authentication
+
+
+
+---## ✨ Fitur Utama
+
+
+
+## 🎯 Gambaran Umum### 🎬 Slideshow Display
+
+- **Auto-rotation slideshow** dengan durasi custom per gambar (1-60 detik)
+
+### Apa itu Slideshow Dashboard System?- **4 Transition effects**: Fade, Slide, Zoom, None
+
+- **Auto-refresh** setiap 60 detik untuk sinkronisasi otomatis
+
+Aplikasi ini adalah **solusi digital signage all-in-one** yang memungkinkan Anda:- **Real-time sync** dengan Supabase Storage via WebSocket
+
+- **Multi-language** dengan auto-rotate (English, Korean, Indonesian)
+
+1. **Upload & Manage** - Kelola konten visual (gambar) melalui admin panel- **LG TV optimization**:
+
+2. **Auto-Convert** - Otomatis convert gambar menjadi video untuk performa TV lebih baik  - Wake Lock API untuk mencegah sleep mode
+
+3. **Display** - Tampilkan slideshow di Smart TV/monitor dengan auto-rotate  - webOS browser keep-awake triggers (Luna Service API)
+
+4. **Remote Control** - Kontrol dari device lain (smartphone/tablet) secara real-time  - Hidden video playback untuk trick OS
+
+5. **Keep-Awake** - TV tidak akan sleep/screensaver dengan teknologi khusus webOS  - Activity simulation setiap 15 menit
+
+  - Continuous keep-alive setiap 5 menit
+
+### Use Cases  - Auto-reload setiap 20 menit
+
+  - Fullscreen mode retry setiap 10 menit
+
+- 📺 **Digital Signage** - Menu board restaurant, info display, advertising  - Fullscreen mode auto-request
+
+- 🏢 **Corporate Display** - Company dashboard, KPI monitoring, announcement
+
+- 🎓 **Education** - Classroom presentations, campus information board### 🎮 Kontrol Slideshow
+
+- 🏪 **Retail** - Product showcase, promotional content- **Keyboard shortcuts**:
+
+- 🎪 **Event Display** - Conference schedules, event information  - `Space` - Play/Pause
+
+  - `←/→` atau `↑/↓` - Navigate slides
+
+### Kenapa Menggunakan Video Instead of Images?  - `Home/End` - First/Last slide
+
+  - `C` atau `ESC` - Toggle controls overlay
+
+**Problem**: TV (khususnya LG webOS) sering sleep/screensaver saat hanya menampilkan gambar static.- **On-screen controls** dengan auto-hide (3-5 detik inactivity)
+
+- **Transition selector** langsung dari slideshow
+
+**Solution**: Aplikasi ini auto-convert gambar menjadi video dengan durasi yang Anda tentukan. Video playback membuat TV tetap aktif tanpa sleep.- **Thumbnail grid** untuk quick navigation
+
+- **Mouse movement detection** untuk menampilkan controls
+
+**Benefits**:
+
+- ✅ TV tidak pernah sleep atau masuk screensaver mode### 📱 Remote Control (Mobile-Friendly)
+
+- ✅ Slideshow berjalan 24/7 tanpa interupsi- **Responsive remote control page** untuk mengontrol slideshow dari device lain
+
+- ✅ Tidak perlu manual intervention- **Real-time sync** via Supabase Realtime broadcast
+
+- ✅ Quality gambar tetap terjaga (H.264, 1500k bitrate)- **Playback controls**: Play/Pause, Previous, Next, First, Last
+
+- **Quick jump** ke slide tertentu
+
+---- **Connection status indicator** dengan live update
+
+- **Touch-optimized UI** dengan large buttons
 
 ## ✨ Fitur Utama
 
-### 🎬 Slideshow Display
-- **Auto-rotation slideshow** dengan durasi custom per gambar (1-60 detik)
-- **4 Transition effects**: Fade, Slide, Zoom, None
-- **Auto-refresh** setiap 60 detik untuk sinkronisasi otomatis
-- **Real-time sync** dengan Supabase Storage via WebSocket
-- **Multi-language** dengan auto-rotate (English, Korean, Indonesian)
-- **LG TV optimization**:
-  - Wake Lock API untuk mencegah sleep mode
-  - webOS browser keep-awake triggers (Luna Service API)
-  - Hidden video playback untuk trick OS
-  - Activity simulation setiap 15 menit
-  - Continuous keep-alive setiap 5 menit
-  - Auto-reload setiap 20 menit
-  - Fullscreen mode retry setiap 10 menit
-  - Fullscreen mode auto-request
-
-### 🎮 Kontrol Slideshow
-- **Keyboard shortcuts**:
-  - `Space` - Play/Pause
-  - `←/→` atau `↑/↓` - Navigate slides
-  - `Home/End` - First/Last slide
-  - `C` atau `ESC` - Toggle controls overlay
-- **On-screen controls** dengan auto-hide (3-5 detik inactivity)
-- **Transition selector** langsung dari slideshow
-- **Thumbnail grid** untuk quick navigation
-- **Mouse movement detection** untuk menampilkan controls
-
-### 📱 Remote Control (Mobile-Friendly)
-- **Responsive remote control page** untuk mengontrol slideshow dari device lain
-- **Real-time sync** via Supabase Realtime broadcast
-- **Playback controls**: Play/Pause, Previous, Next, First, Last
-- **Quick jump** ke slide tertentu
-- **Connection status indicator** dengan live update
-- **Touch-optimized UI** dengan large buttons
-
 ### 🛠️ Admin Panel
-- **Modern glassmorphism UI** dengan gradient slate background
+
+### 1. 🎬 Slideshow Display- **Modern glassmorphism UI** dengan gradient slate background
+
 - **Image management**:
-  - Drag & drop upload dengan progress indicator
+
+**Tampilan utama yang berjalan di Smart TV/Monitor**  - Drag & drop upload dengan progress indicator
+
   - Drag & drop reordering untuk urutan slideshow
-  - Visual numbered badges (1, 2, 3, ...)
-  - Custom duration per image (1-60 detik)
-  - **Auto-convert images to video** untuk better TV keep-awake
-- **Bulk operations**:
-  - Multi-select dengan checkbox
+
+- **Auto-rotation slideshow** dengan durasi custom per gambar  - Visual numbered badges (1, 2, 3, ...)
+
+- **Smooth transitions** - 4 pilihan efek (Fade, Slide, Zoom, None)  - Custom duration per image (1-60 detik)
+
+- **Real-time sync** - Perubahan di admin langsung tampil tanpa reload  - **Auto-convert images to video** untuk better TV keep-awake
+
+- **Fullscreen mode** - Otomatis fullscreen untuk pengalaman maksimal- **Bulk operations**:
+
+- **Responsive** - Adaptif dengan resolusi layar (HD, Full HD, 4K)  - Multi-select dengan checkbox
+
   - Bulk set duration
-  - Bulk delete with confirmation
-- **Search & Filter**:
-  - Search by filename
-  - Sort: Order, Name, Size, Date
-  - Dark mode dropdown dengan proper contrast
+
+**LG webOS Optimization:**  - Bulk delete with confirmation
+
+- Wake Lock API untuk prevent sleep mode- **Search & Filter**:
+
+- Hidden video playback untuk trick webOS  - Search by filename
+
+- Activity simulation setiap 15 menit  - Sort: Order, Name, Size, Date
+
+- Fullscreen retry mechanism setiap 10 menit  - Dark mode dropdown dengan proper contrast
+
 - **Statistics panel**:
-  - Total images count
+
+### 2. 🛠️ Admin Panel  - Total images count
+
   - Total storage used
-  - Real-time updates
+
+**Dashboard untuk mengelola konten** (`/admin`)  - Real-time updates
+
 - **Force refresh** untuk trigger update di semua slideshow
-- **Toast notifications** untuk semua operasi
-- **Fullscreen preview** untuk lihat image detail
 
-### 🎨 Design System
-- **Consistent color palette**:
-  - Background: Slate-950 gradient
-  - Accent: Sky-500 (blue) untuk primary actions
+**Image Management:**- **Toast notifications** untuk semua operasi
+
+- ✅ **Drag & drop upload** - Upload multiple files sekaligus- **Fullscreen preview** untuk lihat image detail
+
+- ✅ **Visual reordering** - Drag & drop untuk ubah urutan tampilan
+
+- ✅ **Custom duration** - Set berapa lama setiap gambar ditampilkan (1-60 detik)### 🎨 Design System
+
+- ✅ **Preview fullscreen** - Lihat gambar dalam ukuran penuh- **Consistent color palette**:
+
+- ✅ **Rename files** - Ubah nama file langsung  - Background: Slate-950 gradient
+
+- ✅ **Delete confirmation** - Konfirmasi sebelum hapus  - Accent: Sky-500 (blue) untuk primary actions
+
   - Secondary: Violet-500 untuk bulk actions
-  - Success: Green-500
-  - Warning: Amber-500
-  - Error: Red-500
-- **Glassmorphism effects** dengan backdrop blur
-- **Smooth animations** pada semua interactions
-- **Custom scrollbar** tipis dan elegan
-- **Responsive layout** optimal untuk semua screen sizes
-- **Loading states** dengan skeleton screens
 
-## 🏗️ Tech Stack
+**Video Features:**  - Success: Green-500
+
+- ✅ **Auto-generate video** - Convert gambar ke video otomatis  - Warning: Amber-500
+
+- ✅ **Video preview** - Lihat video yang sudah di-generate  - Error: Red-500
+
+- ✅ **Delete video** - Hapus video dan generate ulang jika perlu- **Glassmorphism effects** dengan backdrop blur
+
+- ✅ **Status indicator** - Tanda hijau jika video sudah ada- **Smooth animations** pada semua interactions
+
+- **Custom scrollbar** tipis dan elegan
+
+**Bulk Operations:**- **Responsive layout** optimal untuk semua screen sizes
+
+- Multi-select dengan checkbox- **Loading states** dengan skeleton screens
+
+- Set duration untuk banyak gambar sekaligus
+
+- Bulk delete dengan konfirmasi## 🏗️ Tech Stack
+
+- Generate video untuk multiple images
 
 - **Framework**: Next.js 14.2.33 (React 18, TypeScript)
-- **Styling**: Tailwind CSS 3.4.17
-- **Backend**: Supabase (Storage, Realtime, Database)
-- **Deployment**: Vercel
-- **UI Components**: Custom components dengan Tailwind
+
+**Search & Filter:**- **Styling**: Tailwind CSS 3.4.17
+
+- Search by filename- **Backend**: Supabase (Storage, Realtime, Database)
+
+- Sort by: Order, Name, Size, Upload Date- **Deployment**: Vercel
+
+- Real-time filtering- **UI Components**: Custom components dengan Tailwind
+
 - **State Management**: React Hooks (useState, useEffect, useCallback)
-- **Real-time**: Supabase Realtime broadcast channels
 
-## 📁 Project Structure
+**Statistics:**- **Real-time**: Supabase Realtime broadcast channels
 
-```
+- Total images count
+
+- Total storage used## 📁 Project Structure
+
+- Total videos generated
+
+- Live updates```
+
 slideshow/
-├── pages/
+
+### 3. 📱 Remote Control├── pages/
+
 │   ├── index.tsx           # Main slideshow display
-│   ├── admin.tsx           # Admin panel
+
+**Kontrol slideshow dari device lain** (`/remote`)│   ├── admin.tsx           # Admin panel
+
 │   ├── login.tsx           # Admin login page
-│   ├── remote.tsx          # Mobile remote control
-│   ├── _app.tsx            # App wrapper
-│   └── api/
-│       ├── auth.ts         # Authentication endpoint
-│       ├── logout.ts       # Logout endpoint
-│       ├── images.ts       # Get images list
+
+- **Mobile-friendly UI** - Optimized untuk smartphone│   ├── remote.tsx          # Mobile remote control
+
+- **Real-time control** - Play/Pause, Previous, Next│   ├── _app.tsx            # App wrapper
+
+- **Jump to slide** - Langsung ke slide tertentu│   └── api/
+
+- **Transition selector** - Ganti efek transisi on-the-fly│       ├── auth.ts         # Authentication endpoint
+
+- **Connection status** - Indikator koneksi real-time│       ├── logout.ts       # Logout endpoint
+
+- **Touch-optimized** - Button besar untuk mudah diklik│       ├── images.ts       # Get images list
+
 │       ├── upload.ts       # Upload images
-│       ├── config.ts       # Legacy config endpoint
-│       ├── settings.ts     # Slideshow settings (transition, etc)
-│       ├── image/[name].ts # Serve individual image
-│       └── admin/
-│           ├── images.ts   # Admin image operations (delete, etc)
+
+**Cara Kerja:**│       ├── config.ts       # Legacy config endpoint
+
+1. Buka `/remote` di smartphone/tablet│       ├── settings.ts     # Slideshow settings (transition, etc)
+
+2. Slideshow di TV akan otomatis respond│       ├── image/[name].ts # Serve individual image
+
+3. Semua device terhubung via Supabase Realtime│       └── admin/
+
+4. Tidak perlu pairing atau setup tambahan│           ├── images.ts   # Admin image operations (delete, etc)
+
 │           ├── metadata.ts # Save image metadata (order, duration, visibility)
-│           └── force-refresh.ts # Trigger slideshow refresh
+
+### 4. ⌨️ Keyboard Shortcuts│           └── force-refresh.ts # Trigger slideshow refresh
+
 ├── components/
-│   └── admin/
+
+Control slideshow langsung dari keyboard:│   └── admin/
+
 │       ├── ConfirmModal.tsx   # Delete confirmation modal
-│       ├── ImageCard.tsx      # Image card component
-│       ├── ToastProvider.tsx  # Toast notification provider
-│       └── UploadBox.tsx      # Drag & drop upload component
-├── hooks/
-│   ├── useImages.ts        # Image management hook
-│   └── useToast.ts         # Toast notification hook
-├── lib/
-│   ├── supabase.ts         # Supabase client
-│   ├── auth.ts             # Auth utilities
+
+| Shortcut | Aksi |│       ├── ImageCard.tsx      # Image card component
+
+|----------|------|│       ├── ToastProvider.tsx  # Toast notification provider
+
+| `Space` | Play / Pause |│       └── UploadBox.tsx      # Drag & drop upload component
+
+| `←` `→` | Previous / Next slide |├── hooks/
+
+| `↑` `↓` | Previous / Next slide |│   ├── useImages.ts        # Image management hook
+
+| `Home` | Jump to first slide |│   └── useToast.ts         # Toast notification hook
+
+| `End` | Jump to last slide |├── lib/
+
+| `C` atau `ESC` | Toggle controls overlay |│   ├── supabase.ts         # Supabase client
+
+| `F` | Toggle fullscreen |│   ├── auth.ts             # Auth utilities
+
 │   ├── constants.ts        # App constants
-│   └── database.types.ts   # Supabase types
+
+---│   └── database.types.ts   # Supabase types
+
 ├── styles/
-│   └── globals.css         # Global styles & Tailwind imports
+
+## 🛠️ Teknologi yang Digunakan│   └── globals.css         # Global styles & Tailwind imports
+
 └── public/                 # Static assets
-```
 
-## 🚀 Getting Started
+### Frontend```
 
-### Prerequisites
+- **Next.js 14.2** - React framework dengan SSR & API routes
+
+- **TypeScript** - Type-safe development## 🚀 Getting Started
+
+- **Tailwind CSS** - Utility-first CSS framework
+
+- **React Hooks** - Modern React patterns### Prerequisites
+
 - Node.js 18+ dan npm
-- Akun Supabase (gratis di [supabase.com](https://supabase.com))
-- Browser modern (Chrome, Firefox, Safari, Edge)
 
-### Local Development
+### Backend & Storage- Akun Supabase (gratis di [supabase.com](https://supabase.com))
 
-1. **Clone repository**:
+- **Supabase** - Backend-as-a-Service- Browser modern (Chrome, Firefox, Safari, Edge)
+
+  - **Storage** - File hosting untuk images & videos
+
+  - **Database** - PostgreSQL untuk metadata### Local Development
+
+  - **Realtime** - WebSocket untuk sync real-time
+
+- **Vercel** - Deployment platform dengan serverless functions1. **Clone repository**:
+
    ```bash
-   git clone <repository-url>
-   cd slideshow
+
+### Media Processing   git clone <repository-url>
+
+- **FFmpeg** - Video generation dari images   cd slideshow
+
+- **@ffmpeg-installer/ffmpeg** - FFmpeg binary untuk Vercel serverless   ```
+
+
+
+### Authentication2. **Install dependencies**:
+
+- **SHA-256 Hashing** - Password security   ```bash
+
+- **Cookie-based Sessions** - Secure admin authentication   npm install
+
    ```
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+---
 
 3. **Setup environment variables**:
-   ```bash
-   cp .env.example .env.local
-   ```
-   
-   Edit `.env.local` dan isi dengan kredensial Supabase Anda:
-   ```env
-   # Admin Panel Password
-   ADMIN_PASSWORD=your_secure_password
 
-   # Supabase Configuration
-   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+## 📋 Prasyarat   ```bash
+
+   cp .env.example .env.local
+
+Sebelum instalasi, pastikan Anda memiliki:   ```
+
+   
+
+### 1. Software Requirements   Edit `.env.local` dan isi dengan kredensial Supabase Anda:
+
+- **Node.js** v18.0 atau lebih baru ([Download](https://nodejs.org/))   ```env
+
+- **npm** v9.0 atau lebih baru (included dengan Node.js)   # Admin Panel Password
+
+- **Git** untuk clone repository ([Download](https://git-scm.com/))   ADMIN_PASSWORD=your_secure_password
+
+
+
+### 2. Akun & Services   # Supabase Configuration
+
+- **Supabase Account** (gratis) - [Daftar di supabase.com](https://supabase.com/)   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+
+- **Vercel Account** (optional, untuk deployment) - [Daftar di vercel.com](https://vercel.com/)   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+
    SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-   SUPABASE_STORAGE_BUCKET=slideshow-images
-   SUPABASE_DURATIONS_TABLE=image_durations
-   ```
+
+### 3. Browser Support   SUPABASE_STORAGE_BUCKET=slideshow-images
+
+- **Development**: Chrome, Firefox, Safari, Edge (versi terbaru)   SUPABASE_DURATIONS_TABLE=image_durations
+
+- **Production**: Mendukung semua modern browsers   ```
+
+- **TV**: LG webOS, Samsung Tizen, Android TV
 
 4. **Setup Supabase**:
-   
+
+---   
+
    **A. Buat Storage Bucket**
-   - Buka Supabase Dashboard → Storage
+
+## 🚀 Instalasi   - Buka Supabase Dashboard → Storage
+
    - Klik "New bucket"
-   - Nama: `slideshow-images`
+
+### Step 1: Clone Repository   - Nama: `slideshow-images`
+
    - Public bucket: ✅ Yes
-   
-   **B. Buat Database Tables**
-   - Buka Supabase Dashboard → SQL Editor
-   - Klik "New query"
+
+```bash   
+
+git clone https://github.com/yourusername/slideshow.git   **B. Buat Database Tables**
+
+cd slideshow   - Buka Supabase Dashboard → SQL Editor
+
+```   - Klik "New query"
+
    - Copy-paste SQL berikut dan Run:
-   
+
+### Step 2: Install Dependencies   
+
    ```sql
-   -- Table untuk menyimpan metadata gambar
-   CREATE TABLE image_durations (
-     id SERIAL PRIMARY KEY,
+
+```bash   -- Table untuk menyimpan metadata gambar
+
+npm install   CREATE TABLE image_durations (
+
+```     id SERIAL PRIMARY KEY,
+
      filename VARCHAR(255) UNIQUE NOT NULL,
-     duration_ms INTEGER,
+
+Ini akan install semua packages yang diperlukan (~5-10 menit tergantung koneksi).     duration_ms INTEGER,
+
      caption TEXT,
-     order_index INTEGER DEFAULT 0,
+
+### Step 3: Setup Supabase     order_index INTEGER DEFAULT 0,
+
      hidden BOOLEAN DEFAULT false,
-     video_url TEXT,
+
+#### A. Buat Project Baru di Supabase     video_url TEXT,
+
      video_generated_at TIMESTAMP WITH TIME ZONE,
-     video_duration_seconds NUMERIC,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+
+1. Login ke [Supabase Dashboard](https://app.supabase.com/)     video_duration_seconds NUMERIC,
+
+2. Klik **"New Project"**     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+3. Isi:     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+
+   - **Name**: `slideshow` (atau nama sesuai keinginan)   );
+
+   - **Database Password**: Simpan password ini, akan digunakan nanti   
+
+   - **Region**: Pilih region terdekat (Southeast Asia)   CREATE INDEX idx_image_durations_filename ON image_durations(filename);
+
+4. Klik **"Create new project"** dan tunggu ~2 menit   CREATE INDEX idx_image_durations_order ON image_durations(order_index);
+
    
-   CREATE INDEX idx_image_durations_filename ON image_durations(filename);
-   CREATE INDEX idx_image_durations_order ON image_durations(order_index);
-   
-   -- Table untuk settings slideshow
+
+#### B. Buat Storage Buckets   -- Table untuk settings slideshow
+
    CREATE TABLE slideshow_settings (
-     id SERIAL PRIMARY KEY,
+
+**Bucket untuk Images:**     id SERIAL PRIMARY KEY,
+
      key VARCHAR(255) UNIQUE NOT NULL,
-     value TEXT NOT NULL,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
-   
-   INSERT INTO slideshow_settings (key, value) 
+
+1. Buka **Storage** di sidebar     value TEXT NOT NULL,
+
+2. Klik **"New bucket"**     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+3. Isi:     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+
+   - **Name**: `slideshow-images`   );
+
+   - **Public bucket**: ✅ **Yes**   
+
+4. Klik **"Create bucket"**   INSERT INTO slideshow_settings (key, value) 
+
    VALUES ('transition_effect', 'fade');
-   
+
+**Bucket untuk Videos:**   
+
    -- Trigger untuk auto-update timestamp
-   CREATE OR REPLACE FUNCTION update_updated_at_column()
-   RETURNS TRIGGER AS $$
-   BEGIN
-     NEW.updated_at = NOW();
-     RETURN NEW;
+
+1. Klik **"New bucket"** lagi   CREATE OR REPLACE FUNCTION update_updated_at_column()
+
+2. Isi:   RETURNS TRIGGER AS $$
+
+   - **Name**: `slideshow-videos`   BEGIN
+
+   - **Public bucket**: ✅ **Yes**     NEW.updated_at = NOW();
+
+3. Klik **"Create bucket"**     RETURN NEW;
+
    END;
-   $$ LANGUAGE plpgsql;
+
+#### C. Buat Database Tables   $$ LANGUAGE plpgsql;
+
    
-   CREATE TRIGGER update_image_durations_updated_at
-     BEFORE UPDATE ON image_durations
-     FOR EACH ROW
-     EXECUTE FUNCTION update_updated_at_column();
-   
-   CREATE TRIGGER update_slideshow_settings_updated_at
+
+1. Buka **SQL Editor** di sidebar   CREATE TRIGGER update_image_durations_updated_at
+
+2. Klik **"New query"**     BEFORE UPDATE ON image_durations
+
+3. Copy paste SQL dari file `doc/001_create_image_durations_table.sql`     FOR EACH ROW
+
+4. Klik **"Run"** atau tekan `Ctrl+Enter`     EXECUTE FUNCTION update_updated_at_column();
+
+5. Ulangi untuk `doc/002_create_slideshow_settings_table.sql`   
+
+6. Dan `doc/003_add_video_metadata_columns.sql`   CREATE TRIGGER update_slideshow_settings_updated_at
+
      BEFORE UPDATE ON slideshow_settings
-     FOR EACH ROW
+
+Atau run semua SQL sekaligus:     FOR EACH ROW
+
      EXECUTE FUNCTION update_updated_at_column();
-   ```
-   
-   **C. Enable Realtime** (Opsional)
-   - Buka Database → Replication
-   - Klik "0 tables" → Enable untuk `image_durations`
 
-5. **Run development server**:
-   ```bash
-   npm run dev
-   ```
+```sql   ```
 
-6. **Access the app**:
-   - Slideshow: http://localhost:3000
-   - Admin Panel: http://localhost:3000/admin
-   - Remote Control: http://localhost:3000/remote
-   - Login: http://localhost:3000/login
+-- Table untuk metadata images   
 
-### Build for Production
+CREATE TABLE image_durations (   **C. Enable Realtime** (Opsional)
 
-```bash
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),   - Buka Database → Replication
+
+  filename TEXT NOT NULL UNIQUE,   - Klik "0 tables" → Enable untuk `image_durations`
+
+  duration_ms INTEGER DEFAULT 5000,
+
+  caption TEXT,5. **Run development server**:
+
+  order_index INTEGER DEFAULT 0,   ```bash
+
+  hidden BOOLEAN DEFAULT false,   npm run dev
+
+  is_video BOOLEAN DEFAULT false,   ```
+
+  video_url TEXT,
+
+  video_duration_seconds INTEGER,6. **Access the app**:
+
+  video_generated_at TIMESTAMPTZ,   - Slideshow: http://localhost:3000
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),   - Admin Panel: http://localhost:3000/admin
+
+  updated_at TIMESTAMPTZ DEFAULT NOW()   - Remote Control: http://localhost:3000/remote
+
+);   - Login: http://localhost:3000/login
+
+
+
+CREATE INDEX idx_image_durations_order ON image_durations(order_index);### Build for Production
+
+CREATE INDEX idx_image_durations_hidden ON image_durations(hidden);
+
+CREATE INDEX idx_image_durations_filename ON image_durations(filename);```bash
+
 npm run build
-npm start
+
+-- Table untuk settingsnpm start
+
+CREATE TABLE slideshow_settings (```
+
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  key TEXT NOT NULL UNIQUE,## 🌐 Deployment
+
+  value TEXT NOT NULL,
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),### Deploy to Vercel (Recommended)
+
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+
+);1. **Push to GitHub**:
+
+   ```bash
+
+CREATE INDEX idx_slideshow_settings_key ON slideshow_settings(key);   git push origin main
+
+   ```
+
+-- Auto-update timestamp function
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()2. **Import to Vercel**:
+
+RETURNS TRIGGER AS $$   - Buka [vercel.com](https://vercel.com)
+
+BEGIN   - Click "Add New" → "Project"
+
+  NEW.updated_at = NOW();   - Import your GitHub repository
+
+  RETURN NEW;
+
+END;3. **Configure Environment Variables**:
+
+$$ LANGUAGE plpgsql;   
+
+   Add the following variables in **Project Settings → Environment Variables**:
+
+CREATE TRIGGER update_image_durations_updated_at   
+
+  BEFORE UPDATE ON image_durations   | Variable | Value | Scope |
+
+  FOR EACH ROW   |----------|-------|-------|
+
+  EXECUTE FUNCTION update_updated_at_column();   | `ADMIN_PASSWORD` | Your admin password | Production, Preview, Development |
+
+   | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | Production, Preview, Development |
+
+CREATE TRIGGER update_slideshow_settings_updated_at   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key | Production, Preview, Development |
+
+  BEFORE UPDATE ON slideshow_settings   | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | Production, Preview, Development |
+
+  FOR EACH ROW   | `SUPABASE_STORAGE_BUCKET` | `slideshow-images` | Production, Preview, Development |
+
+  EXECUTE FUNCTION update_updated_at_column();   | `SUPABASE_DURATIONS_TABLE` | `image_durations` | Production, Preview, Development |
+
 ```
 
-## 🌐 Deployment
-
-### Deploy to Vercel (Recommended)
-
-1. **Push to GitHub**:
-   ```bash
-   git push origin main
-   ```
-
-2. **Import to Vercel**:
-   - Buka [vercel.com](https://vercel.com)
-   - Click "Add New" → "Project"
-   - Import your GitHub repository
-
-3. **Configure Environment Variables**:
-   
-   Add the following variables in **Project Settings → Environment Variables**:
-   
-   | Variable | Value | Scope |
-   |----------|-------|-------|
-   | `ADMIN_PASSWORD` | Your admin password | Production, Preview, Development |
-   | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | Production, Preview, Development |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key | Production, Preview, Development |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | Production, Preview, Development |
-   | `SUPABASE_STORAGE_BUCKET` | `slideshow-images` | Production, Preview, Development |
-   | `SUPABASE_DURATIONS_TABLE` | `image_durations` | Production, Preview, Development |
-
 4. **Deploy**:
-   - Click "Deploy"
+
+#### D. Ambil API Keys   - Click "Deploy"
+
    - Wait for build to complete
-   - Access your app at `https://your-project.vercel.app`
 
-> **⚠️ Important**: All environment variables must be set for all scopes. Missing variables will cause deployment to fail.
+1. Buka **Settings** → **API** di sidebar   - Access your app at `https://your-project.vercel.app`
 
-### Vercel Configuration
+2. Copy credentials berikut:
 
-The project includes `vercel.json` with optimized settings:
+   - **Project URL** (contoh: `https://xxxxx.supabase.co`)> **⚠️ Important**: All environment variables must be set for all scopes. Missing variables will cause deployment to fail.
+
+   - **anon public** key (di bagian Project API keys)
+
+   - **service_role** key (klik "Reveal" dulu)### Vercel Configuration
+
+
+
+⚠️ **PENTING**: Simpan `service_role` key dengan aman, jangan share ke public!The project includes `vercel.json` with optimized settings:
+
 - Build optimization enabled
-- 60-second function timeout for uploads
+
+### Step 4: Setup Environment Variables- 60-second function timeout for uploads
+
 - Proper file size limits
-- SSR configuration for dynamic routes
 
-## 📖 Usage Guide
+1. Copy file template:- SSR configuration for dynamic routes
 
-### Admin Panel Workflow
 
-1. **Login**:
+
+```bash## 📖 Usage Guide
+
+cp .env.example .env.local
+
+```### Admin Panel Workflow
+
+
+
+2. Edit `.env.local`:1. **Login**:
+
    - Navigate to `/login`
-   - Enter admin password
-   - Click "Sign In"
+
+```env   - Enter admin password
+
+# Admin Panel Password - Ganti dengan password kuat Anda   - Click "Sign In"
+
+ADMIN_PASSWORD=your_super_secure_password_here
 
 2. **Upload Images**:
-   - Drag & drop files to upload box
-   - Or click to browse files
-   - Supported formats: PNG, JPG, JPEG, GIF, WEBP, BMP, SVG, AVIF
-   - Maximum file size: 10MB per file
 
-3. **Manage Images**:
-   - **Reorder**: Drag & drop images to change order
+# Optional: Salt untuk hashing   - Drag & drop files to upload box
+
+ADMIN_PASSWORD_SALT=slideshow-admin-salt-change-this   - Or click to browse files
+
+   - Supported formats: PNG, JPG, JPEG, GIF, WEBP, BMP, SVG, AVIF
+
+# Supabase Configuration   - Maximum file size: 10MB per file
+
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...your_anon_key_here3. **Manage Images**:
+
+SUPABASE_SERVICE_ROLE_KEY=eyJxxx...your_service_role_key_here   - **Reorder**: Drag & drop images to change order
+
    - **Set Duration**: Click duration selector (1-60s)
-   - **Hide/Show**: Click eye icon to toggle visibility
-   - **Delete**: Click trash icon, confirm deletion
-   - **Preview**: Click image for fullscreen view
+
+# Storage Configuration   - **Hide/Show**: Click eye icon to toggle visibility
+
+SUPABASE_STORAGE_BUCKET=slideshow-images   - **Delete**: Click trash icon, confirm deletion
+
+SUPABASE_DURATIONS_TABLE=image_durations   - **Preview**: Click image for fullscreen view
+
+```
 
 4. **Bulk Operations**:
-   - Click "Bulk" button to enable selection mode
+
+### Step 5: Run Development Server   - Click "Bulk" button to enable selection mode
+
    - Select multiple images
-   - Choose bulk action:
-     - Show selected images
-     - Hide selected images
+
+```bash   - Choose bulk action:
+
+npm run dev     - Show selected images
+
+```     - Hide selected images
+
      - Set duration for all
-     - Delete selected
 
-5. **Search & Filter**:
-   - Use search box to find by filename
+Buka browser dan akses:     - Delete selected
+
+- **Slideshow**: http://localhost:3000
+
+- **Admin Panel**: http://localhost:3000/admin5. **Search & Filter**:
+
+- **Remote Control**: http://localhost:3000/remote   - Use search box to find by filename
+
    - Filter by: All / Visible Only / Hidden Only
-   - Sort by: Order / Name / Size / Date
 
-6. **Force Refresh**:
+🎉 **Selesai!** Aplikasi sudah running di local.   - Sort by: Order / Name / Size / Date
+
+
+
+---6. **Force Refresh**:
+
    - Click "🔄 Force Refresh" to update all active slideshows
-   - Useful after batch updates
 
-### Slideshow Controls
+## 📖 Cara Penggunaan   - Useful after batch updates
 
-**Keyboard Shortcuts**:
-- `Space` - Toggle Play/Pause
-- `←` / `→` - Previous/Next slide
-- `↑` / `↓` - Previous/Next slide (alternative)
-- `Home` - Jump to first slide
+
+
+### A. Upload Images### Slideshow Controls
+
+
+
+1. Buka **Admin Panel**: http://localhost:3000/admin**Keyboard Shortcuts**:
+
+2. Login dengan password yang sudah diset- `Space` - Toggle Play/Pause
+
+3. **Drag & drop** gambar ke area upload- `←` / `→` - Previous/Next slide
+
+4. Tunggu upload selesai (progress bar akan muncul)- `↑` / `↓` - Previous/Next slide (alternative)
+
+5. Gambar otomatis muncul di list- `Home` - Jump to first slide
+
 - `End` - Jump to last slide
-- `C` or `ESC` - Toggle controls overlay
 
-**On-Screen Controls** (press C or move mouse):
+**Supported formats**: JPG, PNG, GIF, WebP, BMP- `C` or `ESC` - Toggle controls overlay
+
+
+
+### B. Generate Video**On-Screen Controls** (press C or move mouse):
+
 - Previous/Play-Pause/Next buttons
-- Transition effect selector (Fade/Slide/Zoom/None)
-- Thumbnail grid for quick navigation
-- Auto-hides after 3-5 seconds of inactivity
 
-### Remote Control
+**Auto-generate:**- Transition effect selector (Fade/Slide/Zoom/None)
 
-1. **Access Remote**:
-   - Open `/remote` on your mobile device
+- Video otomatis ter-generate saat pertama kali load admin panel- Thumbnail grid for quick navigation
+
+- Tunggu beberapa detik, status akan berubah jadi "✅ Video Generated"- Auto-hides after 3-5 seconds of inactivity
+
+
+
+**Manual generate:**### Remote Control
+
+1. Klik button **"Generate Video"** (icon play)
+
+2. Tunggu proses convert (~10-30 detik)1. **Access Remote**:
+
+3. Status berubah jadi hijau dengan info video   - Open `/remote` on your mobile device
+
    - Or scan QR code from admin panel (if enabled)
 
+### C. Set Duration
+
 2. **Control Slideshow**:
-   - Use Playback controls (Play/Pause)
-   - Navigate with Previous/Next buttons
-   - Jump to first/last slide
-   - Select specific slide from Quick Jump grid
+
+1. Di admin panel, setiap image card punya input **"Display duration"**   - Use Playback controls (Play/Pause)
+
+2. Masukkan angka (1-60 detik)   - Navigate with Previous/Next buttons
+
+3. Klik **"Save"** button   - Jump to first/last slide
+
+4. Duration tersimpan dan digunakan di slideshow   - Select specific slide from Quick Jump grid
+
    - Change transition effect
 
+### D. Reorder Images
+
 3. **Connection**:
-   - Green dot = Connected
-   - Red dot = Not connected
-   - Real-time sync via Supabase
 
-### LG TV Optimization
+1. **Drag** image card   - Green dot = Connected
 
-The slideshow includes special optimizations for LG TVs:
+2. **Drop** ke posisi yang diinginkan   - Red dot = Not connected
 
-1. **Wake Lock API**: Prevents screen from sleeping
-2. **Activity Simulation**: Triggers every 30 minutes
+3. Urutan otomatis update   - Real-time sync via Supabase
+
+
+
+### E. Tampilkan Slideshow di TV### LG TV Optimization
+
+
+
+**Di Smart TV:**The slideshow includes special optimizations for LG TVs:
+
+1. Buka browser di TV
+
+2. Akses URL: `http://your-ip:3000`1. **Wake Lock API**: Prevents screen from sleeping
+
+3. Slideshow otomatis fullscreen dan play2. **Activity Simulation**: Triggers every 30 minutes
+
 3. **Auto-Reload**: Full page reload every 30 minutes
-4. **Fullscreen Mode**: Auto-requests after 2 seconds
 
-**Console Logs** (check browser console):
-- `🔒 Screen Wake Lock activated` - Wake lock working
-- `⏰ 30-minute activity trigger` - Activity simulation
+**Cara cek IP:**4. **Fullscreen Mode**: Auto-requests after 2 seconds
+
+```bash
+
+# Windows: ipconfig**Console Logs** (check browser console):
+
+# Mac/Linux: ifconfig- `🔒 Screen Wake Lock activated` - Wake lock working
+
+```- `⏰ 30-minute activity trigger` - Activity simulation
+
 - `🔄 Auto-reloading page` - Auto-reload triggered
+
+**Contoh**: `http://192.168.1.100:3000`
 
 ## 🎨 Customization
 
+### F. Remote Control
+
 ### Transition Effects
 
-4 built-in transition effects available:
-- **Fade**: Smooth opacity transition (default)
-- **Slide**: Horizontal slide animation
-- **Zoom**: Scale + fade effect
-- **None**: Instant switch, no animation
+1. Buka browser di smartphone
 
-Change via:
+2. Akses: `http://your-ip:3000/remote`4 built-in transition effects available:
+
+3. Gunakan button control- **Fade**: Smooth opacity transition (default)
+
+4. TV akan respond real-time- **Slide**: Horizontal slide animation
+
+- **Zoom**: Scale + fade effect
+
+---- **None**: Instant switch, no animation
+
+
+
+## 🚀 Deployment ke VercelChange via:
+
 - Slideshow controls (press C)
-- Admin panel (Slideshow Settings section - if enabled)
+
+### Step 1: Push ke GitHub- Admin panel (Slideshow Settings section - if enabled)
+
 - Remote control page
 
-### Default Settings
+```bash
 
-Edit constants in `pages/index.tsx`:
-```typescript
+git add .### Default Settings
+
+git commit -m "Initial commit"
+
+git push -u origin mainEdit constants in `pages/index.tsx`:
+
+``````typescript
+
 const DEFAULT_SLIDE_DURATION_SECONDS = 15;  // Default duration
-const LANGUAGE_SWAP_INTERVAL_MS = 4_000;    // Language rotation
+
+### Step 2: Deploy di Vercelconst LANGUAGE_SWAP_INTERVAL_MS = 4_000;    // Language rotation
+
 const FADE_DURATION_MS = 500;               // Transition speed
-const AUTO_REFRESH_INTERVAL_MS = 60_000;    // Auto-refresh interval
-```
 
-### Styling
+1. Login ke [Vercel](https://vercel.com/)const AUTO_REFRESH_INTERVAL_MS = 60_000;    // Auto-refresh interval
 
-Main style configuration in `styles/globals.css`:
+2. Import GitHub repository```
+
+3. Add environment variables (sama seperti `.env.local`)
+
+4. Deploy### Styling
+
+
+
+**URL**: `https://your-app.vercel.app`Main style configuration in `styles/globals.css`:
+
 - Dark theme with slate background
-- Custom scrollbar
+
+---- Custom scrollbar
+
 - Tailwind configuration in `tailwind.config.js`
+
+## 🔒 Security
 
 ## 🔧 Troubleshooting
 
+### Security Checklist
+
 See [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for common issues and solutions.
 
-### Common Issues
+- [ ] Ganti `ADMIN_PASSWORD` dengan password kuat
 
-**Images not showing**:
-- Check Supabase Storage bucket configuration
-- Verify RLS policies allow public read
+- [ ] Ganti `ADMIN_PASSWORD_SALT` dengan random string### Common Issues
+
+- [ ] Enable Supabase RLS policies
+
+- [ ] Never commit `.env.local`**Images not showing**:
+
+- [ ] Set environment variables di Vercel- Check Supabase Storage bucket configuration
+
+- [ ] Enable 2FA di Supabase- Verify RLS policies allow public read
+
 - Check browser console for errors
 
-**Upload fails**:
-- Verify file size < 10MB
-- Check supported file formats
-- Ensure Supabase service role key is correct
+### Environment Variables
 
-**Slideshow not auto-updating**:
-- Check Supabase Realtime is enabled
-- Verify `image_durations` table exists
+**Upload fails**:
+
+**❌ NEVER expose:**- Verify file size < 10MB
+
+- `ADMIN_PASSWORD`- Check supported file formats
+
+- `SUPABASE_SERVICE_ROLE_KEY`- Ensure Supabase service role key is correct
+
+
+
+**✅ Safe for client:****Slideshow not auto-updating**:
+
+- `NEXT_PUBLIC_SUPABASE_URL`- Check Supabase Realtime is enabled
+
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`- Verify `image_durations` table exists
+
 - Check browser console for WebSocket errors
 
+---
+
 **LG TV goes to sleep**:
-- Open browser console to verify wake lock logs
+
+## 🔧 Troubleshooting- Open browser console to verify wake lock logs
+
 - Check if fullscreen mode is active
-- Wait for 30-minute auto-reload cycle
 
-## 📄 API Reference
+### Video tidak generate- Wait for 30-minute auto-reload cycle
 
-### GET /api/images
+
+
+1. Check Vercel function logs## 📄 API Reference
+
+2. Verify `@ffmpeg-installer/ffmpeg` installed
+
+3. Check function timeout (max 10s free tier)### GET /api/images
+
 Returns list of all images with metadata.
 
-**Response**:
-```json
-{
-  "images": ["image1.jpg", "image2.png"],
-  "durations": { "image1.jpg": 15000, "image2.png": 20000 },
-  "captions": { "image1.jpg": null, "image2.png": null }
-}
-```
+### Slideshow tidak update
 
-### POST /api/upload
+**Response**:
+
+1. Click "Force Refresh ⚡" di admin```json
+
+2. Check Supabase Realtime enabled{
+
+3. Clear browser cache  "images": ["image1.jpg", "image2.png"],
+
+  "durations": { "image1.jpg": 15000, "image2.png": 20000 },
+
+### TV goes to sleep  "captions": { "image1.jpg": null, "image2.png": null }
+
+}
+
+1. Verify video generated (ada ✅ icon)```
+
+2. Disable TV energy saving mode
+
+3. Use fullscreen mode### POST /api/upload
+
 Upload new images.
+
+### Cannot login
 
 **Request**: multipart/form-data with file(s)
 
-**Response**:
-```json
+1. Verify `ADMIN_PASSWORD` in `.env.local`
+
+2. Clear cookies**Response**:
+
+3. Try incognito mode```json
+
 {
-  "success": true,
+
+---  "success": true,
+
   "uploaded": ["new-image.jpg"],
-  "skipped": []
+
+## ❓ FAQ  "skipped": []
+
 }
-```
+
+**Q: Apakah gratis?**  ```
+
+A: Ya, dengan Supabase Free (500MB) & Vercel Free tier.
 
 ### DELETE /api/admin/images
-Delete image(s).
+
+**Q: Berapa banyak gambar?**  Delete image(s).
+
+A: ~100-200 images (tergantung size) di free tier.
 
 **Request**:
-```json
-{
+
+**Q: Support offline?**  ```json
+
+A: Tidak, butuh internet untuk Supabase storage.{
+
   "filenames": ["image.jpg"]
-}
-```
 
-### POST /api/admin/metadata
-Save image metadata (order, duration, visibility).
+**Q: Bisa custom domain?**  }
 
-**Request**:
+A: Ya, Vercel support custom domain gratis.```
+
+
+
+**Q: Support Android TV?**  ### POST /api/admin/metadata
+
+A: Ya, tested di LG webOS, Samsung Tizen, Android TV.Save image metadata (order, duration, visibility).
+
+
+
+---**Request**:
+
 ```json
-{
-  "metadata": [
-    { "filename": "image.jpg", "order": 1, "duration_ms": 15000, "hidden": false }
-  ]
-}
-```
 
-### GET/POST /api/settings
+## 📞 Support{
+
+  "metadata": [
+
+- **Email**: support@yourcompany.com    { "filename": "image.jpg", "order": 1, "duration_ms": 15000, "hidden": false }
+
+- **GitHub Issues**: [Create an issue](https://github.com/yourusername/slideshow/issues)  ]
+
+}
+
+---```
+
+
+
+## 🙏 Acknowledgments### GET/POST /api/settings
+
 Get or update slideshow settings.
 
-**GET Response**:
-```json
-{
-  "transitionEffect": "fade",
-  "autoRefreshInterval": 60000,
+Built with:
+
+- [Next.js](https://nextjs.org/)**GET Response**:
+
+- [Supabase](https://supabase.com/)```json
+
+- [Vercel](https://vercel.com/){
+
+- [Tailwind CSS](https://tailwindcss.com/)  "transitionEffect": "fade",
+
+- [FFmpeg](https://ffmpeg.org/)  "autoRefreshInterval": 60000,
+
   "defaultDuration": 15000
-}
+
+---}
+
 ```
 
+**Made with ❤️ for the digital signage community**
+
 **POST Request**:
-```json
+
+Last updated: November 6, 2025```json
+
 {
   "transitionEffect": "slide"
 }
@@ -799,7 +1327,62 @@ Aplikasi ini memiliki dukungan khusus untuk browser webOS di LG TV dengan multip
   ```
 - Client-side fallback: Works di semua modern browsers dengan Canvas API support
 
-## 🛣️ Roadmap & Future Features
+## � Security
+
+### Security Features
+✅ **Authentication & Authorization**
+- Password-based admin authentication with SHA-256 hashing
+- Timing-safe token comparison to prevent timing attacks
+- Secure cookie-based session management
+- Authorization middleware for all admin API endpoints
+
+✅ **Environment Variables**
+- All sensitive credentials stored in `.env.local` (git-ignored)
+- No hardcoded passwords, tokens, or API keys in source code
+- Service role keys only used server-side (never exposed to client)
+- Public anon key with Row Level Security (RLS) enabled on Supabase
+
+✅ **HTTP Security Headers**
+- `Strict-Transport-Security`: Forces HTTPS connections
+- `X-Frame-Options`: Prevents clickjacking attacks
+- `X-Content-Type-Options`: Prevents MIME type sniffing
+- `X-XSS-Protection`: Enables browser XSS protection
+- `Referrer-Policy`: Controls referrer information
+
+✅ **Data Protection**
+- No sensitive data logged in console (production)
+- No stack traces exposed in API error responses
+- Input validation on all API endpoints
+- File type validation for uploads
+
+### Security Checklist for Deployment
+
+Before deploying to production, ensure:
+
+- [ ] Change default `ADMIN_PASSWORD` to strong password (min 16 characters)
+- [ ] Set strong `ADMIN_PASSWORD_SALT` (unique random string)
+- [ ] Enable Supabase RLS (Row Level Security) policies
+- [ ] Review and restrict Supabase Storage bucket policies
+- [ ] Enable HTTPS/SSL on your deployment platform
+- [ ] Set up environment variables in Vercel/hosting platform
+- [ ] Never commit `.env.local` to git
+- [ ] Regularly rotate passwords and API keys
+- [ ] Monitor Supabase logs for suspicious activity
+- [ ] Enable 2FA on Supabase account
+- [ ] Backup database regularly
+
+### Environment Variables Security
+
+**Never expose these to client-side**:
+- ❌ `ADMIN_PASSWORD`
+- ❌ `ADMIN_PASSWORD_SALT`
+- ❌ `SUPABASE_SERVICE_ROLE_KEY`
+
+**Safe for client-side** (with proper RLS):
+- ✅ `NEXT_PUBLIC_SUPABASE_URL`
+- ✅ `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+## �🛣️ Roadmap & Future Features
 
 - [x] Support untuk video files (mp4, webm) - Auto-convert from images
 - [ ] Caption editor untuk setiap gambar

@@ -136,7 +136,7 @@ const AdminContent = () => {
     }, 1000); // 1 second delay after component mounts
 
     return () => clearTimeout(timer);
-  }, [images.length, isLoading]); // Only depend on images.length, not the entire array
+  }, [images, isLoading, generateBatchVideo, refresh]);
 
   const handleUpload = useCallback(
     async (files: File[]) => {
@@ -395,13 +395,16 @@ const AdminContent = () => {
         description: `Video deleted for ${deleteVideoConfirm}`,
       });
       setDeleteVideoConfirm(null);
+      
+      // Refresh to show updated state
+      await refresh();
     } catch (error) {
       pushToast({
         variant: "error",
         description: `Failed to delete video: ${error}`,
       });
     }
-  }, [deleteVideoConfirm, deleteVideo, pushToast]);
+  }, [deleteVideoConfirm, deleteVideo, pushToast, refresh]);
 
   const handleForceRefresh = useCallback(async () => {
     if (isForceRefreshing) return;
@@ -755,6 +758,7 @@ const AdminContent = () => {
                           onDelete={(filename) => setConfirmTarget(filename)}
                           onPreview={openFullscreen}
                           onGenerateVideo={handleGenerateVideo}
+                          onDeleteVideo={(filename) => setDeleteVideoConfirm(filename)}
                           isGeneratingVideo={generatingVideoFor === image.name}
                           isSaving={savingImageFor === image.name}
                           onRename={handleRenameImage}

@@ -108,20 +108,36 @@ export default async function handler(
   try {
     // Check if video already exists for single image generation
     if (imagesToProcess.length === 1) {
+      const imageName = imagesToProcess[0];
+      const videoFileName = imageName.replace(/\.[^/.]+$/, '.mp4');
+      
+      // Check database first
       const { data: existingData, error: checkError } = await supabase
         .from('image_durations')
         .select('is_video, video_url')
-        .eq('filename', imagesToProcess[0])
+        .eq('filename', imageName)
         .single();
 
+      // Also check if video file exists in storage
+      const { data: existingFiles } = await supabase
+        .storage
+        .from('slideshow-videos')
+        .list('', { search: videoFileName });
+
+      const videoExists = existingFiles && existingFiles.length > 0;
+
       if (!checkError && existingData && existingData.is_video && existingData.video_url) {
-        console.log(`[Video Gen] Video already exists for ${imagesToProcess[0]}, skipping generation`);
+        console.log(`[Video Gen] Video already exists in database for ${imageName}, skipping generation`);
         return res.status(200).json({
           success: true,
           videoUrl: existingData.video_url,
-          message: 'Video already exists',
+          message: 'Video already exists in database',
           alreadyExists: true,
         });
+      }
+
+      if (videoExists) {
+        console.log(`[Video Gen] Video file already exists in storage for ${imageName}, will overwrite with upsert`);
       }
     }
 
@@ -222,8 +238,9 @@ export default async function handler(
     console.log(`[Video Gen] Video created: ${(videoSize / 1024 / 1024).toFixed(2)} MB`);
 
     // 4. Upload video to Supabase Storage
-    const firstImageName = imagesToProcess[0].replace(/\.[^/.]+$/, '');
-    const videoFileName = `batch-video-${firstImageName}-${Date.now()}.mp4`;
+    // Use image name as video name (without timestamp) to prevent duplicates
+    const firstImageName = imagesToProcess[0];
+    const videoFileName = firstImageName.replace(/\.[^/.]+$/, '.mp4'); // Replace image extension with .mp4
     console.log(`[Video Gen] Uploading video to storage: ${videoFileName}`);
 
     const videoBuffer = fs.readFileSync(tempVideoPath);
@@ -233,7 +250,7 @@ export default async function handler(
       .upload(videoFileName, videoBuffer, {
         contentType: 'video/mp4',
         cacheControl: '3600',
-        upsert: false,
+        upsert: true, // Replace existing video if it exists
       });
 
     if (uploadError) {

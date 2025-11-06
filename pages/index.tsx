@@ -822,7 +822,6 @@ export default function Home() {
 
     let wakeLock: any = null;
     let activityInterval: NodeJS.Timeout | null = null;
-    let reloadInterval: NodeJS.Timeout | null = null;
     let keepAliveInterval: NodeJS.Timeout | null = null;
     let hiddenVideoInterval: NodeJS.Timeout | null = null;
     let hiddenVideo: HTMLVideoElement | null = null;
@@ -1035,12 +1034,6 @@ export default function Home() {
       console.log('⏰ 15-minute activity trigger');
     }, 15 * 60 * 1000); // 15 minutes
     
-    // Auto-reload every 20 minutes to keep TV awake (more aggressive)
-    reloadInterval = setInterval(() => {
-      console.log('🔄 Auto-reloading page to keep LG TV awake (20 min)');
-      window.location.reload();
-    }, 20 * 60 * 1000); // 20 minutes
-    
     // Retry fullscreen every 10 minutes
     hiddenVideoInterval = setInterval(() => {
       requestFullscreen();
@@ -1069,9 +1062,6 @@ export default function Home() {
       }
       if (activityInterval) {
         clearInterval(activityInterval);
-      }
-      if (reloadInterval) {
-        clearInterval(reloadInterval);
       }
       if (keepAliveInterval) {
         clearInterval(keepAliveInterval);

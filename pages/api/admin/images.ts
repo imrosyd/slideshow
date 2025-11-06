@@ -121,11 +121,50 @@ export default async function handler(
       return res.status(500).json({ error: "Gagal membaca daftar file dari Supabase Storage." });
     }
 
+    // Also list all videos from slideshow-videos bucket
+    const { data: videoList, error: videoError } = await supabaseServiceRole.storage
+      .from('slideshow-videos')
+      .list("", { limit: 1000, sortBy: { column: "name", order: "asc" } });
+
+    if (videoError) {
+      console.warn("Error listing videos from Supabase Storage:", videoError);
+    }
+
+    // Create a map of videos by their corresponding image name
+    const videoMap = new Map<string, { url: string; size: number; createdAt: string | null }>();
+    if (videoList) {
+      videoList.forEach((video) => {
+        if (video.name && video.name.endsWith('.mp4')) {
+          // Get corresponding image name (replace .mp4 with original extension)
+          const imageName = video.name.replace('.mp4', '.jpg'); // Try .jpg first
+          const { data: videoPublicData } = supabaseServiceRole.storage
+            .from('slideshow-videos')
+            .getPublicUrl(video.name);
+          
+          videoMap.set(video.name, {
+            url: videoPublicData.publicUrl,
+            size: video.metadata?.size ?? 0,
+            createdAt: video.created_at ?? null,
+          });
+        }
+      });
+      console.log(`[Admin Images] Found ${videoMap.size} videos in storage`);
+    }
+
     const images: AdminImage[] = (fileList ?? [])
       .filter((file) => file.name && file.name !== "" && file.id && isImageFile(file.name))
       .map((file) => {
         const metadataEntry = metadataMap.get(file.name) || null;
         const durationMs = metadataEntry?.duration_ms ?? null;
+        
+        // Check if video exists in storage for this image
+        const videoName = file.name.replace(/\.[^/.]+$/, '.mp4');
+        const videoData = videoMap.get(videoName);
+        
+        // Use video from storage if exists, otherwise use metadata
+        const hasVideo = videoData !== undefined || (metadataEntry?.is_video ?? false);
+        const videoUrl = videoData?.url || metadataEntry?.video_url || undefined;
+        
         return {
           name: file.name,
           size: file.metadata?.size ?? 0,
@@ -134,10 +173,10 @@ export default async function handler(
           durationMs,
           caption: metadataEntry?.caption ?? null,
           hidden: metadataEntry?.hidden ?? false,
-          isVideo: metadataEntry?.is_video ?? false,
-          videoUrl: metadataEntry?.video_url ?? undefined,
+          isVideo: hasVideo,
+          videoUrl: videoUrl,
           videoDurationSeconds: metadataEntry?.video_duration_seconds ?? undefined,
-          videoGeneratedAt: metadataEntry?.video_generated_at ?? undefined,
+          videoGeneratedAt: (videoData?.createdAt || metadataEntry?.video_generated_at) ?? undefined,
         };
       });
 

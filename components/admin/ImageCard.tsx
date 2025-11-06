@@ -9,6 +9,7 @@ type Props = {
   onDelete: (filename: string) => void;
   onPreview: (filename: string) => void;
   onGenerateVideo?: (filename: string, durationSeconds: number) => void;
+  onDeleteVideo?: (filename: string) => void;
   isGeneratingVideo?: boolean;
   isSaving?: boolean;
   onRename?: (filename: string) => void;
@@ -85,6 +86,7 @@ export const ImageCard = ({
   onDelete,
   onPreview,
   onGenerateVideo,
+  onDeleteVideo,
   isGeneratingVideo = false,
   isSaving = false,
   onRename,
@@ -188,14 +190,44 @@ export const ImageCard = ({
 
       <div className="mt-auto flex flex-col gap-3 pt-2">
         {image.isVideo ? (
-          <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-200">
-            <p className="font-medium text-emerald-300">✅ Video Generated</p>
+          <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-xs">
+            <div className="flex items-center justify-between">
+              <p className="font-medium text-emerald-300">✅ Video Generated</p>
+              <div className="flex gap-2">
+                {image.videoUrl && (
+                  <a
+                    href={image.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-300 hover:text-emerald-200 underline"
+                    title="Open video in new tab"
+                  >
+                    View
+                  </a>
+                )}
+                {onDeleteVideo && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteVideo(image.name)}
+                    className="text-red-400 hover:text-red-300 underline"
+                    title="Delete video"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            </div>
             {image.videoDurationSeconds ? (
-              <p className="mt-1">Duration: {image.videoDurationSeconds}s</p>
+              <p className="mt-1 text-emerald-200">Duration: {image.videoDurationSeconds}s</p>
             ) : null}
             {relativeVideoTime ? (
-              <p className="mt-1">Updated {relativeVideoTime}</p>
+              <p className="mt-1 text-emerald-200/80">Created {relativeVideoTime}</p>
             ) : null}
+            {image.videoUrl && (
+              <p className="mt-2 text-emerald-200/60 break-all text-[10px]">
+                {image.videoUrl.split('/').pop()}
+              </p>
+            )}
           </div>
         ) : null}
 

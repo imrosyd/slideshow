@@ -35,17 +35,23 @@ export default async function handler(
   console.log(`[Delete Video] Video URL: ${videoUrl}`);
 
   try {
-    // Extract video filename from URL
-    // URL format: https://[...].supabase.co/storage/v1/object/public/slideshow-videos/batch-video-xxx.mp4
-    const videoFilename = videoUrl.split('/slideshow-videos/').pop();
+    // Convert image filename to video filename
+    // e.g., "image.jpg" -> "image.mp4"
+    const videoFilename = filename.replace(/\.[^/.]+$/, '.mp4');
     
-    if (!videoFilename) {
-      throw new Error('Could not extract video filename from URL');
+    console.log(`[Delete Video] Video filename: ${videoFilename}`);
+
+    // 1. Check if video file exists in storage first
+    const { data: existingFiles } = await supabase
+      .storage
+      .from('slideshow-videos')
+      .list('', { search: videoFilename });
+
+    if (!existingFiles || existingFiles.length === 0) {
+      console.warn(`[Delete Video] Video file not found in storage: ${videoFilename}`);
     }
 
-    console.log(`[Delete Video] Extracted filename: ${videoFilename}`);
-
-    // 1. Delete video file from Supabase Storage
+    // 2. Delete video file from Supabase Storage
     const { error: storageError } = await supabase
       .storage
       .from('slideshow-videos')
@@ -53,12 +59,24 @@ export default async function handler(
 
     if (storageError) {
       console.error('[Delete Video] Storage deletion error:', storageError);
-      // Continue even if storage delete fails (file might already be deleted)
+      // Don't throw error, continue to update database
     } else {
       console.log(`[Delete Video] ✅ Video file deleted from storage: ${videoFilename}`);
     }
 
-    // 2. Update database to clear video flags
+    // 3. Verify deletion from storage
+    const { data: verifyFiles } = await supabase
+      .storage
+      .from('slideshow-videos')
+      .list('', { search: videoFilename });
+
+    if (verifyFiles && verifyFiles.length > 0) {
+      console.error(`[Delete Video] ❌ Video file still exists after deletion!`);
+    } else {
+      console.log(`[Delete Video] ✅ Verified: Video file removed from storage`);
+    }
+
+    // 4. Update database to clear video flags
     const { error: dbError } = await supabase
       .from('image_durations')
       .update({
