@@ -303,7 +303,6 @@ export default function Home() {
   const [isPaused, setIsPaused] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [transitionEffect, setTransitionEffect] = useState<TransitionEffect>(DEFAULT_TRANSITION);
-  const [debugInfo, setDebugInfo] = useState<string>('Initializing...');
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -1192,31 +1191,25 @@ export default function Home() {
             style={styles.image}
             onLoadStart={() => {
               console.log(`🔵 Video load started - ${currentSlide.name}`);
-              setDebugInfo(`Loading: ${currentSlide.name}`);
             }}
             onLoadedMetadata={() => {
               console.log(`📊 Video metadata loaded - ${currentSlide.name}`);
-              setDebugInfo(`Metadata loaded: ${currentSlide.name}`);
             }}
             onLoadedData={() => {
               const video = videoRef.current;
               console.log(`📺 WebOS: Video loaded, attempting play - ${currentSlide.name}`);
-              setDebugInfo(`Video ready: ${currentSlide.name}`);
               if (video) {
                 video.play()
                   .then(() => {
                     console.log(`✅ Play success - ${currentSlide.name}`);
-                    setDebugInfo(`Playing: ${currentSlide.name}`);
                   })
                   .catch((e) => {
                     console.error(`❌ WebOS: Autoplay blocked - ${currentSlide.name}`, e);
-                    setDebugInfo(`Autoplay blocked, retrying...`);
                     setTimeout(() => {
                       video.play()
-                        .then(() => setDebugInfo(`Playing (retry): ${currentSlide.name}`))
+                        .then(() => console.log(`✅ Play success (retry) - ${currentSlide.name}`))
                         .catch((err) => {
                           console.error('❌ WebOS: Retry failed', err);
-                          setDebugInfo(`Play failed: ${err.message}`);
                         });
                     }, 100);
                   });
@@ -1224,25 +1217,20 @@ export default function Home() {
             }}
             onPlay={() => {
               console.log(`▶️ Video playing - ${currentSlide.name}`);
-              setDebugInfo(`✅ Playing: ${currentSlide.name}`);
             }}
             onError={(e) => {
               const target = e.target as HTMLVideoElement;
               const error = target.error;
               console.error(`❌ Video error - ${currentSlide.name}`, error);
-              setDebugInfo(`ERROR: ${error?.message || 'Unknown error'}`);
             }}
             onCanPlayThrough={() => {
               console.log(`✅ Can play through: ${currentSlide.name}`);
-              setDebugInfo(`Ready: ${currentSlide.name}`);
             }}
             onStalled={() => {
               console.warn(`⚠️ Video stalled - ${currentSlide.name}`);
-              setDebugInfo(`Stalled: ${currentSlide.name}`);
             }}
             onWaiting={() => {
               console.log(`⏳ Video waiting - ${currentSlide.name}`);
-              setDebugInfo(`Buffering: ${currentSlide.name}`);
             }}
           />
         ) : (
@@ -1260,34 +1248,6 @@ export default function Home() {
             {currentSlide ? `No video URL for: ${currentSlide.name}` : 'No slides available'}
           </div>
         )}
-      </div>
-
-      {/* Debug Info Overlay - Always visible on WebOS for troubleshooting */}
-      <div style={{
-        position: 'fixed',
-        top: '10px',
-        left: '10px',
-        right: '10px',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        color: '#00ff00',
-        padding: '15px',
-        fontSize: '16px',
-        fontFamily: 'monospace',
-        zIndex: 9999,
-        borderRadius: '8px',
-        border: '2px solid #00ff00',
-      }}>
-        <div>🔍 Debug Info:</div>
-        <div>Status: {debugInfo}</div>
-        <div>Slides: {slides.length} total</div>
-        <div>Current: {currentIndex + 1} / {slides.length}</div>
-        <div>Video URL: {currentSlide?.videoUrl ? '✅ Yes' : '❌ No'}</div>
-        {currentSlide?.videoUrl && (
-          <div style={{ fontSize: '12px', wordBreak: 'break-all' }}>
-            URL: {currentSlide.videoUrl.substring(0, 80)}...
-          </div>
-        )}
-        <div>Paused: {isPaused ? 'Yes' : 'No'}</div>
       </div>
 
       {/* Controls Overlay */}
