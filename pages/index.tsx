@@ -375,7 +375,7 @@ export default function Home() {
 
       console.log("[Slideshow] Duration data received:", imageDurations);
 
-      let fetchedSlides = payload.images
+      const fetchedSlides = payload.images
         .filter((imageItem) => {
           // Only include items that have video generated
           const isVideo = typeof imageItem === 'string' ? false : (imageItem.isVideo || false);
@@ -401,31 +401,6 @@ export default function Home() {
             videoUrl,
           };
         });
-      
-      // Fallback: If no videos, use images
-      if (fetchedSlides.length === 0) {
-        console.log('⚠️ No videos found, falling back to images');
-        fetchedSlides = payload.images
-          .map((imageItem) => {
-            const filename = typeof imageItem === 'string' ? imageItem : imageItem.name;
-            
-            const durationMs = imageDurations[filename];
-            const durationSeconds =
-              typeof durationMs === "number" && durationMs > 0
-                ? Math.max(1, Math.round(durationMs / 1000))
-                : DEFAULT_SLIDE_DURATION_SECONDS;
-            
-            console.log(`[Slideshow] Image: ${filename} -> ${durationSeconds}s`);
-            
-            return {
-              name: filename,
-              url: `/api/image/${encodeURIComponent(filename)}`,
-              durationSeconds,
-              isVideo: false,
-              videoUrl: undefined,
-            };
-          });
-      }
 
       // Check if slides have changed
       const previousSlides = slidesRef.current;
@@ -1203,7 +1178,7 @@ export default function Home() {
       <div 
         style={getTransitionStyle()}
       >
-        {currentSlide && currentSlide.videoUrl ? (
+        {currentSlide && currentSlide.videoUrl && (
           <video
             key={currentSlide.videoUrl}
             src={currentSlide.videoUrl}
@@ -1215,16 +1190,7 @@ export default function Home() {
             onPlay={() => console.log(`▶️ Video playing - TV keep-awake: ${currentSlide.name}`)}
             onError={(e) => console.error(`❌ Failed to play video: ${currentSlide.name}`, e)}
           />
-        ) : currentSlide ? (
-          <img
-            key={currentSlide.url}
-            src={currentSlide.url}
-            alt={currentSlide.name}
-            style={styles.image}
-            onLoad={() => console.log(`🖼️ Image loaded: ${currentSlide.name}`)}
-            onError={(e) => console.error(`❌ Failed to load image: ${currentSlide.name}`, e)}
-          />
-        ) : null}
+        )}
       </div>
 
       {/* Controls Overlay */}
