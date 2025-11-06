@@ -167,6 +167,8 @@ const handleDeleteRequest = async (
 
     const sanitizedFilenames = filenames.map(sanitizeFilename);
     const supabaseServiceRole = getSupabaseServiceRoleClient();
+    
+    // Step 1: Delete images from storage
     const { data, error: deleteError } = await supabaseServiceRole.storage
       .from(SUPABASE_STORAGE_BUCKET)
       .remove(sanitizedFilenames);
@@ -179,6 +181,39 @@ const handleDeleteRequest = async (
     const deletedCount = data?.length || 0;
     if (deletedCount === 0) {
         return res.status(404).json({ error: "Tidak ada file yang ditemukan atau dihapus di Supabase." });
+    }
+
+    // Step 2: Delete associated videos from storage
+    const videoFilenames = sanitizedFilenames.map(filename => {
+      const ext = filename.lastIndexOf('.');
+      if (ext > 0) {
+        return filename.substring(0, ext) + '.mp4';
+      }
+      return filename + '.mp4';
+    });
+
+    // Try to delete videos (don't fail if they don't exist)
+    try {
+      await supabaseServiceRole.storage
+        .from('slideshow-videos')
+        .remove(videoFilenames);
+    } catch (videoError) {
+      console.log('No videos to delete or error deleting videos:', videoError);
+    }
+
+    // Step 3: Delete metadata from database
+    try {
+      const { error: dbError } = await supabaseServiceRole
+        .from('image_durations')
+        .delete()
+        .in('filename', sanitizedFilenames);
+
+      if (dbError) {
+        console.error('Error deleting metadata from database:', dbError);
+        // Don't fail the request, just log the error
+      }
+    } catch (dbError) {
+      console.error('Error deleting from database:', dbError);
     }
 
     res.status(200).json({ message: `${deletedCount} file berhasil dihapus dari Supabase.`, filenames: sanitizedFilenames });
