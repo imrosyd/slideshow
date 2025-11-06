@@ -392,6 +392,10 @@ export const useImages = (authToken: string | null) => {
       try {
         console.log(`[useImages] Generating video for ${filename}, duration: ${durationSeconds}s`);
         
+        if (!filename || !durationSeconds || durationSeconds <= 0) {
+          throw new Error(`Invalid parameters: filename="${filename}", duration=${durationSeconds}`);
+        }
+        
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
         };
@@ -399,18 +403,25 @@ export const useImages = (authToken: string | null) => {
           headers.Authorization = `Token ${authToken}`;
         }
 
+        const payload = {
+          filename,
+          durationSeconds,
+        };
+        
+        console.log(`[useImages] Sending request with payload:`, payload);
+
         const response = await fetch("/api/admin/generate-video", {
           method: "POST",
           headers,
-          body: JSON.stringify({
-            filename,
-            durationSeconds,
-          }),
+          body: JSON.stringify(payload),
         });
 
+        console.log(`[useImages] Response status: ${response.status}`);
+
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Video generation failed");
+          const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+          console.error("[useImages] Server error response:", errorData);
+          throw new Error(errorData.error || errorData.details || "Video generation failed");
         }
 
         const data = await response.json();
@@ -434,6 +445,7 @@ export const useImages = (authToken: string | null) => {
         return data;
       } catch (error) {
         console.error("[useImages] Video generation failed:", error);
+        console.error("[useImages] Error stack:", error instanceof Error ? error.stack : "No stack");
         throw error;
       }
     },
