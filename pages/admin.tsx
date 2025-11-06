@@ -58,6 +58,7 @@ const AdminContent = () => {
     generateBatchVideo,
     deleteVideo,
     renameImage,
+    convertPdfToImages,
   } = useImages(authToken);
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -154,6 +155,37 @@ const AdminContent = () => {
       }
     },
     [pushToast, uploadImages]
+  );
+
+  const handlePdfUpload = useCallback(
+    async (file: File) => {
+      pushToast({ 
+        variant: "info", 
+        description: `Converting PDF "${file.name}" to images...` 
+      });
+      
+      try {
+        const result = await convertPdfToImages(file);
+        if (result.success && result.images) {
+          pushToast({ 
+            variant: "success", 
+            description: `Successfully converted PDF to ${result.images.length} image${result.images.length > 1 ? "s" : ""}` 
+          });
+        } else {
+          pushToast({ 
+            variant: "error", 
+            description: result.error || "Failed to convert PDF" 
+          });
+        }
+      } catch (error) {
+        console.error("PDF conversion error:", error);
+        pushToast({ 
+          variant: "error", 
+          description: "An error occurred while converting PDF" 
+        });
+      }
+    },
+    [pushToast, convertPdfToImages]
   );
 
   const handleDelete = useCallback(
@@ -571,8 +603,13 @@ const AdminContent = () => {
             
             {/* Upload section */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg">
-              <h2 className="mb-4 text-lg font-semibold text-white">Upload Images</h2>
-              <UploadBox isUploading={isUploading} uploadTasks={uploadTasks} onFilesSelected={handleUpload} />
+              <h2 className="mb-4 text-lg font-semibold text-white">Upload Images or PDF</h2>
+              <UploadBox 
+                isUploading={isUploading} 
+                uploadTasks={uploadTasks} 
+                onFilesSelected={handleUpload}
+                onPdfSelected={handlePdfUpload}
+              />
             </div>
 
             {/* Quick stats */}

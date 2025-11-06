@@ -590,6 +590,60 @@ export const useImages = (authToken: string | null) => {
     [authToken, setImagesState, refresh]
   );
 
+  const convertPdfToImages = useCallback(
+    async (file: File) => {
+      try {
+        console.log(`[useImages] Converting PDF: ${file.name}`);
+        
+        // Read file as base64
+        const reader = new FileReader();
+        const pdfBase64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64 = result.split(',')[1]; // Remove data:application/pdf;base64,
+            resolve(base64 || '');
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (authToken) {
+          headers.Authorization = `Token ${authToken}`;
+        }
+
+        const response = await fetch("/api/admin/convert-pdf", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            pdfBase64,
+            filename: file.name,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+          console.error("[useImages] PDF conversion error:", errorData);
+          throw new Error(errorData.error || errorData.details || "PDF conversion failed");
+        }
+
+        const data = await response.json();
+        console.log("[useImages] PDF conversion success:", data);
+
+        // Refresh to show new images
+        await refresh();
+
+        return data;
+      } catch (error) {
+        console.error("[useImages] PDF conversion failed:", error);
+        throw error;
+      }
+    },
+    [authToken, refresh]
+  );
+
   return {
     images,
     isLoading,
@@ -608,5 +662,6 @@ export const useImages = (authToken: string | null) => {
     generateBatchVideo,
     deleteVideo,
     renameImage,
+    convertPdfToImages,
   };
 };

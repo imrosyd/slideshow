@@ -5,21 +5,33 @@ type Props = {
   isUploading: boolean;
   uploadTasks: UploadTask[];
   onFilesSelected: (files: File[]) => void;
+  onPdfSelected?: (file: File) => void;
 };
 
-export const UploadBox = ({ isUploading, uploadTasks, onFilesSelected }: Props) => {
+export const UploadBox = ({ isUploading, uploadTasks, onFilesSelected, onPdfSelected }: Props) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleFiles = useCallback(
     (fileList: FileList | null) => {
       if (!fileList) return;
-      const files = Array.from(fileList).filter((file) => file.type.startsWith("image"));
-      if (files.length) {
-        onFilesSelected(files);
+      const files = Array.from(fileList);
+      
+      // Separate PDF and image files
+      const pdfFiles = files.filter((file) => file.type === "application/pdf");
+      const imageFiles = files.filter((file) => file.type.startsWith("image"));
+      
+      // Handle PDFs one at a time
+      if (pdfFiles.length > 0 && onPdfSelected) {
+        pdfFiles.forEach((pdf) => onPdfSelected(pdf));
+      }
+      
+      // Handle images in batch
+      if (imageFiles.length > 0) {
+        onFilesSelected(imageFiles);
       }
     },
-    [onFilesSelected]
+    [onFilesSelected, onPdfSelected]
   );
 
   const onDrop = useCallback(
@@ -55,17 +67,17 @@ export const UploadBox = ({ isUploading, uploadTasks, onFilesSelected }: Props) 
           <span className="text-3xl">⬆︎</span>
         </div>
         <div className="flex flex-col gap-1 text-white">
-          <p className="text-lg font-semibold">Drag & drop images here</p>
+          <p className="text-lg font-semibold">Drag & drop images or PDF here</p>
           <p className="text-sm text-white/60">
             {isUploading ? "Uploading files…" : "Or click to browse from your device"}
           </p>
-          <p className="text-xs tracking-wide text-white/50">PNG · JPG · GIF · WEBP · AVIF</p>
+          <p className="text-xs tracking-wide text-white/50">PNG · JPG · GIF · WEBP · AVIF · PDF</p>
         </div>
         <input
           ref={inputRef}
           type="file"
           multiple
-          accept="image/*"
+          accept="image/*,.pdf,application/pdf"
           className="hidden"
           onChange={(event) => {
             handleFiles(event.target.files);
