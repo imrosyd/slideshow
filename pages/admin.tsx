@@ -208,6 +208,12 @@ const AdminContent = () => {
 
   const handleGenerateVideo = useCallback(
     async (filename: string, durationSeconds: number) => {
+      // Prevent duplicate requests
+      if (generatingVideoFor === filename) {
+        console.log(`[Admin] Already generating video for ${filename}, ignoring duplicate request`);
+        return;
+      }
+      
       try {
         setGeneratingVideoFor(filename);
         console.log(`[Admin] Generating video for ${filename}`);
@@ -232,7 +238,7 @@ const AdminContent = () => {
         setGeneratingVideoFor(null);
       }
     },
-    [generateVideo, pushToast, refresh]
+    [generateVideo, pushToast, refresh, generatingVideoFor]
   );
 
   const handleSaveIndividual = useCallback(

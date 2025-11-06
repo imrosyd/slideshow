@@ -106,6 +106,25 @@ export default async function handler(
   console.log(`[Video Gen] Starting video generation for ${imagesToProcess.length} image(s) with total duration ${totalDurationSeconds}s`);
 
   try {
+    // Check if video already exists for single image generation
+    if (imagesToProcess.length === 1) {
+      const { data: existingData, error: checkError } = await supabase
+        .from('image_durations')
+        .select('is_video, video_url')
+        .eq('filename', imagesToProcess[0])
+        .single();
+
+      if (!checkError && existingData && existingData.is_video && existingData.video_url) {
+        console.log(`[Video Gen] Video already exists for ${imagesToProcess[0]}, skipping generation`);
+        return res.status(200).json({
+          success: true,
+          videoUrl: existingData.video_url,
+          message: 'Video already exists',
+          alreadyExists: true,
+        });
+      }
+    }
+
     // Create temp directory
     const tempDir = path.join('/tmp', 'slideshow-video-gen-' + Date.now());
     if (!fs.existsSync(tempDir)) {
