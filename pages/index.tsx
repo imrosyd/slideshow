@@ -306,6 +306,7 @@ export default function Home() {
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     slidesRef.current = slides;
@@ -1180,6 +1181,7 @@ export default function Home() {
       >
         {currentSlide && currentSlide.videoUrl && (
           <video
+            ref={videoRef}
             key={currentSlide.videoUrl}
             src={currentSlide.videoUrl}
             autoPlay
@@ -1187,8 +1189,23 @@ export default function Home() {
             playsInline
             loop
             style={styles.image}
+            onLoadedData={() => {
+              // Force play when video is loaded (WebOS compatibility)
+              const video = videoRef.current;
+              if (video) {
+                console.log(`📺 WebOS: Video loaded, attempting play - ${currentSlide.name}`);
+                video.play().catch((e) => {
+                  console.error(`❌ WebOS: Autoplay blocked - ${currentSlide.name}`, e);
+                  // Retry
+                  setTimeout(() => {
+                    video.play().catch((err) => console.error('❌ WebOS: Retry failed', err));
+                  }, 100);
+                });
+              }
+            }}
             onPlay={() => console.log(`▶️ Video playing - TV keep-awake: ${currentSlide.name}`)}
             onError={(e) => console.error(`❌ Failed to play video: ${currentSlide.name}`, e)}
+            onCanPlayThrough={() => console.log(`✅ Video can play through: ${currentSlide.name}`)}
           />
         )}
       </div>
