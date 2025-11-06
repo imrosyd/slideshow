@@ -1024,16 +1024,16 @@ export default function Home() {
       setTimeout(webOSKeepAwake, 5000);
     }
     
-    // Aggressive continuous keep-alive every 5 minutes
+    // Aggressive continuous keep-alive every 2 minutes (faster for short videos)
     keepAliveInterval = setInterval(() => {
       continuousKeepAlive();
-    }, 5 * 60 * 1000); // Every 5 minutes
+    }, 2 * 60 * 1000); // Every 2 minutes
     
-    // Activity simulation every 15 minutes (more frequent)
+    // Activity simulation every 5 minutes (more frequent)
     activityInterval = setInterval(() => {
       simulateActivity();
-      console.log('⏰ 15-minute activity trigger');
-    }, 15 * 60 * 1000); // 15 minutes
+      console.log('⏰ 5-minute activity trigger');
+    }, 5 * 60 * 1000); // 5 minutes
     
     // Retry fullscreen every 10 minutes
     hiddenVideoInterval = setInterval(() => {
@@ -1208,6 +1208,26 @@ export default function Home() {
             }}
             onPlay={() => {
               console.log(`▶️ Video playing - ${currentSlide.name}`);
+              // Trigger keep-awake when video starts playing
+              if (typeof document !== 'undefined') {
+                document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+              }
+            }}
+            onTimeUpdate={(e) => {
+              // Trigger keep-awake every 30 seconds during playback
+              const video = e.target as HTMLVideoElement;
+              if (video.currentTime > 0 && Math.floor(video.currentTime) % 30 === 0) {
+                if (typeof document !== 'undefined') {
+                  document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+                }
+              }
+            }}
+            onEnded={() => {
+              // Trigger keep-awake when video loops
+              console.log(`🔄 Video ended, will loop - ${currentSlide.name}`);
+              if (typeof document !== 'undefined') {
+                document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+              }
             }}
             onError={(e) => {
               const target = e.target as HTMLVideoElement;
