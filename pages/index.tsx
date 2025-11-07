@@ -747,27 +747,27 @@ export default function Home() {
 
     const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
     
-    // Small delay to let video element mount/update
+    // Reset video to beginning and force play
+    console.log(`🎬 Playing slide ${currentIndex + 1}: ${videoName}`);
+    
+    video.currentTime = 0;
+    
+    // Small delay to let video load new src
     const timer = setTimeout(() => {
-      console.log(`🎬 Force play attempt for slide ${currentIndex + 1}: ${videoName}`);
+      console.log(`▶️ Force play for slide ${currentIndex + 1}: ${videoName}`);
       
-      if (video.paused) {
-        console.log(`⏸️ Video is paused, forcing play...`);
-        video.play()
-          .then(() => {
-            console.log(`✅ Force play success: ${videoName}`);
-          })
-          .catch((e) => {
-            console.error(`❌ Force play failed: ${videoName}`, e);
-            // Retry after a delay
-            setTimeout(() => {
-              console.log(`🔄 Retrying force play: ${videoName}`);
-              video.play().catch(e2 => console.error(`❌ Retry failed:`, e2));
-            }, 500);
-          });
-      } else {
-        console.log(`▶️ Video already playing: ${videoName}`);
-      }
+      video.play()
+        .then(() => {
+          console.log(`✅ Play success: ${videoName}`);
+        })
+        .catch((e) => {
+          console.error(`❌ Play failed: ${videoName}`, e);
+          // Retry after a delay
+          setTimeout(() => {
+            console.log(`🔄 Retrying play: ${videoName}`);
+            video.play().catch(e2 => console.error(`❌ Retry failed:`, e2));
+          }, 500);
+        });
     }, 100);
 
     return () => clearTimeout(timer);
@@ -1382,7 +1382,6 @@ export default function Home() {
         {currentSlide && currentSlide.videoUrl ? (
           <video
             ref={currentVideoRef}
-            key={currentSlide.videoUrl}
             src={currentSlide.videoUrl}
             autoPlay
             muted
