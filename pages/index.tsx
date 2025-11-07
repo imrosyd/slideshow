@@ -39,6 +39,41 @@ const translations = {
     ko: "이미지를 불러올 수 없습니다. 화면을 새로 고침해 보세요.",
     id: "Tidak dapat memuat gambar. Silakan segarkan tampilan.",
   },
+  badgeUpdating: {
+    en: "Updating",
+    ko: "업데이트 중",
+    id: "Memperbarui",
+  },
+  badgeWarning: {
+    en: "Warning",
+    ko: "경고",
+    id: "Peringatan",
+  },
+  badgeReady: {
+    en: "Slideshow ready",
+    ko: "슬라이드쇼 준비됨",
+    id: "Slideshow siap",
+  },
+  loadingSubtext: {
+    en: "Checking database storage for the latest dashboards. This screen refreshes automatically.",
+    ko: "최신 대시보드를 확인하고 있습니다. 이 화면은 자동으로 새로 고쳐집니다.",
+    id: "Memeriksa penyimpanan database untuk dashboard terbaru. Tampilan ini akan diperbarui otomatis.",
+  },
+  errorSubtext: {
+    en: "Ensure the display is connected to the network. The system will retry shortly.",
+    ko: "디스플레이가 네트워크에 연결되어 있는지 확인하세요. 잠시 후 다시 시도합니다.",
+    id: "Pastikan layar terhubung ke jaringan. Sistem akan mencoba lagi sebentar lagi.",
+  },
+  noSlidesSubtext: {
+    en: "Upload curated dashboards from the admin panel to start the rotation. This display updates automatically.",
+    ko: "관리자 패널에서 대시보드를 업로드하면 슬라이드가 시작됩니다. 이 화면은 자동으로 업데이트됩니다.",
+    id: "Unggah dashboard dari panel admin untuk memulai rotasi. Tampilan ini memperbarui otomatis.",
+  },
+  noSlidesFooter: {
+    en: "Waiting for content",
+    ko: "콘텐츠 대기 중",
+    id: "Menunggu konten",
+  },
 } as const;
 
 type AppError = { kind: "fetch"; detail?: string } | { kind: "unknown"; detail?: string };
@@ -58,12 +93,15 @@ const styles: Record<string, CSSProperties> = {
     justifyContent: "center",
     height: "100vh",
     width: "100vw",
-    backgroundColor: "#000",
-    margin: 0,
-    padding: 0,
+    position: "relative",
     overflow: "hidden",
+    backgroundColor: "#000000",
+    transition: "background-color 300ms ease",
   },
   imageWrapper: {
+    position: "absolute",
+    top: 0,
+    left: 0,
     width: "100%",
     height: "100%",
     display: "flex",
@@ -73,23 +111,66 @@ const styles: Record<string, CSSProperties> = {
   image: {
     maxWidth: "100%",
     maxHeight: "100%",
-    width: "100%",
-    height: "100%",
+    width: "auto",
+    height: "auto",
     objectFit: "contain",
   },
-  errorContainer: {
-    textAlign: "center",
-    padding: "2rem",
-    color: "#fff",
+  placeholderCard: {
+    position: "relative",
+    zIndex: 2,
+    borderRadius: "32px",
+    padding: "48px 56px",
+    background: "rgba(15, 23, 42, 0.55)",
+    border: "1px solid rgba(148, 163, 184, 0.25)",
+    backdropFilter: "blur(18px)",
+    boxShadow: "0 24px 80px -32px rgba(15, 23, 42, 0.8)",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "20px",
+    maxWidth: "420px",
   },
-  spinner: {
-    border: "4px solid rgba(255, 255, 255, 0.3)",
-    borderTop: "4px solid #fff",
-    borderRadius: "50%",
-    width: "50px",
-    height: "50px",
-    animation: "spin 1s linear infinite",
-    margin: "20px auto",
+  noSlidesMessage: {
+    fontSize: "1.5rem",
+    letterSpacing: "-0.01em",
+    color: "rgba(248, 250, 252, 0.95)",
+    textAlign: "center" as const,
+    margin: 0,
+  },
+  accentBadge: {
+    padding: "6px 14px",
+    borderRadius: "9999px",
+    backgroundColor: "rgba(56, 189, 248, 0.12)",
+    color: "#bae6fd",
+    fontSize: "0.78rem",
+    letterSpacing: "0.16em",
+    textTransform: "uppercase" as const,
+    fontWeight: 600,
+  },
+  subtleText: {
+    color: "rgba(226, 232, 240, 0.75)",
+    fontSize: "0.9rem",
+    textAlign: "center" as const,
+    lineHeight: 1.6,
+    margin: 0,
+  },
+  glow: {
+    position: "absolute",
+    width: "52vw",
+    height: "52vw",
+    maxWidth: "720px",
+    maxHeight: "720px",
+    background: "radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 60%)",
+    filter: "blur(60px)",
+    transform: "translate(-20%, -10%)",
+    zIndex: 1,
+    pointerEvents: "none" as const,
+  },
+  fadeText: {
+    fontSize: "0.8rem",
+    letterSpacing: "0.42em",
+    textTransform: "uppercase" as const,
+    color: "rgba(148, 163, 184, 0.7)",
   },
 };
 
@@ -98,7 +179,6 @@ export default function Home() {
   const [error, setError] = useState<AppError | null>(null);
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<Language>("en");
-  const [videoLoading, setVideoLoading] = useState(true);
 
   // Main slideshow controller
   const {
@@ -287,7 +367,6 @@ export default function Home() {
 
   // Force play when currentIndex changes (critical for webOS)
   useEffect(() => {
-    setVideoLoading(true); // Show loading when changing slides
     if (currentSlide?.videoUrl && !isPaused) {
       const video = videoRef.current;
       if (video) {
@@ -302,20 +381,23 @@ export default function Home() {
     return (
       <>
         <Head>
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
+          <title>Slideshow</title>
         </Head>
         {ResourceHints}
-        <div style={styles.container}>
-          <div style={styles.errorContainer}>
-            <div style={styles.spinner}></div>
-            <h1>{translations.loading[language]}</h1>
+        <main style={styles.container}>
+          <div style={styles.glow} />
+          <div style={styles.placeholderCard}>
+            <span style={styles.accentBadge}>
+              {translations.badgeUpdating[language]}
+            </span>
+            <h2 style={styles.noSlidesMessage}>
+              {translations.loading[language]}
+            </h2>
+            <p style={styles.subtleText}>
+              {translations.loadingSubtext[language]}
+            </p>
           </div>
-        </div>
+        </main>
       </>
     );
   }
@@ -324,13 +406,24 @@ export default function Home() {
   if (error) {
     return (
       <>
+        <Head>
+          <title>Slideshow</title>
+        </Head>
         {ResourceHints}
-        <div style={styles.container}>
-          <div style={styles.errorContainer}>
-            <h1>{translations.fetchError[language]}</h1>
-            <p>{error.detail}</p>
+        <main style={styles.container}>
+          <div style={styles.glow} />
+          <div style={styles.placeholderCard}>
+            <span style={styles.accentBadge}>
+              {translations.badgeWarning[language]}
+            </span>
+            <h2 style={styles.noSlidesMessage}>
+              {translations.fetchError[language]}
+            </h2>
+            <p style={styles.subtleText}>
+              {translations.errorSubtext[language]}
+            </p>
           </div>
-        </div>
+        </main>
       </>
     );
   }
@@ -339,12 +432,27 @@ export default function Home() {
   if (slides.length === 0) {
     return (
       <>
+        <Head>
+          <title>Slideshow</title>
+        </Head>
         {ResourceHints}
-        <div style={styles.container}>
-          <div style={styles.errorContainer}>
-            <h1>{translations.noSlides[language]}</h1>
+        <main style={styles.container}>
+          <div style={styles.glow} />
+          <div style={styles.placeholderCard}>
+            <span style={styles.accentBadge}>
+              {translations.badgeReady[language]}
+            </span>
+            <h2 style={styles.noSlidesMessage}>
+              {translations.noSlides[language]}
+            </h2>
+            <p style={styles.subtleText}>
+              {translations.noSlidesSubtext[language]}
+            </p>
+            <span style={styles.fadeText}>
+              {translations.noSlidesFooter[language]}
+            </span>
           </div>
-        </div>
+        </main>
       </>
     );
   }
@@ -364,55 +472,34 @@ export default function Home() {
       <main style={styles.container}>
         <div style={styles.imageWrapper}>
           {currentSlide && currentSlide.videoUrl ? (
-            <>
-              <video
-                ref={videoRef}
-                src={currentSlide.videoUrl}
-                autoPlay
-                muted
-                playsInline
-                loop={slides.length <= 1}
-                preload="auto"
-                style={{
-                  ...styles.image,
-                  opacity: videoLoading ? 0 : 1,
-                  transition: 'opacity 0.3s ease-in-out',
-                }}
-                onLoadStart={() => {
-                  console.log(`🔵 Loading: ${currentSlide.name}`);
-                  setVideoLoading(true);
-                }}
-                onLoadedMetadata={() => {
-                  console.log(`📊 Metadata loaded: ${currentSlide.name}`);
-                }}
-                onCanPlay={() => {
-                  console.log(`✅ Can play: ${currentSlide.name}`);
-                  setVideoLoading(false);
-                }}
-                onPlay={() => {
-                  console.log(`▶️ Playing: ${currentSlide.name}`);
-                  setVideoLoading(false);
-                }}
-                onError={(e) => {
-                  const target = e.target as HTMLVideoElement;
-                  const error = target.error;
-                  console.error(`❌ Video error: ${currentSlide.name}`);
-                  console.error(`   Error code: ${error?.code}, message: ${error?.message}`);
-                  setVideoLoading(false);
-                }}
-              />
-              {videoLoading && (
-                <div style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  zIndex: 10,
-                }}>
-                  <div style={styles.spinner}></div>
-                </div>
-              )}
-            </>
+            <video
+              ref={videoRef}
+              src={currentSlide.videoUrl}
+              autoPlay
+              muted
+              playsInline
+              loop={slides.length <= 1}
+              preload="auto"
+              style={styles.image}
+              onLoadStart={() => {
+                console.log(`🔵 Loading: ${currentSlide.name}`);
+              }}
+              onLoadedMetadata={() => {
+                console.log(`📊 Metadata loaded: ${currentSlide.name}`);
+              }}
+              onCanPlay={() => {
+                console.log(`✅ Can play: ${currentSlide.name}`);
+              }}
+              onPlay={() => {
+                console.log(`▶️ Playing: ${currentSlide.name}`);
+              }}
+              onError={(e) => {
+                const target = e.target as HTMLVideoElement;
+                const error = target.error;
+                console.error(`❌ Video error: ${currentSlide.name}`);
+                console.error(`   Error code: ${error?.code}, message: ${error?.message}`);
+              }}
+            />
           ) : null}
         </div>
 
