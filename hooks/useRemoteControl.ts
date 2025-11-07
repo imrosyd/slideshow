@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 interface UseRemoteControlProps {
@@ -26,6 +26,7 @@ export function useRemoteControl({
   togglePause,
   fetchSlides,
 }: UseRemoteControlProps) {
+  const channelRef = useRef<any>(null);
   
   // Listen for remote control commands and send status updates
   useEffect(() => {
@@ -74,16 +75,20 @@ export function useRemoteControl({
       })
       .subscribe();
 
+    channelRef.current = remoteChannel;
+
     return () => {
       supabase.removeChannel(remoteChannel);
+      channelRef.current = null;
     };
   }, [slides, currentIndex, isPaused, goToNext, goToPrevious, goToSlide, togglePause, fetchSlides]);
 
   // Broadcast status updates whenever state changes
   useEffect(() => {
-    const remoteChannel = supabase.channel('remote-control');
+    if (!channelRef.current) return;
     
-    remoteChannel.send({
+    // Use the same channel that's already subscribed
+    channelRef.current.send({
       type: 'broadcast',
       event: 'slideshow-status',
       payload: {
@@ -92,12 +97,8 @@ export function useRemoteControl({
         currentImage: slides[currentIndex]?.name || '',
         paused: isPaused,
       }
-    }).catch(() => {
-      // Ignore errors silently
+    }).catch((err: any) => {
+      console.log('Status broadcast error (ignored):', err);
     });
-
-    return () => {
-      supabase.removeChannel(remoteChannel);
-    };
-  }, [slides, currentIndex, isPaused]);
+  }, [slides.length, currentIndex, isPaused]);
 }
