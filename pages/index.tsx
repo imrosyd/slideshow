@@ -365,14 +365,11 @@ export default function Home() {
   const [showControls, setShowControls] = useState(false);
   const [slideCountdowns, setSlideCountdowns] = useState<number[]>([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [showCurrentVideo, setShowCurrentVideo] = useState(true); // For buffer swapping
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
-  const nextIndexRef = useRef(0); // Track next video index
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fullscreenRequestedRef = useRef(false);
   const currentVideoRef = useRef<HTMLVideoElement>(null);
-  const nextVideoRef = useRef<HTMLVideoElement>(null);
   const lastKeepAwakeTimeRef = useRef<number>(0);
   const slideStartTimeRef = useRef<number>(Date.now());
 
@@ -668,49 +665,65 @@ export default function Home() {
       console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}: ${nextDisplayName}`);
       
       // Instant transition for video-to-video (no animation to prevent glitches)
-      if (currentSlide.isVideo && nextSlide?.isVideo) {
-        console.log(`🎬 Instant video transition (no fade)`);
-        
-        // Start playing next video first
-        const nextVideo = nextVideoRef.current;
-        if (nextVideo) {
-          nextVideo.currentTime = 0;
-          nextVideo.play().then(() => {
-            console.log(`▶️ Next video playing: ${nextDisplayName}`);
+      // Simple fade transition like commit a810bfd
+      if (nextSlide) {
+        // Preload next video/image before transition
+        if (nextSlide.isVideo && nextSlide.videoUrl) {
+          const video = document.createElement('video');
+          video.preload = 'auto';
+          video.src = nextSlide.videoUrl;
+          
+          video.addEventListener('canplaythrough', () => {
+            console.log(`🔄 Preloaded: ${nextDisplayName}`);
+            // Fade out current
+            setFadeIn(false);
             
-            // Instant swap (no animation at all)
-            setShowCurrentVideo(false);
-            
-            // Immediate buffer swap
-            requestAnimationFrame(() => {
+            // After fade out, switch slide and fade in
+            setTimeout(() => {
               setCurrentIndex(nextIndex);
-              setShowCurrentVideo(true);
-              console.log(`✅ Instant transition complete: ${nextDisplayName}`);
-            });
-          }).catch((e) => {
-            console.error(`❌ Failed to play next video, forcing transition`, e);
-            setCurrentIndex(nextIndex);
-            setShowCurrentVideo(true);
-          });
+              setFadeIn(true);
+            }, FADE_DURATION_MS);
+          }, { once: true });
+          
+          video.addEventListener('error', () => {
+            // If preload fails, just switch anyway
+            console.error(`❌ Failed to preload: ${nextDisplayName}`);
+            setFadeIn(false);
+            setTimeout(() => {
+              setCurrentIndex(nextIndex);
+              setFadeIn(true);
+            }, FADE_DURATION_MS);
+          }, { once: true });
+          
+          video.load();
         } else {
-          console.warn(`⚠️ Next video ref not ready, fallback to instant transition`);
-          setCurrentIndex(nextIndex);
-          setShowCurrentVideo(true);
+          // Preload as image
+          const img = new Image();
+          img.src = nextSlide.url;
+          img.onload = () => {
+            console.log(`🔄 Preloaded: ${nextDisplayName}`);
+            setFadeIn(false);
+            setTimeout(() => {
+              setCurrentIndex(nextIndex);
+              setFadeIn(true);
+            }, FADE_DURATION_MS);
+          };
+          img.onerror = () => {
+            console.error(`❌ Failed to preload: ${nextDisplayName}`);
+            setFadeIn(false);
+            setTimeout(() => {
+              setCurrentIndex(nextIndex);
+              setFadeIn(true);
+            }, FADE_DURATION_MS);
+          };
         }
-      } else {
-        // For non-video transitions: use fade effect
-        setFadeIn(false);
-        setTimeout(() => {
-          setCurrentIndex(nextIndex);
-          setFadeIn(true);
-        }, FADE_DURATION_MS);
       }
     }, currentSlide.durationSeconds * 1000);
 
     return () => {
       clearTimeout(timer);
     };
-  }, [slides, currentIndex, isPaused, showCurrentVideo]);
+  }, [slides, currentIndex, isPaused]);
 
   // Rotate language
   useEffect(() => {
@@ -1310,27 +1323,18 @@ export default function Home() {
         <title>Slideshow</title>
       </Head>
       
-      {/* Double buffering: Always render both current and next video */}
-      {/* Current video */}
+      {/* Single video element with fade transition */}
       <div 
         style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: showCurrentVideo ? 1 : 0,
-          zIndex: showCurrentVideo ? 2 : 1,
-          transition: 'none', // No transition to prevent glitches
+          ...styles.imageWrapper,
+          opacity: fadeIn ? 1 : 0,
+          transition: `opacity ${FADE_DURATION_MS}ms ease-in-out`,
         }}
       >
         {currentSlide && currentSlide.videoUrl ? (
           <video
             ref={currentVideoRef}
-            key={`current-${currentSlide.videoUrl}`}
+            key={currentSlide.videoUrl}
             src={currentSlide.videoUrl}
             autoPlay
             muted
@@ -1464,53 +1468,6 @@ export default function Home() {
           </div>
         )}
       </div>
-
-      {/* Next video (for seamless crossfade) - always ready in background */}
-      {slides.length > 1 && (() => {
-        const nextIdx = (currentIndex + 1) % slides.length;
-        const nextSlide = slides[nextIdx];
-        nextIndexRef.current = nextIdx;
-        
-        return nextSlide?.isVideo && nextSlide.videoUrl ? (
-          <div 
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: showCurrentVideo ? 0 : 1,
-              zIndex: showCurrentVideo ? 1 : 2,
-              transition: 'none', // No transition to prevent glitches
-            }}
-          >
-            <video
-              ref={nextVideoRef}
-              key={`next-${nextSlide.videoUrl}`}
-              src={nextSlide.videoUrl}
-              autoPlay={false}
-              muted
-              playsInline
-              loop
-              preload="auto"
-              webkit-playsinline="true"
-              x-webkit-airplay="allow"
-              style={styles.image}
-              onLoadedData={() => {
-                const videoName = nextSlide.videoUrl?.split('/').pop() || nextSlide.name;
-                console.log(`🎬 Next video ready for crossfade: ${videoName}`);
-              }}
-              onCanPlayThrough={() => {
-                const videoName = nextSlide.videoUrl?.split('/').pop() || nextSlide.name;
-                console.log(`✅ Next video can play through: ${videoName}`);
-              }}
-            />
-          </div>
-        ) : null;
-      })()}
 
       {/* Controls Overlay */}
       <div 
