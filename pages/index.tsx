@@ -334,6 +334,30 @@ export default function Home() {
     fetchSlides,
   });
 
+  // Send initial status when slides are loaded
+  useEffect(() => {
+    if (slides.length > 0) {
+      console.log('📡 Slides loaded, broadcasting initial status');
+      const channel = supabase.channel('remote-control-status-init');
+      channel.send({
+        type: 'broadcast',
+        event: 'slideshow-status',
+        payload: {
+          total: slides.length,
+          current: currentIndex,
+          currentImage: slides[currentIndex]?.name || '',
+          paused: isPaused,
+        }
+      }).then(() => {
+        console.log('✅ Initial status sent');
+        supabase.removeChannel(channel);
+      }).catch((err) => {
+        console.error('❌ Failed to send initial status:', err);
+        supabase.removeChannel(channel);
+      });
+    }
+  }, [slides.length]); // Only when slides first load
+
   // Reset preload flag when slide changes
   useEffect(() => {
     resetPreloadFlag();
