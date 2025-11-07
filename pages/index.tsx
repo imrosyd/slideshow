@@ -367,19 +367,7 @@ export default function Home() {
           ) : null}
         </div>
 
-        {/* Debug info */}
-        <div style={{
-          position: 'fixed',
-          bottom: 10,
-          left: 10,
-          color: '#fff',
-          fontSize: '12px',
-          background: 'rgba(0,0,0,0.7)',
-          padding: '5px 10px',
-          borderRadius: '4px',
-        }}>
-          [{currentIndex + 1}/{slides.length}] {isPaused ? '⏸️' : '▶️'} | Next: {nextVideoReady ? '✅' : '⏳'}
-        </div>
+        {/* Debug info - REMOVED per user request */}
       </main>
     </>
   );
