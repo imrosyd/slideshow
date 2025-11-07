@@ -12,6 +12,10 @@ type CleanupResult = {
   kept: number;
   deletedEntries: string[];
   keptEntries: string[];
+  orphanedFiles?: number;
+  orphanedFilesList?: string[];
+  orphanedDbEntries?: number;
+  orphanedDbEntriesList?: string[];
 };
 
 // Function to check if video URL is accessible
@@ -49,7 +53,106 @@ export default async function handler(
   try {
     console.log('[Cleanup] Starting corrupt video cleanup...');
     
-    // Get all video entries that are hidden (placeholder images)
+    // Step 1: Cleanup orphaned files in storage (files without database entries)
+    console.log('[Cleanup] Step 1: Checking for orphaned files in storage...');
+    
+    const orphanedFiles: string[] = [];
+    
+    // Get all files from slideshow-images bucket
+    const { data: imageFiles, error: imageListError } = await supabase
+      .storage
+      .from('slideshow-images')
+      .list();
+
+    if (!imageListError && imageFiles) {
+      console.log(`[Cleanup] Found ${imageFiles.length} files in slideshow-images storage`);
+      
+      // Get all filenames from database
+      const { data: dbEntries, error: dbError } = await supabase
+        .from('image_durations')
+        .select('filename');
+
+      if (!dbError && dbEntries) {
+        const dbFilenames = new Set(dbEntries.map(entry => entry.filename));
+        console.log(`[Cleanup] Found ${dbFilenames.size} entries in database`);
+        
+        // Find files that exist in storage but not in database
+        for (const file of imageFiles) {
+          if (!dbFilenames.has(file.name)) {
+            console.log(`[Cleanup] 🗑️ Orphaned file found: ${file.name}`);
+            orphanedFiles.push(file.name);
+            
+            // Delete orphaned file from storage
+            const { error: deleteStorageError } = await supabase
+              .storage
+              .from('slideshow-images')
+              .remove([file.name]);
+
+            if (deleteStorageError) {
+              console.error(`[Cleanup] ❌ Failed to delete orphaned file ${file.name}:`, deleteStorageError);
+            } else {
+              console.log(`[Cleanup] ✅ Deleted orphaned file: ${file.name}`);
+            }
+          }
+        }
+      }
+    }
+
+    console.log(`[Cleanup] Step 1 complete: ${orphanedFiles.length} orphaned files removed`);
+    
+    // Step 2: Cleanup orphaned database entries (entries without storage files)
+    console.log('[Cleanup] Step 2: Checking for orphaned database entries...');
+    
+    const orphanedDbEntries: string[] = [];
+    
+    // Get all database entries
+    const { data: allDbEntries, error: allDbError } = await supabase
+      .from('image_durations')
+      .select('filename, is_video');
+
+    if (!allDbError && allDbEntries) {
+      console.log(`[Cleanup] Found ${allDbEntries.length} entries in database`);
+      
+      // Get fresh list of files in storage
+      const { data: storageFiles, error: storageError } = await supabase
+        .storage
+        .from('slideshow-images')
+        .list();
+
+      if (!storageError && storageFiles) {
+        const storageFilenames = new Set(storageFiles.map(f => f.name));
+        console.log(`[Cleanup] Found ${storageFilenames.size} files in storage`);
+        
+        // Find database entries that don't have corresponding files in storage
+        for (const entry of allDbEntries) {
+          // Skip video entries (they reference slideshow-videos, not slideshow-images)
+          if (entry.is_video) continue;
+          
+          if (!storageFilenames.has(entry.filename) && entry.filename !== '.emptyFolderPlaceholder') {
+            console.log(`[Cleanup] 🗑️ Orphaned DB entry found: ${entry.filename}`);
+            orphanedDbEntries.push(entry.filename);
+            
+            // Delete orphaned database entry
+            const { error: deleteDbError } = await supabase
+              .from('image_durations')
+              .delete()
+              .eq('filename', entry.filename);
+
+            if (deleteDbError) {
+              console.error(`[Cleanup] ❌ Failed to delete orphaned DB entry ${entry.filename}:`, deleteDbError);
+            } else {
+              console.log(`[Cleanup] ✅ Deleted orphaned DB entry: ${entry.filename}`);
+            }
+          }
+        }
+      }
+    }
+
+    console.log(`[Cleanup] Step 2 complete: ${orphanedDbEntries.length} orphaned DB entries removed`);
+    
+    // Step 3: Get all video entries that are hidden (placeholder images)
+    console.log('[Cleanup] Step 3: Checking corrupt video entries...');
+    
     const { data: videos, error: fetchError } = await supabase
       .from('image_durations')
       .select('*')
@@ -69,6 +172,10 @@ export default async function handler(
         kept: 0,
         deletedEntries: [],
         keptEntries: [],
+        orphanedFiles: orphanedFiles.length,
+        orphanedFilesList: orphanedFiles,
+        orphanedDbEntries: orphanedDbEntries.length,
+        orphanedDbEntriesList: orphanedDbEntries,
       });
     }
 
@@ -119,6 +226,10 @@ export default async function handler(
       kept: toKeep.length,
       deletedEntries: toDelete,
       keptEntries: toKeep,
+      orphanedFiles: orphanedFiles.length,
+      orphanedFilesList: orphanedFiles,
+      orphanedDbEntries: orphanedDbEntries.length,
+      orphanedDbEntriesList: orphanedDbEntries,
     };
 
     console.log('[Cleanup] Cleanup complete:', result);

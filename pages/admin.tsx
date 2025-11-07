@@ -423,7 +423,7 @@ const AdminContent = () => {
     try {
       pushToast({ 
         variant: "info", 
-        description: "Checking for corrupt videos..." 
+        description: "Checking for corrupt videos and orphaned files..." 
       });
 
       const response = await fetch("/api/admin/cleanup-corrupt-videos", {
@@ -438,17 +438,34 @@ const AdminContent = () => {
 
       const result = await response.json();
       
-      if (result.deleted > 0) {
-        pushToast({ 
-          variant: "success", 
-          description: `Cleaned up ${result.deleted} corrupt video(s). ${result.kept} valid video(s) kept.` 
-        });
-      } else {
-        pushToast({ 
-          variant: "success", 
-          description: `No corrupt videos found. All ${result.kept} video(s) are valid.` 
-        });
+      let message = "";
+      let totalCleaned = 0;
+      
+      if (result.orphanedFiles && result.orphanedFiles > 0) {
+        message += `Removed ${result.orphanedFiles} orphaned file(s) from storage. `;
+        totalCleaned += result.orphanedFiles;
       }
+      
+      if (result.orphanedDbEntries && result.orphanedDbEntries > 0) {
+        message += `Removed ${result.orphanedDbEntries} orphaned database entry(ies). `;
+        totalCleaned += result.orphanedDbEntries;
+      }
+      
+      if (result.deleted > 0) {
+        message += `Cleaned up ${result.deleted} corrupt video(s). `;
+        totalCleaned += result.deleted;
+      }
+      
+      if (totalCleaned === 0) {
+        message = `No issues found. All ${result.kept} video(s) are valid.`;
+      } else {
+        message += `${result.kept} valid video(s) kept.`;
+      }
+      
+      pushToast({ 
+        variant: "success", 
+        description: message.trim()
+      });
       
       // Refresh gallery to reflect changes
       await refresh();

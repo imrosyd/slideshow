@@ -173,29 +173,75 @@ const styles: Record<string, CSSProperties> = {
     textTransform: "uppercase" as const,
     color: "rgba(148, 163, 184, 0.7)",
   },
-  controlsOverlay: {
+  imageGallerySidebar: {
     position: "fixed" as const,
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    zIndex: 100,
-    transition: "opacity 300ms ease",
-    opacity: 1,
+    right: 0,
+    top: 0,
+    height: "100vh",
+    width: "280px",
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
+    backdropFilter: "blur(12px)",
+    borderLeft: "1px solid rgba(148, 163, 184, 0.2)",
+    padding: "20px",
+    overflowY: "auto" as const,
+    zIndex: 50,
+    boxShadow: "-4px 0 24px rgba(0, 0, 0, 0.3)",
   },
-  controlsOverlayHidden: {
-    opacity: 0,
-    pointerEvents: "none" as const,
+  galleryTitle: {
+    color: "rgba(248, 250, 252, 0.95)",
+    fontSize: "1.1rem",
+    fontWeight: 600,
+    marginBottom: "16px",
+    letterSpacing: "-0.01em",
   },
-  controlsContainer: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "16px",
+  galleryGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "12px",
   },
-  controlsRow: {
+  galleryImageCard: {
+    position: "relative" as const,
+    aspectRatio: "1",
+    borderRadius: "8px",
+    overflow: "hidden",
+    cursor: "pointer",
+    border: "2px solid transparent",
+    transition: "all 0.2s ease",
+  },
+  galleryImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover" as const,
+  },
+  imagePreviewOverlay: {
+    position: "fixed" as const,
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    backgroundColor: "rgba(0, 0, 0, 0.95)",
     display: "flex",
     alignItems: "center",
-    gap: "12px",
-    justifyContent: "center" as const,
+    justifyContent: "center",
+    zIndex: 200,
+  },
+  previewImage: {
+    maxWidth: "90%",
+    maxHeight: "90%",
+    objectFit: "contain" as const,
+  },
+  closeButton: {
+    position: "absolute" as const,
+    top: "20px",
+    right: "20px",
+    padding: "12px 24px",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "1rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.2s ease",
   },
 };
 
@@ -204,7 +250,9 @@ export default function Home() {
   const [error, setError] = useState<AppError | null>(null);
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<Language>("en");
-  const [showControls, setShowControls] = useState(false);
+  const [adminImages, setAdminImages] = useState<Array<{name: string; url: string}>>([]);
+  const [selectedImage, setSelectedImage] = useState<{name: string; url: string} | null>(null);
+  const [wasPaused, setWasPaused] = useState(false);
 
   // Main slideshow controller
   const {
@@ -254,6 +302,39 @@ export default function Home() {
       )}
     </Head>
   );
+
+  // Fetch admin images (exclude placeholders from merge-video)
+  const fetchAdminImages = useCallback(async () => {
+    try {
+      const cacheBuster = `?t=${Date.now()}`;
+      const response = await fetch(`/api/images${cacheBuster}`, {
+        cache: "no-store",
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      });
+
+      if (!response.ok) return;
+
+      const payload: {
+        images: Array<{ name: string; isVideo?: boolean; videoUrl?: string; hidden?: boolean }>;
+      } = await response.json();
+
+      // Filter: only actual images (not videos, not hidden placeholders)
+      const images = payload.images
+        .filter((item) => !item.isVideo && !item.hidden)
+        .map((item) => ({
+          name: item.name,
+          url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-images/${item.name}`,
+        }));
+
+      console.log(`✅ Fetched ${images.length} admin images`);
+      setAdminImages(images);
+    } catch (err) {
+      console.error("❌ Error fetching admin images:", err);
+    }
+  }, []);
 
   // Fetch slides from API
   const fetchSlides = useCallback(async (isAutoRefresh = false) => {
@@ -331,7 +412,8 @@ export default function Home() {
   // Initial fetch
   useEffect(() => {
     fetchSlides();
-  }, [fetchSlides]);
+    fetchAdminImages();
+  }, [fetchSlides, fetchAdminImages]);
 
   // Auto-refresh slides
   useEffect(() => {
@@ -409,77 +491,37 @@ export default function Home() {
           e.preventDefault();
           togglePause();
           break;
+        case "Escape":
+          // Close selected image preview
+          if (selectedImage) {
+            setSelectedImage(null);
+            if (!wasPaused) {
+              togglePause(); // Resume if it was playing before
+            }
+          }
+          break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [goToNext, goToPrevious, togglePause]);
+  }, [goToNext, goToPrevious, togglePause, selectedImage, wasPaused]);
 
-  // Mouse movement handler for controls
-  useEffect(() => {
-    let hideTimeout: NodeJS.Timeout;
-    let lastX = 0;
-    let lastY = 0;
-    let isInitialized = false;
+  // Handle image selection
+  const handleImageClick = useCallback((image: {name: string; url: string}) => {
+    setWasPaused(isPaused);
+    if (!isPaused) {
+      togglePause(); // Pause video slideshow
+    }
+    setSelectedImage(image);
+  }, [isPaused, togglePause]);
 
-    const handleMouseMove = (e: MouseEvent) => {
-      // Initialize position on first call without showing controls
-      if (!isInitialized) {
-        lastX = e.clientX;
-        lastY = e.clientY;
-        isInitialized = true;
-        return;
-      }
-
-      // Calculate distance moved
-      const deltaX = Math.abs(e.clientX - lastX);
-      const deltaY = Math.abs(e.clientY - lastY);
-      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-      // Only show if mouse moved significantly (at least 50 pixels)
-      if (distance < 50) {
-        return;
-      }
-
-      // Update last position
-      lastX = e.clientX;
-      lastY = e.clientY;
-
-      setShowControls(true);
-      
-      // Clear existing timeout
-      if (hideTimeout) clearTimeout(hideTimeout);
-      
-      // Hide controls after 3 seconds of inactivity
-      hideTimeout = setTimeout(() => {
-        setShowControls(false);
-      }, 3000);
-    };
-
-    const handleTouch = () => {
-      setShowControls(true);
-      
-      if (hideTimeout) clearTimeout(hideTimeout);
-      
-      hideTimeout = setTimeout(() => {
-        setShowControls(false);
-      }, 3000);
-    };
-
-    // Add delay before starting to listen
-    const startTimeout = setTimeout(() => {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('touchstart', handleTouch);
-    }, 2000); // Increased to 2 seconds
-
-    return () => {
-      clearTimeout(startTimeout);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchstart', handleTouch);
-      if (hideTimeout) clearTimeout(hideTimeout);
-    };
-  }, []);
+  const handleClosePreview = useCallback(() => {
+    setSelectedImage(null);
+    if (!wasPaused) {
+      togglePause(); // Resume if it was playing before
+    }
+  }, [wasPaused, togglePause]);
 
   // Supabase realtime listener for metadata changes
   useEffect(() => {
@@ -601,24 +643,26 @@ export default function Home() {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
           }
-          .control-button {
-            padding: 1rem 2rem;
-            font-size: 1.1rem;
-            background-color: white;
-            border: 2px solid rgba(0, 0, 0, 0.8);
-            border-radius: 8px;
-            color: black;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 500;
-          }
-          .control-button:hover {
-            background-color: #f0f0f0;
-            border-color: rgba(0, 0, 0, 1);
+          .gallery-image-card:hover {
+            border-color: rgba(56, 189, 248, 0.8);
             transform: scale(1.05);
           }
-          .control-button:active {
-            transform: scale(0.95);
+          .close-button:hover {
+            background-color: white;
+            transform: scale(1.05);
+          }
+          .gallery-sidebar::-webkit-scrollbar {
+            width: 6px;
+          }
+          .gallery-sidebar::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+          }
+          .gallery-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.5);
+            border-radius: 3px;
+          }
+          .gallery-sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.7);
           }
         `}</style>
       </Head>
@@ -657,43 +701,51 @@ export default function Home() {
           ) : null}
         </div>
 
-        {/* Controls overlay */}
-        {currentSlide && (
-          <div 
-            style={{
-              ...styles.controlsOverlay,
-              ...(showControls ? {} : styles.controlsOverlayHidden)
-            }}
-          >
-            <div style={styles.controlsContainer}>
-              <div style={styles.controlsRow}>
-                <button
-                  className="control-button"
-                  onClick={goToPrevious}
-                  aria-label="Previous slide"
-                >
-                  ⏮️ Previous
-                </button>
-                <button
-                  className="control-button"
-                  onClick={togglePause}
-                  aria-label={isPaused ? "Resume" : "Pause"}
-                >
-                  {isPaused ? "▶️ Resume" : "⏸️ Pause"}
-                </button>
-                <button
-                  className="control-button"
-                  onClick={goToNext}
-                  aria-label="Next slide"
-                >
-                  Next ⏭️
-                </button>
+        {/* Image Gallery Sidebar */}
+        <div style={styles.imageGallerySidebar} className="gallery-sidebar">
+          <div style={styles.galleryTitle}>Admin Images</div>
+          <div style={styles.galleryGrid}>
+            {adminImages.map((image) => (
+              <div
+                key={image.name}
+                style={styles.galleryImageCard}
+                className="gallery-image-card"
+                onClick={() => handleImageClick(image)}
+              >
+                <img
+                  src={image.url}
+                  alt={image.name}
+                  style={styles.galleryImage}
+                  loading="lazy"
+                />
               </div>
+            ))}
+          </div>
+          {adminImages.length === 0 && (
+            <div style={{ color: "rgba(148, 163, 184, 0.7)", fontSize: "0.9rem", textAlign: "center", marginTop: "20px" }}>
+              No images available
             </div>
+          )}
+        </div>
+
+        {/* Image Preview Overlay */}
+        {selectedImage && (
+          <div style={styles.imagePreviewOverlay} onClick={handleClosePreview}>
+            <img
+              src={selectedImage.url}
+              alt={selectedImage.name}
+              style={styles.previewImage}
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              style={styles.closeButton}
+              className="close-button"
+              onClick={handleClosePreview}
+            >
+              ✕ Close
+            </button>
           </div>
         )}
-
-        {/* Debug info - REMOVED per user request */}
       </main>
     </>
   );
