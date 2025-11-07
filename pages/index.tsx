@@ -753,34 +753,46 @@ export default function Home() {
     if (!video) return;
 
     const currentSlide = slides[currentIndex];
-    if (!currentSlide) return;
+    if (!currentSlide || !currentSlide.videoUrl) return;
 
     const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
     
-    // Reset video to beginning and force play
-    console.log(`🎬 Playing slide ${currentIndex + 1}: ${videoName}`);
+    console.log(`🎬 [${currentIndex + 1}/${slides.length}] Playing: ${videoName}`);
     
+    // Always reset to beginning
     video.currentTime = 0;
     
-    // Small delay to let video load new src
-    const timer = setTimeout(() => {
-      console.log(`▶️ Force play for slide ${currentIndex + 1}: ${videoName}`);
-      
+    // Aggressive play: try immediately and repeatedly
+    const tryPlay = (attempt = 1) => {
       video.play()
         .then(() => {
-          console.log(`✅ Play success: ${videoName}`);
+          console.log(`✅ [${currentIndex + 1}] Play success (attempt ${attempt}): ${videoName}`);
         })
         .catch((e) => {
-          console.error(`❌ Play failed: ${videoName}`, e);
-          // Retry after a delay
-          setTimeout(() => {
-            console.log(`🔄 Retrying play: ${videoName}`);
-            video.play().catch(e2 => console.error(`❌ Retry failed:`, e2));
-          }, 500);
+          console.error(`❌ [${currentIndex + 1}] Play failed (attempt ${attempt}): ${videoName}`, e);
+          
+          // Retry up to 5 times
+          if (attempt < 5) {
+            console.log(`🔄 [${currentIndex + 1}] Retry in ${attempt * 200}ms...`);
+            setTimeout(() => tryPlay(attempt + 1), attempt * 200);
+          } else {
+            console.error(`❌ [${currentIndex + 1}] All play attempts failed - VIDEO STUCK!`);
+          }
         });
-    }, 100);
+    };
+    
+    // Immediate attempt
+    tryPlay(1);
+    
+    // Also try after short delay for webOS
+    const delayTimer = setTimeout(() => {
+      if (video.paused) {
+        console.log(`⚠️ [${currentIndex + 1}] Video still paused after delay, forcing play`);
+        tryPlay(2);
+      }
+    }, 200);
 
-    return () => clearTimeout(timer);
+    return () => clearTimeout(delayTimer);
   }, [currentIndex, slides]);
 
   // Rotate language
@@ -1415,10 +1427,14 @@ export default function Home() {
               console.log(`✅ [${currentIndex + 1}/${slides.length}] Video can play - ${videoName}`);
               // Ensure video starts playing
               if (video) {
-                console.log(`▶️ [${currentIndex + 1}/${slides.length}] Forcing play from onCanPlay - ${videoName}`);
-                video.play()
-                  .then(() => console.log(`✅ onCanPlay play success`))
-                  .catch(e => console.error('onCanPlay play failed:', e));
+                if (video.paused) {
+                  console.log(`▶️ [${currentIndex + 1}] onCanPlay: forcing play - ${videoName}`);
+                  video.play()
+                    .then(() => console.log(`✅ onCanPlay play success`))
+                    .catch(e => console.error('onCanPlay play failed:', e));
+                } else {
+                  console.log(`▶️ [${currentIndex + 1}] onCanPlay: already playing`);
+                }
               }
             }}
             onLoadedData={() => {
