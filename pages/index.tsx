@@ -332,32 +332,44 @@ export default function Home() {
     </Head>
   );
 
-  // Prefetch slide berikutnya untuk memperhalus transisi pemutaran di TV
+  // Preload next video aggressively using hidden video element
   useEffect(() => {
-    try {
-      if (!slides || slides.length === 0) return;
-      const nextIdx = (currentIndex + 1) % slides.length;
-      const next = slides[nextIdx];
-      if (!next) return;
+    if (!slides || slides.length <= 1) return;
+    
+    const nextIdx = (currentIndex + 1) % slides.length;
+    const next = slides[nextIdx];
+    if (!next || !next.videoUrl) return;
 
-      const href = next.videoUrl || next.url;
-      if (!href) return;
-
-      const id = "slideshow-prefetch-link";
-      // Hapus prefetch sebelumnya agar tidak menumpuk
-      const existing = document.getElementById(id);
-      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
-
-      const link = document.createElement("link");
-      link.id = id;
-      link.rel = "prefetch";
-      link.href = href;
-      // Ajukan sebagai fetch sumber daya pasif
-      (link as any).as = "video";
-      document.head.appendChild(link);
-    } catch (e) {
-      // Prefetch bersifat best-effort, aman diabaikan jika gagal
+    const preloadId = "slideshow-preload-video";
+    
+    // Remove previous preload video if exists
+    const existing = document.getElementById(preloadId);
+    if (existing && existing.parentNode) {
+      existing.parentNode.removeChild(existing);
     }
+
+    // Create hidden video element to preload
+    const video = document.createElement("video");
+    video.id = preloadId;
+    video.src = next.videoUrl;
+    video.preload = "auto";
+    video.muted = true;
+    video.playsInline = true;
+    video.style.display = "none";
+    video.style.position = "absolute";
+    video.style.visibility = "hidden";
+    
+    document.body.appendChild(video);
+
+    console.log(`🔄 Preloading next video: ${next.videoUrl.split('/').pop()}`);
+
+    return () => {
+      // Cleanup on unmount or when next video changes
+      const elem = document.getElementById(preloadId);
+      if (elem && elem.parentNode) {
+        elem.parentNode.removeChild(elem);
+      }
+    };
   }, [currentIndex, slides]);
   const [language, setLanguage] = useState<Language>("en");
   const [fadeIn, setFadeIn] = useState(true);
@@ -664,60 +676,15 @@ export default function Home() {
       
       console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}: ${nextDisplayName}`);
       
-      // Instant transition for video-to-video (no animation to prevent glitches)
-      // Simple fade transition like commit a810bfd
-      if (nextSlide) {
-        // Preload next video/image before transition
-        if (nextSlide.isVideo && nextSlide.videoUrl) {
-          const video = document.createElement('video');
-          video.preload = 'auto';
-          video.src = nextSlide.videoUrl;
-          
-          video.addEventListener('canplaythrough', () => {
-            console.log(`🔄 Preloaded: ${nextDisplayName}`);
-            // Fade out current
-            setFadeIn(false);
-            
-            // After fade out, switch slide and fade in
-            setTimeout(() => {
-              setCurrentIndex(nextIndex);
-              setFadeIn(true);
-            }, FADE_DURATION_MS);
-          }, { once: true });
-          
-          video.addEventListener('error', () => {
-            // If preload fails, just switch anyway
-            console.error(`❌ Failed to preload: ${nextDisplayName}`);
-            setFadeIn(false);
-            setTimeout(() => {
-              setCurrentIndex(nextIndex);
-              setFadeIn(true);
-            }, FADE_DURATION_MS);
-          }, { once: true });
-          
-          video.load();
-        } else {
-          // Preload as image
-          const img = new Image();
-          img.src = nextSlide.url;
-          img.onload = () => {
-            console.log(`🔄 Preloaded: ${nextDisplayName}`);
-            setFadeIn(false);
-            setTimeout(() => {
-              setCurrentIndex(nextIndex);
-              setFadeIn(true);
-            }, FADE_DURATION_MS);
-          };
-          img.onerror = () => {
-            console.error(`❌ Failed to preload: ${nextDisplayName}`);
-            setFadeIn(false);
-            setTimeout(() => {
-              setCurrentIndex(nextIndex);
-              setFadeIn(true);
-            }, FADE_DURATION_MS);
-          };
-        }
-      }
+      // Simple immediate transition - browser will handle video loading
+      // Video element with autoPlay will start playing as soon as it's ready
+      setFadeIn(false);
+      
+      // After fade out, switch slide and fade in
+      setTimeout(() => {
+        setCurrentIndex(nextIndex);
+        setFadeIn(true);
+      }, FADE_DURATION_MS);
     }, currentSlide.durationSeconds * 1000);
 
     return () => {
@@ -1334,6 +1301,7 @@ export default function Home() {
         {currentSlide && currentSlide.videoUrl ? (
           <video
             ref={currentVideoRef}
+            key={currentSlide.videoUrl}
             src={currentSlide.videoUrl}
             autoPlay
             muted
