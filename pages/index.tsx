@@ -5,8 +5,9 @@ import { cacheVideo, getCachedVideo, getCacheStats } from "../lib/videoCache";
 
 const DEFAULT_SLIDE_DURATION_SECONDS = 20;
 const LANGUAGE_SWAP_INTERVAL_MS = 4_000;
-const FADE_DURATION_MS = 300; // Short fade to hide blank screens
+const FADE_DURATION_MS = 0; // Instant seamless transition (no fade)
 const AUTO_REFRESH_INTERVAL_MS = 60_000; // Check for new images every 60 seconds
+const PRELOAD_TRIGGER_PERCENT = 0.5; // Preload next video at 50% duration
 
 type Language = "en" | "ko" | "id";
 const LANGUAGE_SEQUENCE: Language[] = ["en", "ko", "id"];
@@ -333,60 +334,6 @@ export default function Home() {
     </Head>
   );
 
-  // Preload next video aggressively using hidden video element
-  useEffect(() => {
-    if (!slides || slides.length <= 1) return;
-    
-    const nextIdx = (currentIndex + 1) % slides.length;
-    const next = slides[nextIdx];
-    if (!next || !next.videoUrl) return;
-
-    const preloadId = "slideshow-preload-video";
-    
-    // Remove previous preload video if exists
-    const existing = document.getElementById(preloadId);
-    if (existing && existing.parentNode) {
-      existing.parentNode.removeChild(existing);
-    }
-
-    // Reset ready state
-    setNextVideoReady(false);
-
-    // Create hidden video element to preload
-    const video = document.createElement("video");
-    video.id = preloadId;
-    video.src = next.videoUrl;
-    video.preload = "auto";
-    video.muted = true;
-    video.playsInline = true;
-    video.style.display = "none";
-    video.style.position = "absolute";
-    video.style.visibility = "hidden";
-    
-    // Set ready flag when video can play
-    video.addEventListener('canplaythrough', () => {
-      console.log(`✅ Next video ready: ${next.videoUrl?.split('/').pop()}`);
-      setNextVideoReady(true);
-    }, { once: true });
-
-    video.addEventListener('error', (e) => {
-      console.error(`❌ Failed to preload next video: ${next.videoUrl?.split('/').pop()}`, e);
-      setNextVideoReady(false);
-    }, { once: true });
-
-    document.body.appendChild(video);
-    video.load();
-
-    console.log(`🔄 Preloading next video: ${next.videoUrl.split('/').pop()}`);
-
-    return () => {
-      // Cleanup on unmount or when next video changes
-      const elem = document.getElementById(preloadId);
-      if (elem && elem.parentNode) {
-        elem.parentNode.removeChild(elem);
-      }
-    };
-  }, [currentIndex, slides]);
   const [language, setLanguage] = useState<Language>("en");
   const [isPaused, setIsPaused] = useState(false);
   const [showControls, setShowControls] = useState(false);
@@ -401,6 +348,7 @@ export default function Home() {
   const currentVideoRef = useRef<HTMLVideoElement>(null);
   const lastKeepAwakeTimeRef = useRef<number>(0);
   const slideStartTimeRef = useRef<number>(Date.now());
+  const has50PercentReachedRef = useRef<boolean>(false);
 
   useEffect(() => {
     slidesRef.current = slides;
@@ -675,8 +623,58 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [slides.length, computeCountdowns]);
 
+  // Smart preload function - triggered at 50% of current video duration
+  const handlePreloadNextVideo = useCallback(() => {
+    if (!slides || slides.length <= 1) return;
+    
+    const nextIdx = (currentIndex + 1) % slides.length;
+    const next = slides[nextIdx];
+    if (!next || !next.videoUrl) return;
+
+    const preloadId = "slideshow-preload-video";
+    
+    // Remove previous preload video if exists
+    const existing = document.getElementById(preloadId);
+    if (existing && existing.parentNode) {
+      existing.parentNode.removeChild(existing);
+    }
+
+    // Reset ready state
+    setNextVideoReady(false);
+
+    // Create hidden video element to preload
+    const video = document.createElement("video");
+    video.id = preloadId;
+    video.src = next.videoUrl;
+    video.preload = "auto";
+    video.muted = true;
+    video.playsInline = true;
+    video.style.display = "none";
+    video.style.position = "absolute";
+    video.style.visibility = "hidden";
+    
+    // Set ready flag when video can play
+    video.addEventListener('canplaythrough', () => {
+      console.log(`✅ Next video ready: ${next.videoUrl?.split('/').pop()}`);
+      setNextVideoReady(true);
+    }, { once: true });
+
+    video.addEventListener('error', (e) => {
+      console.error(`❌ Failed to preload next video: ${next.videoUrl?.split('/').pop()}`, e);
+      setNextVideoReady(false);
+    }, { once: true });
+
+    document.body.appendChild(video);
+    video.load();
+
+    console.log(`🔄 Preloading next video at 50%: ${next.videoUrl.split('/').pop()}`);
+  }, [currentIndex, slides]);
+
   // Handle video transition when current video ends
   const handleVideoEnded = useCallback(() => {
+    // Reset preload flag for next video
+    has50PercentReachedRef.current = false;
+    
     if (isPaused) return;
 
     const video = currentVideoRef.current;
@@ -763,6 +761,9 @@ export default function Home() {
 
   // Force video play when index changes (critical for webOS)
   useEffect(() => {
+    // Reset 50% preload flag for new slide
+    has50PercentReachedRef.current = false;
+    
     const video = currentVideoRef.current;
     if (!video) return;
 
@@ -1510,6 +1511,16 @@ export default function Home() {
                 lastKeepAwakeTimeRef.current = now;
                 if (typeof document !== 'undefined') {
                   document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+                }
+              }
+
+              // Smart preload: trigger at 50% of video duration
+              if (video.duration > 0 && !has50PercentReachedRef.current) {
+                const percentComplete = video.currentTime / video.duration;
+                if (percentComplete >= PRELOAD_TRIGGER_PERCENT) {
+                  console.log(`📊 50% reached (${Math.floor(percentComplete * 100)}%) - Starting preload for next video`);
+                  has50PercentReachedRef.current = true;
+                  handlePreloadNextVideo();
                 }
               }
             }}
