@@ -370,6 +370,7 @@ export default function Home() {
   const [slideCountdowns, setSlideCountdowns] = useState<number[]>([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showCurrentVideo, setShowCurrentVideo] = useState(true); // For crossfade
+  const [disableTransition, setDisableTransition] = useState(false); // Disable CSS transition during buffer swap
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const nextIndexRef = useRef(0); // Track next video index
@@ -692,22 +693,34 @@ export default function Home() {
           nextVideo.play().then(() => {
             console.log(`▶️ Next video started playing: ${nextDisplayName}`);
             
-            // Crossfade: hide current, show next
+            // Crossfade: hide current, show next (with animation)
             setShowCurrentVideo(false);
             
-            // After crossfade completes, update index and swap buffers
+            // After crossfade animation completes
             setTimeout(() => {
+              // Disable CSS transition before swapping
+              setDisableTransition(true);
+              
+              // Swap buffer immediately (no animation)
               setCurrentIndex(nextIndex);
               setShowCurrentVideo(true);
+              
               console.log(`✅ Crossfade complete, swapped to: ${nextDisplayName}`);
+              
+              // Re-enable transition for next crossfade (after a frame)
+              requestAnimationFrame(() => {
+                setDisableTransition(false);
+              });
             }, 300); // Match transition duration
           }).catch((e) => {
             console.error(`❌ Failed to play next video, forcing transition`, e);
             setCurrentIndex(nextIndex);
+            setShowCurrentVideo(true);
           });
         } else {
           console.warn(`⚠️ Next video ref not ready, fallback to instant transition`);
           setCurrentIndex(nextIndex);
+          setShowCurrentVideo(true);
         }
       } else {
         // For non-video transitions: use fade effect
@@ -1401,9 +1414,14 @@ export default function Home() {
       {/* Current video */}
       <div 
         style={{
-          ...getTransitionStyle(),
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
           opacity: showCurrentVideo ? 1 : 0,
           zIndex: showCurrentVideo ? 2 : 1,
+          transition: disableTransition ? 'none' : 'opacity 300ms ease-in-out',
         }}
       >
         {currentSlide && currentSlide.videoUrl ? (
@@ -1560,7 +1578,7 @@ export default function Home() {
               height: '100%',
               opacity: showCurrentVideo ? 0 : 1,
               zIndex: showCurrentVideo ? 1 : 2,
-              transition: 'opacity 300ms ease-in-out',
+              transition: disableTransition ? 'none' : 'opacity 300ms ease-in-out',
             }}
           >
             <video
