@@ -348,6 +348,9 @@ export default function Home() {
       existing.parentNode.removeChild(existing);
     }
 
+    // Reset ready state
+    setNextVideoReady(false);
+
     // Create hidden video element to preload
     const video = document.createElement("video");
     video.id = preloadId;
@@ -359,7 +362,19 @@ export default function Home() {
     video.style.position = "absolute";
     video.style.visibility = "hidden";
     
+    // Set ready flag when video can play
+    video.addEventListener('canplaythrough', () => {
+      console.log(`✅ Next video ready: ${next.videoUrl?.split('/').pop()}`);
+      setNextVideoReady(true);
+    }, { once: true });
+
+    video.addEventListener('error', (e) => {
+      console.error(`❌ Failed to preload next video: ${next.videoUrl?.split('/').pop()}`, e);
+      setNextVideoReady(false);
+    }, { once: true });
+
     document.body.appendChild(video);
+    video.load();
 
     console.log(`🔄 Preloading next video: ${next.videoUrl.split('/').pop()}`);
 
@@ -375,6 +390,7 @@ export default function Home() {
   const [isPaused, setIsPaused] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [slideCountdowns, setSlideCountdowns] = useState<number[]>([]);
+  const [nextVideoReady, setNextVideoReady] = useState(false);
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -635,53 +651,73 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [slides.length, computeCountdowns]);
 
-  // Auto-rotate slides with smooth fade
-  useEffect(() => {
-    // If only 1 slide, let the video loop naturally (no slide rotation needed)
-    if (slides.length <= 1) {
-      if (slides.length === 1) {
-        const slide = slides[0];
-        const displayName = slide.isVideo && slide.videoUrl 
-          ? slide.videoUrl.split('/').pop() || slide.name
-          : slide.name;
-        console.log(`🔁 Single slide mode - video will loop continuously: ${displayName}`);
-      }
-      return;
-    }
+  // Handle video transition when current video ends
+  const handleVideoEnded = useCallback(() => {
+    if (isPaused || slides.length <= 1) return;
 
-    // If paused, don't rotate
-    if (isPaused) {
-      console.log(`⏸️ Slideshow paused`);
-      return;
+    const nextIndex = (currentIndex + 1) % slides.length;
+    const currentSlide = slides[currentIndex];
+    const nextSlide = slides[nextIndex];
+
+    const currentDisplayName = currentSlide?.isVideo && currentSlide?.videoUrl 
+      ? currentSlide.videoUrl.split('/').pop() || currentSlide?.name
+      : currentSlide?.name;
+
+    const nextDisplayName = nextSlide?.isVideo && nextSlide?.videoUrl 
+      ? nextSlide.videoUrl.split('/').pop() || nextSlide?.name
+      : nextSlide?.name;
+
+    console.log(`🎬 Video ended: ${currentDisplayName}`);
+
+    // Check if next video is ready
+    if (nextVideoReady) {
+      console.log(`➡️ Next video ready, transitioning to: ${nextDisplayName}`);
+      setCurrentIndex(nextIndex);
+    } else {
+      console.log(`⏳ Next video not ready yet (${nextDisplayName}), replaying current video`);
+      // Replay current video
+      const video = currentVideoRef.current;
+      if (video) {
+        video.currentTime = 0;
+        video.play().catch(e => console.error('Failed to replay:', e));
+      }
     }
+  }, [slides, currentIndex, isPaused, nextVideoReady]);
+
+  // Auto-transition when next video becomes ready and current has played enough
+  useEffect(() => {
+    if (slides.length <= 1 || isPaused || !nextVideoReady) return;
 
     const currentSlide = slides[currentIndex];
     if (!currentSlide) return;
 
-    const displayName = currentSlide.isVideo && currentSlide.videoUrl 
-      ? currentSlide.videoUrl.split('/').pop() || currentSlide.name
-      : currentSlide.name;
+    const currentVideo = currentVideoRef.current;
+    if (!currentVideo) return;
 
-    console.log(`⏱️ Timer set for ${currentSlide.durationSeconds}s (slide ${currentIndex + 1}/${slides.length}: ${displayName})`);
+    // Check if current video has played beyond its duration
+    const checkTransition = () => {
+      const played = currentVideo.currentTime;
+      const duration = currentVideo.duration;
+      const targetDuration = currentSlide.durationSeconds;
 
-    const timer = setTimeout(() => {
-      const nextIndex = (currentIndex + 1) % slides.length;
-      const nextSlide = slides[nextIndex];
-      
-      const nextDisplayName = nextSlide?.isVideo && nextSlide.videoUrl 
-        ? nextSlide.videoUrl.split('/').pop() || nextSlide?.name
-        : nextSlide?.name;
-      
-      console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}: ${nextDisplayName}`);
-      
-      // Instant transition - no fade animation
-      setCurrentIndex(nextIndex);
-    }, currentSlide.durationSeconds * 1000);
+      // If video has played past its target duration and next is ready, switch
+      if (played >= targetDuration && nextVideoReady) {
+        const nextIndex = (currentIndex + 1) % slides.length;
+        const nextSlide = slides[nextIndex];
+        const nextDisplayName = nextSlide?.isVideo && nextSlide?.videoUrl 
+          ? nextSlide.videoUrl.split('/').pop() || nextSlide?.name
+          : nextSlide?.name;
 
-    return () => {
-      clearTimeout(timer);
+        console.log(`⏱️ Target duration reached (${targetDuration}s) and next video ready, transitioning to: ${nextDisplayName}`);
+        setCurrentIndex(nextIndex);
+      }
     };
-  }, [slides, currentIndex, isPaused]);
+
+    // Check every 500ms
+    const interval = setInterval(checkTransition, 500);
+
+    return () => clearInterval(interval);
+  }, [slides, currentIndex, isPaused, nextVideoReady]);
 
   // Rotate language
   useEffect(() => {
@@ -1288,7 +1324,6 @@ export default function Home() {
             autoPlay
             muted
             playsInline
-            loop
             preload="auto"
             webkit-playsinline="true"
             x-webkit-airplay="allow"
@@ -1347,13 +1382,16 @@ export default function Home() {
               }
             }}
             onEnded={() => {
-              // webOS: Native loop attribute handles replay, just trigger keep-awake
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
-              console.log(`🔄 Video loop restart - ${videoName}`);
+              console.log(`🎬 Video ended - ${videoName}`);
+              
               // Trigger keep-awake
               if (typeof document !== 'undefined') {
                 document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
               }
+
+              // Handle transition to next video
+              handleVideoEnded();
             }}
             onError={(e) => {
               const target = e.target as HTMLVideoElement;
