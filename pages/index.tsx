@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 
 const DEFAULT_SLIDE_DURATION_SECONDS = 20;
 const LANGUAGE_SWAP_INTERVAL_MS = 4_000;
-const FADE_DURATION_MS = 500;
+const FADE_DURATION_MS = 0; // Instant transition, no fade
 const AUTO_REFRESH_INTERVAL_MS = 60_000; // Check for new images every 60 seconds
 
 type Language = "en" | "ko" | "id";
@@ -372,11 +372,9 @@ export default function Home() {
     };
   }, [currentIndex, slides]);
   const [language, setLanguage] = useState<Language>("en");
-  const [fadeIn, setFadeIn] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [slideCountdowns, setSlideCountdowns] = useState<number[]>([]);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -676,15 +674,8 @@ export default function Home() {
       
       console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}: ${nextDisplayName}`);
       
-      // Simple immediate transition - browser will handle video loading
-      // Video element with autoPlay will start playing as soon as it's ready
-      setFadeIn(false);
-      
-      // After fade out, switch slide and fade in
-      setTimeout(() => {
-        setCurrentIndex(nextIndex);
-        setFadeIn(true);
-      }, FADE_DURATION_MS);
+      // Instant transition - no fade animation
+      setCurrentIndex(nextIndex);
     }, currentSlide.durationSeconds * 1000);
 
     return () => {
@@ -706,11 +697,8 @@ export default function Home() {
   // Navigation functions
   const goToSlide = useCallback((index: number) => {
     if (index >= 0 && index < slides.length) {
-      setFadeIn(false);
-      setTimeout(() => {
-        setCurrentIndex(index);
-        setFadeIn(true);
-      }, FADE_DURATION_MS / 2);
+      // Instant transition - no fade
+      setCurrentIndex(index);
     }
   }, [slides.length]);
 
@@ -1290,14 +1278,8 @@ export default function Home() {
         <title>Slideshow</title>
       </Head>
       
-      {/* Single video element with fade transition */}
-      <div 
-        style={{
-          ...styles.imageWrapper,
-          opacity: fadeIn ? 1 : 0,
-          transition: `opacity ${FADE_DURATION_MS}ms ease-in-out`,
-        }}
-      >
+      {/* Single video element with instant transition (no fade) */}
+      <div style={styles.imageWrapper}>
         {currentSlide && currentSlide.videoUrl ? (
           <video
             ref={currentVideoRef}
