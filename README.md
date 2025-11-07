@@ -1,263 +1,523 @@
-# 🎞️ Slideshow Dashboard System
+# 📺 Slideshow Display System# 🎞️ Slideshow Dashboard System
 
-**Solusi digital signage all-in-one untuk Smart TV dan display monitor.**  
-Dashboard slideshow profesional untuk TV/Display dengan admin panel intuitif, penyimpanan di Supabase, konversi manual gambar/PDF menjadi video, dan optimisasi webOS agar layar tetap menyala selama pemutaran.
 
-> **Last Updated**: November 7, 2025 | **Version**: v1.5.0 | **Status**: ✅ Production Ready
+
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)**Solusi digital signage all-in-one untuk Smart TV dan display monitor.**  
+
+[![Next.js](https://img.shields.io/badge/Next.js-14.2.33-black)](https://nextjs.org/)Dashboard slideshow profesional untuk TV/Display dengan admin panel intuitif, penyimpanan di Supabase, konversi manual gambar/PDF menjadi video, dan optimisasi webOS agar layar tetap menyala selama pemutaran.
+
+[![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
+
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)> **Last Updated**: November 7, 2025 | **Version**: v1.5.0 | **Status**: ✅ Production Ready
+
 > **Latest Feature**: � **On-Screen UI Controls** - Mouse-activated control panel with distance-based trigger
 
+[English](#english) | [Bahasa Indonesia](#bahasa-indonesia)
+
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/) 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
+
+---[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
+
 [![Supabase](https://img.shields.io/badge/Supabase-Storage%20%26%20DB-green)](https://supabase.com/)
-[![UI Controls](https://img.shields.io/badge/UI%20Controls-Mouse%20Activated-orange)](README.md)
 
-## 🎯 Apa itu Slideshow?
+## English[![UI Controls](https://img.shields.io/badge/UI%20Controls-Mouse%20Activated-orange)](README.md)
 
-Slideshow adalah aplikasi **Next.js 14 + TypeScript** yang dirancang khusus untuk menampilkan rotasi konten visual di layar TV secara terus‑menerus tanpa gangguan. Admin dapat mengunggah gambar/PDF, mengatur durasi tampil per slide, urutan, dan caption melalui panel yang user-friendly. Sistem memungkinkan konversi manual konten menjadi video MP4 yang dioptimalkan untuk playback lancar di perangkat webOS (khususnya LG TV), dilengkapi mekanisme keep-awake agresif dan loop native agar layar tidak sleep.
 
-## ✨ Fitur
 
-### 🗂️ Manajemen Konten (Admin)
-- ✅ Upload banyak file sekaligus (gambar/PDF) ke Supabase Storage
-- ✅ Rename file, ubah durasi tampil, caption, urutan, dan visibilitas (hidden)
-- ✅ Generate video MP4 secara manual per-image (libx264, yuv420p, optimized for webOS)
-- ✅ Individual video generation - setiap gambar memiliki video sendiri
-- ✅ Hapus file beserta metadata dan video terkait
-- ✅ Drag & drop reordering, real-time preview
-- ✅ PDF to images conversion dengan preview
+### 🌟 Overview## 🎯 Apa itu Slideshow?
+
+
+
+A professional digital signage and slideshow management system built with Next.js, designed for webOS TVs and modern displays. Features automatic video conversion, real-time remote control, and a beautiful glassmorphism UI.Slideshow adalah aplikasi **Next.js 14 + TypeScript** yang dirancang khusus untuk menampilkan rotasi konten visual di layar TV secara terus‑menerus tanpa gangguan. Admin dapat mengunggah gambar/PDF, mengatur durasi tampil per slide, urutan, dan caption melalui panel yang user-friendly. Sistem memungkinkan konversi manual konten menjadi video MP4 yang dioptimalkan untuk playback lancar di perangkat webOS (khususnya LG TV), dilengkapi mekanisme keep-awake agresif dan loop native agar layar tidak sleep.
+
+
+
+### ✨ Key Features## ✨ Fitur
+
+
+
+- **🎬 Automatic Video Conversion**: Convert images to videos with configurable durations### 🗂️ Manajemen Konten (Admin)
+
+- **📱 Remote Control**: Control slideshow from any device via real-time sync- ✅ Upload banyak file sekaligus (gambar/PDF) ke Supabase Storage
+
+- **🎨 Glassmorphism UI**: Modern, professional interface matching across all pages- ✅ Rename file, ubah durasi tampil, caption, urutan, dan visibilitas (hidden)
+
+- **🖼️ Image Gallery**: Interactive bottom gallery with auto-hide feature- ✅ Generate video MP4 secara manual per-image (libx264, yuv420p, optimized for webOS)
+
+- **⚡ Smart Preloading**: Optimized video preloading for smooth transitions- ✅ Individual video generation - setiap gambar memiliki video sendiri
+
+- **🔄 Auto-refresh**: Automatic content updates every 60 seconds- ✅ Hapus file beserta metadata dan video terkait
+
+- **💤 Keep Awake**: Prevents display from sleeping during playback- ✅ Drag & drop reordering, real-time preview
+
+- **🧹 Auto Cleanup**: Automatic removal of corrupt or orphaned files- ✅ PDF to images conversion dengan preview
+
+- **📊 Admin Dashboard**: Full-featured management panel with drag-and-drop upload
 
 ### 📺 Pemutar Slideshow (Display/TV)
-- ✅ Pemutaran video secara loop tanpa jeda dengan retry logic
-- ✅ Auto-transition antar slide dengan preload untuk smooth playback
-- ✅ Keep‑awake agresif untuk webOS TV (Wake Lock API, webOS Power Manager API)
-- ✅ Optimisasi webOS: native video loop, webkit prefixes, retry playback
-- ✅ Auto refresh konten berkala (60 detik)
-- ✅ Smooth transitions dengan prefetch next slide (3 detik timeout)
-- ✅ Fullscreen support dengan user gesture detection
-- ✅ Real-time sync via Supabase channels untuk remote control
-- ✅ **On-screen UI controls** dengan mouse/touch activation
 
-### 🎮 UI Control System (NEW!)
-- ✅ **Distance-Based Trigger** - Controls appear only when mouse moves 50+ pixels
-- ✅ **Smart Detection** - 2-second delay + first movement skip to prevent accidental triggers
-- ✅ **Auto-Hide** - Automatically hides after 3 seconds of inactivity
+### 🚀 Quick Start- ✅ Pemutaran video secara loop tanpa jeda dengan retry logic
+
+- ✅ Auto-transition antar slide dengan preload untuk smooth playback
+
+#### Prerequisites- ✅ Keep‑awake agresif untuk webOS TV (Wake Lock API, webOS Power Manager API)
+
+- ✅ Optimisasi webOS: native video loop, webkit prefixes, retry playback
+
+- Node.js 18+ - ✅ Auto refresh konten berkala (60 detik)
+
+- npm or yarn- ✅ Smooth transitions dengan prefetch next slide (3 detik timeout)
+
+- Supabase account- ✅ Fullscreen support dengan user gesture detection
+
+- ✅ Real-time sync via Supabase channels untuk remote control
+
+#### Installation- ✅ **On-screen UI controls** dengan mouse/touch activation
+
+
+
+```bash### 🎮 UI Control System (NEW!)
+
+# Clone repository- ✅ **Distance-Based Trigger** - Controls appear only when mouse moves 50+ pixels
+
+git clone https://github.com/imrosyd/slideshow.git- ✅ **Smart Detection** - 2-second delay + first movement skip to prevent accidental triggers
+
+cd slideshow- ✅ **Auto-Hide** - Automatically hides after 3 seconds of inactivity
+
 - ✅ **Center Positioned** - Floating controls in the middle of screen
-- ✅ **Three Control Buttons**:
-  - ⏮️ Previous - Jump to previous slide
+
+# Install dependencies- ✅ **Three Control Buttons**:
+
+npm install  - ⏮️ Previous - Jump to previous slide
+
   - ⏸️/▶️ Pause/Resume - Toggle playback
-  - ⏭️ Next - Jump to next slide
-- ✅ **Hover Effects** - Visual feedback with scale animation and background change
-- ✅ **Clean Design** - Solid white buttons with black text/border
+
+# Setup environment variables  - ⏭️ Next - Jump to next slide
+
+cp .env.example .env.local- ✅ **Hover Effects** - Visual feedback with scale animation and background change
+
+# Edit .env.local with your Supabase credentials- ✅ **Clean Design** - Solid white buttons with black text/border
+
 - ✅ **Transparent Background** - Minimal interference with content
-- ✅ **Multiple Control Methods**: Keyboard shortcuts, Remote control page, On-screen buttons
+
+# Run development server- ✅ **Multiple Control Methods**: Keyboard shortcuts, Remote control page, On-screen buttons
+
+npm run dev
 
 ### 🧰 Infrastruktur
-- ✅ Supabase Storage: `slideshow-images` dan `slideshow-videos`
-- ✅ Database: tabel `image_durations` dan `slideshow_settings`
-- ✅ Row Level Security (RLS) untuk keamanan data produksi
-- ✅ API server-side memakai Service Role Key (tidak terekspos ke client)
+
+# Build for production- ✅ Supabase Storage: `slideshow-images` dan `slideshow-videos`
+
+npm run build- ✅ Database: tabel `image_durations` dan `slideshow_settings`
+
+npm start- ✅ Row Level Security (RLS) untuk keamanan data produksi
+
+```- ✅ API server-side memakai Service Role Key (tidak terekspos ke client)
+
 - ✅ Configurable FFmpeg encoding via database settings
 
+#### Environment Variables
+
 ### 🔐 Keamanan
-- ✅ Cookie HttpOnly untuk sesi admin
-- ✅ Header keamanan (HSTS, X-Frame-Options, CSP, dll.)
-- ✅ Sanitasi nama file dan batas ukuran upload
-- ✅ RLS policies untuk akses terkontrol (enabled via migration)
-- ✅ Service Role Key untuk backend operations (tidak terekspos ke client)
+
+```env- ✅ Cookie HttpOnly untuk sesi admin
+
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url- ✅ Header keamanan (HSTS, X-Frame-Options, CSP, dll.)
+
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key- ✅ Sanitasi nama file dan batas ukuran upload
+
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key- ✅ RLS policies untuk akses terkontrol (enabled via migration)
+
+ADMIN_PASSWORD=your_admin_password- ✅ Service Role Key untuk backend operations (tidak terekspos ke client)
+
+```
 
 ## 🧱 Tech Stack
 
+### 📖 Usage
+
 - **Frontend**: Next.js 14 + React 18 + TypeScript + Tailwind CSS
-- **Backend**: Next.js API Routes (Node.js/Vercel compatible)
-- **Database & Storage**: Supabase (PostgreSQL + Object Storage)
-- **Video Processing**: FFmpeg via `@ffmpeg-installer/ffmpeg`
-- **PDF Rendering**: pdf.js (client-side)
-- **UI Components**: Headless, fully custom Tailwind CSS
 
-## 🛠️ Instalasi
+#### Main Slideshow (`/`)- **Backend**: Next.js API Routes (Node.js/Vercel compatible)
 
-### 1️⃣ Clone & Masuk Folder
+- Auto-plays video slideshow in fullscreen- **Database & Storage**: Supabase (PostgreSQL + Object Storage)
 
-```bash
-git clone https://github.com/imrosyd/slideshow.git
-cd slideshow
+- Bottom gallery appears on mouse hover- **Video Processing**: FFmpeg via `@ffmpeg-installer/ffmpeg`
+
+- Click images in gallery for fullscreen preview- **PDF Rendering**: pdf.js (client-side)
+
+- Supports keyboard controls (Arrow keys, Space)- **UI Components**: Headless, fully custom Tailwind CSS
+
+
+
+#### Admin Panel (`/admin`)## 🛠️ Instalasi
+
+- Login with admin password
+
+- Upload images (drag & drop or click)### 1️⃣ Clone & Masuk Folder
+
+- Set custom durations per image
+
+- Generate videos with FFmpeg```bash
+
+- Manage existing contentgit clone https://github.com/imrosyd/slideshow.git
+
+- Cleanup corrupt filescd slideshow
+
 ```
 
-### 2️⃣ Install Dependencies
+#### Remote Control (`/remote`)
 
-```bash
-npm install
+- Control playback from any device### 2️⃣ Install Dependencies
+
+- Previous/Next navigation
+
+- Pause/Resume functionality```bash
+
+- Real-time status syncnpm install
+
 ```
+
+### 🎨 UI Features
 
 ### 3️⃣ Konfigurasi Environment
 
-Buat file `.env.local` di root proyek:
+- **Glassmorphism Design**: Consistent glass-effect styling across all pages
 
-```bash
-# Admin panel
+- **Responsive Layout**: Optimized for all screen sizesBuat file `.env.local` di root proyek:
+
+- **Dark Theme**: Professional slate color scheme
+
+- **Smooth Animations**: Cubic-bezier transitions throughout```bash
+
+- **Auto-hide Gallery**: Bottom bar appears on mouse proximity# Admin panel
+
 ADMIN_PASSWORD=your_secure_password
 
-# Supabase (public - aman di client)
-NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+### 🛠️ Technology Stack
 
-# Supabase (server only - JANGAN diekspos ke client)
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
+# Supabase (public - aman di client)
+
+- **Framework**: Next.js 14.2.33NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+
+- **UI**: React 18, Tailwind CSSNEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+
+- **Backend**: Supabase (Storage, Database, Realtime)
+
+- **Video Processing**: FFmpeg# Supabase (server only - JANGAN diekspos ke client)
+
+- **State Management**: React HooksSUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
+
+- **Deployment**: Vercel
 
 # Storage & DB (optional, defaults bekerja untuk setup standar)
-SUPABASE_STORAGE_BUCKET=slideshow-images
+
+### 📋 API RoutesSUPABASE_STORAGE_BUCKET=slideshow-images
+
 SUPABASE_DURATIONS_TABLE=image_durations
-```
 
-## 🗄️ Setup Supabase
+- `/api/images` - Get slideshow images and videos```
 
-### 1. Buat Storage Buckets
+- `/api/upload` - Upload new images
+
+- `/api/admin/generate-video` - Convert image to video## 🗄️ Setup Supabase
+
+- `/api/admin/cleanup-corrupt-videos` - Remove invalid entries
+
+- `/api/admin/metadata` - Update image metadata### 1. Buat Storage Buckets
+
+- `/api/settings` - Get/update slideshow settings
 
 Di Supabase Dashboard → Storage, buat dua buckets:
-- `slideshow-images` (untuk gambar/PDF)
+
+### 🎯 Version History- `slideshow-images` (untuk gambar/PDF)
+
 - `slideshow-videos` (untuk video hasil generate)
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 ### 2. Jalankan Database Migrations
 
+### 🤝 Contributing
+
 Masuk ke Supabase Dashboard → SQL Editor, jalankan secara berurutan:
 
+Contributions are welcome! Please feel free to submit a Pull Request.
+
 1. `supabase/001_create_image_durations_table.sql`
-2. `supabase/002_create_slideshow_settings_table.sql`
+
+### 📄 License2. `supabase/002_create_slideshow_settings_table.sql`
+
 3. `supabase/003_add_video_metadata_columns.sql`
-4. `supabase/004_enable_row_level_security.sql` (ENABLE RLS + policies)
 
-### 3. Konfigurasi Storage Policies
+This project is licensed under the MIT License.4. `supabase/004_enable_row_level_security.sql` (ENABLE RLS + policies)
 
-Di Dashboard → Storage → [bucket name] → Policies, buat:
+
+
+### 👨‍💻 Author### 3. Konfigurasi Storage Policies
+
+
+
+**Imron**Di Dashboard → Storage → [bucket name] → Policies, buat:
+
+- GitHub: [@imrosyd](https://github.com/imrosyd)
 
 **slideshow-images**:
-- ✅ Public SELECT (anon can read)
+
+---- ✅ Public SELECT (anon can read)
+
 - ✅ Service role ALL (for admin operations)
 
+## Bahasa Indonesia
+
 **slideshow-videos**:
-- ✅ Public SELECT (anon can read)
+
+### 🌟 Ringkasan- ✅ Public SELECT (anon can read)
+
 - ✅ Service role ALL (for admin operations)
+
+Sistem manajemen slideshow dan digital signage profesional yang dibangun dengan Next.js, dirancang untuk TV webOS dan display modern. Fitur konversi video otomatis, kontrol jarak jauh real-time, dan UI glassmorphism yang indah.
 
 ### ⚙️ Opsi Encoding Video (Opsional)
 
+### ✨ Fitur Utama
+
 Atur parameter encoding FFmpeg melalui tabel `slideshow_settings` tanpa rebuild. Server memvalidasi nilai dan jatuh ke default jika invalid.
 
-| Key | Default | Range | Deskripsi |
-|-----|---------|-------|-----------|
-| `video_crf` | `22` | 15–35 | Kualitas (lebih kecil = lebih bagus/lebih besar file) |
-| `video_preset` | `veryfast` | ultrafast…veryslow | Kecepatan encoding |
-| `video_profile` | `high` | baseline, main, high | H.264 profile |
-| `video_level` | `4.0` | 3.1, 4.0, 4.2, … | H.264 level |
-| `video_fps` | `24` | 15–60 | Frame per second |
-| `video_gop` | `48` | fps … fps×10 | Keyframe interval (default 2×fps) |
-| `video_width` | `1920` | 320–3840 | Output width (scale+pad maintains aspect ratio) |
-| `video_height` | `1080` | 240–2160 | Output height (scale+pad maintains aspect ratio) |
+- **🎬 Konversi Video Otomatis**: Konversi gambar ke video dengan durasi yang dapat dikonfigurasi
 
-**Default values** aman untuk webOS TV playback.  
+- **📱 Kontrol Jarak Jauh**: Kontrol slideshow dari perangkat apapun via sinkronisasi real-time| Key | Default | Range | Deskripsi |
+
+- **🎨 UI Glassmorphism**: Antarmuka modern dan profesional yang konsisten di semua halaman|-----|---------|-------|-----------|
+
+- **🖼️ Galeri Gambar**: Galeri bawah interaktif dengan fitur auto-hide| `video_crf` | `22` | 15–35 | Kualitas (lebih kecil = lebih bagus/lebih besar file) |
+
+- **⚡ Smart Preloading**: Preloading video yang dioptimalkan untuk transisi mulus| `video_preset` | `veryfast` | ultrafast…veryslow | Kecepatan encoding |
+
+- **🔄 Auto-refresh**: Pembaruan konten otomatis setiap 60 detik| `video_profile` | `high` | baseline, main, high | H.264 profile |
+
+- **💤 Keep Awake**: Mencegah display tidur selama pemutaran| `video_level` | `4.0` | 3.1, 4.0, 4.2, … | H.264 level |
+
+- **🧹 Auto Cleanup**: Penghapusan otomatis file rusak atau yatim| `video_fps` | `24` | 15–60 | Frame per second |
+
+- **📊 Dashboard Admin**: Panel manajemen lengkap dengan upload drag-and-drop| `video_gop` | `48` | fps … fps×10 | Keyframe interval (default 2×fps) |
+
+| `video_width` | `1920` | 320–3840 | Output width (scale+pad maintains aspect ratio) |
+
+### 🚀 Memulai| `video_height` | `1080` | 240–2160 | Output height (scale+pad maintains aspect ratio) |
+
+
+
+#### Prasyarat**Default values** aman untuk webOS TV playback.  
+
 **Catatan**: Scale akan selalu menjaga rasio aspek (scale+pad) dan output selalu yuv420p untuk kompatibilitas luas.
 
-## 🔒 Testing RLS
+- Node.js 18+
+
+- npm atau yarn## 🔒 Testing RLS
+
+- Akun Supabase
 
 Gunakan alat uji yang sudah disertakan:
 
+#### Instalasi
+
 1. Buka file `test-rls.html` di browser
-2. Isi Supabase URL dan Anon Key
-3. Klik "Initialize" lalu "Run All Tests"
-4. Semua tes harus **PASS** (anon hanya bisa membaca konten non‑hidden)
+
+```bash2. Isi Supabase URL dan Anon Key
+
+# Clone repository3. Klik "Initialize" lalu "Run All Tests"
+
+git clone https://github.com/imrosyd/slideshow.git4. Semua tes harus **PASS** (anon hanya bisa membaca konten non‑hidden)
+
+cd slideshow
 
 ## 💡 Cara Menjalankan
 
-### Development
+# Install dependencies
 
-```bash
-npm run dev
-# Buka: http://localhost:3000 (atau 3001 jika 3000 sedang dipakai)
+npm install### Development
+
+
+
+# Setup environment variables```bash
+
+cp .env.example .env.localnpm run dev
+
+# Edit .env.local dengan kredensial Supabase Anda# Buka: http://localhost:3000 (atau 3001 jika 3000 sedang dipakai)
+
 ```
 
-Halaman penting:
+# Jalankan development server
+
+npm run devHalaman penting:
+
 - **`/admin`** — panel admin (login dengan `ADMIN_PASSWORD`)
-- **`/`** — pemutar slideshow untuk TV
-- **`/remote`** — remote control page (optional)
 
-Untuk debugging, cek **browser console** dan **server logs** di terminal.
+# Build untuk production- **`/`** — pemutar slideshow untuk TV
 
-### Production Build
+npm run build- **`/remote`** — remote control page (optional)
 
-```bash
-npm run build
 npm start
-```
 
-## 🚀 Deploy ke Vercel
+```Untuk debugging, cek **browser console** dan **server logs** di terminal.
 
-### 1. Push ke GitHub
 
-```bash
-git add .
-git commit -m "v1.2.0: FFmpeg fixes and configurable encoding"
-git push origin main
-```
 
-### 2. Hubungkan ke Vercel
+#### Variabel Environment### Production Build
 
-1. Masuk ke [vercel.com](https://vercel.com) → Import Project
-2. Pilih repository `slideshow`
-3. Set Environment Variables:
-   - `ADMIN_PASSWORD`
-   - `NEXT_PUBLIC_SUPABASE_URL`
+
+
+```env```bash
+
+NEXT_PUBLIC_SUPABASE_URL=url_supabase_andanpm run build
+
+NEXT_PUBLIC_SUPABASE_ANON_KEY=anon_key_supabase_andanpm start
+
+SUPABASE_SERVICE_ROLE_KEY=service_role_key_anda```
+
+ADMIN_PASSWORD=password_admin_anda
+
+```## 🚀 Deploy ke Vercel
+
+
+
+### 📖 Penggunaan### 1. Push ke GitHub
+
+
+
+#### Slideshow Utama (`/`)```bash
+
+- Auto-play video slideshow fullscreengit add .
+
+- Galeri bawah muncul saat hover mousegit commit -m "v1.2.0: FFmpeg fixes and configurable encoding"
+
+- Klik gambar di galeri untuk preview fullscreengit push origin main
+
+- Mendukung kontrol keyboard (Arrow keys, Space)```
+
+
+
+#### Panel Admin (`/admin`)### 2. Hubungkan ke Vercel
+
+- Login dengan password admin
+
+- Upload gambar (drag & drop atau klik)1. Masuk ke [vercel.com](https://vercel.com) → Import Project
+
+- Atur durasi custom per gambar2. Pilih repository `slideshow`
+
+- Generate video dengan FFmpeg3. Set Environment Variables:
+
+- Kelola konten yang ada   - `ADMIN_PASSWORD`
+
+- Bersihkan file rusak   - `NEXT_PUBLIC_SUPABASE_URL`
+
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-4. Click **Deploy**
 
-### 3. Verifikasi Database
+#### Kontrol Jarak Jauh (`/remote`)   - `SUPABASE_SERVICE_ROLE_KEY`
+
+- Kontrol pemutaran dari perangkat apapun4. Click **Deploy**
+
+- Navigasi Previous/Next
+
+- Fungsi Pause/Resume### 3. Verifikasi Database
+
+- Sinkronisasi status real-time
 
 Pastikan semua SQL migrations (bagian Setup Supabase) sudah dijalankan di Supabase project.
 
+### 🎨 Fitur UI
+
 ## 📁 Struktur Direktori
 
-```
-slideshow/
-├── components/
-│   └── admin/
+- **Desain Glassmorphism**: Styling efek kaca yang konsisten di semua halaman
+
+- **Layout Responsif**: Dioptimalkan untuk semua ukuran layar```
+
+- **Tema Gelap**: Skema warna slate profesionalslideshow/
+
+- **Animasi Mulus**: Transisi cubic-bezier di seluruh aplikasi├── components/
+
+- **Galeri Auto-hide**: Bar bawah muncul saat mouse mendekat│   └── admin/
+
 │       ├── UploadBox.tsx            # Upload gambar/PDF
-│       ├── ImageCard.tsx            # Card display untuk setiap image
+
+### 🛠️ Stack Teknologi│       ├── ImageCard.tsx            # Card display untuk setiap image
+
 │       ├── GenerateVideoDialog.tsx  # Dialog generate video individual
-│       ├── ConfirmModal.tsx         # Modal konfirmasi delete
-│       └── ToastProvider.tsx        # Toast notifications
-├── hooks/
-│   ├── useImages.ts                 # Image management logic
-│   └── useToast.ts                  # Toast notification hook
-├── lib/
+
+- **Framework**: Next.js 14.2.33│       ├── ConfirmModal.tsx         # Modal konfirmasi delete
+
+- **UI**: React 18, Tailwind CSS│       └── ToastProvider.tsx        # Toast notifications
+
+- **Backend**: Supabase (Storage, Database, Realtime)├── hooks/
+
+- **Pemrosesan Video**: FFmpeg│   ├── useImages.ts                 # Image management logic
+
+- **State Management**: React Hooks│   └── useToast.ts                  # Toast notification hook
+
+- **Deployment**: Vercel├── lib/
+
 │   ├── auth.ts                      # Authentication utilities
-│   ├── supabase.ts                  # Supabase client setup
+
+### 📋 API Routes│   ├── supabase.ts                  # Supabase client setup
+
 │   ├── constants.ts                 # App constants
-│   └── database.types.ts            # TypeScript types dari Supabase
-├── pages/
-│   ├── index.tsx                    # Pemutar slideshow (TV) - webOS optimized
-│   ├── admin.tsx                    # Panel admin
-│   ├── login.tsx                    # Login page
-│   ├── remote.tsx                   # Remote control page
+
+- `/api/images` - Dapatkan gambar dan video slideshow│   └── database.types.ts            # TypeScript types dari Supabase
+
+- `/api/upload` - Upload gambar baru├── pages/
+
+- `/api/admin/generate-video` - Konversi gambar ke video│   ├── index.tsx                    # Pemutar slideshow (TV) - webOS optimized
+
+- `/api/admin/cleanup-corrupt-videos` - Hapus entri invalid│   ├── admin.tsx                    # Panel admin
+
+- `/api/admin/metadata` - Update metadata gambar│   ├── login.tsx                    # Login page
+
+- `/api/settings` - Get/update pengaturan slideshow│   ├── remote.tsx                   # Remote control page
+
 │   └── api/
-│       ├── admin/
+
+### 🎯 Riwayat Versi│       ├── admin/
+
 │       │   ├── generate-video.ts    # FFmpeg video generation (individual)
-│       │   ├── delete-video.ts      # Delete video & update metadata
+
+Lihat [CHANGELOG.md](CHANGELOG.md) untuk riwayat versi lengkap.│       │   ├── delete-video.ts      # Delete video & update metadata
+
 │       │   ├── metadata.ts          # Update image metadata
-│       │   ├── images.ts            # List images
+
+### 🤝 Kontribusi│       │   ├── images.ts            # List images
+
 │       │   ├── settings.ts          # Video encoding settings
-│       │   ├── force-refresh.ts     # Force slideshow refresh
+
+Kontribusi sangat diterima! Silakan submit Pull Request.│       │   ├── force-refresh.ts     # Force slideshow refresh
+
 │       │   └── cleanup-videos.ts    # Cleanup orphaned videos
-│       ├── settings.ts              # Public settings endpoint
+
+### 📄 Lisensi│       ├── settings.ts              # Public settings endpoint
+
 │       ├── images.ts                # Public image list
-│       └── auth.ts                  # Authentication endpoint
+
+Proyek ini dilisensikan di bawah MIT License.│       └── auth.ts                  # Authentication endpoint
+
 ├── supabase/                        # SQL migrations
-│   ├── 001_create_image_durations_table.sql
+
+### 👨‍💻 Pembuat│   ├── 001_create_image_durations_table.sql
+
 │   ├── 002_create_slideshow_settings_table.sql
-│   ├── 003_add_video_metadata_columns.sql
-│   └── 004_enable_row_level_security.sql
+
+**Imron**│   ├── 003_add_video_metadata_columns.sql
+
+- GitHub: [@imrosyd](https://github.com/imrosyd)│   └── 004_enable_row_level_security.sql
+
 ├── public/
-│   └── favicon.svg
+
+---│   └── favicon.svg
+
 ├── styles/
-│   └── globals.css
+
+**Current Version**: 2.0.0 | **Last Updated**: November 8, 2025│   └── globals.css
+
 ├── next.config.js
 ├── tsconfig.json
 └── package.json

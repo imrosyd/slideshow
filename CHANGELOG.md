@@ -1,0 +1,323 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.0.0] - 2025-11-08
+
+### 🎨 Major UI Overhaul - Glassmorphism Design
+
+#### Added
+- **Glassmorphism Image Preview**: Unified design language across all pages
+  - Gradient background matching admin/login pages
+  - 24px backdrop blur for premium glass effect
+  - Rounded corners (24px border-radius)
+  - Dual-layer shadows for depth
+  - Semi-transparent container with border
+- **Auto-hide Image Gallery**: Professional bottom gallery bar
+  - Appears on mouse proximity (150px trigger zone)
+  - Auto-hides after 3 seconds of inactivity
+  - Grid layout with 160px cards
+  - Premium badge with gradient
+  - Smooth cubic-bezier transitions
+- **Fullscreen Image Preview**: Click gallery images for detailed view
+  - Glassmorphism card container
+  - Click outside to close
+  - Pause video during preview
+
+#### Changed
+- Image preview from fullscreen to glassmorphism card (95vw x 95vh)
+- Gallery moved from right sidebar to bottom bar
+- Removed close button from preview (click-to-close only)
+- Enhanced gradient backgrounds across application
+
+#### Fixed
+- ESLint warning for useEffect dependencies
+- Removed unused code and duplicate files
+- Clean workspace (removed 28 documentation/test files, 4,636 lines)
+
+#### Commits
+- `aa1c3c5` - chore: Remove backup and old files
+- `7b330f6` - feat: Update image preview overlay with glassmorphism design
+- `9128dd4` - fix: Resolve ESLint warning for useEffect dependencies
+- `df646d5` - chore: Clean up unused documentation and test files
+- `9efeb2d` - feat: Remove close button from image preview overlay
+
+---
+
+## [1.9.0] - 2025-11-07
+
+### 🖼️ Image Gallery & UI Polish
+
+#### Added
+- Interactive image gallery sidebar on main page
+- Click images for fullscreen preview
+- Filename badge overlay on hover
+- Professional polish with enhanced shadows and gradients
+
+#### Changed
+- Gallery UI refined with better spacing and typography
+- Improved glassmorphism effects
+- Enhanced card animations and hover states
+
+#### Fixed
+- Orphaned database entries cleanup
+- Supabase Realtime WebSocket fallback warnings
+
+#### Commits
+- `a6210b4` - feat: Enhanced gallery UI and fullscreen image preview
+- `b68d76c` - refactor: Remove filename badge from image preview overlay
+- `35b34a9` - style: Professional polish for image gallery UI
+- `c5c8749` - feat: Move image gallery from sidebar to auto-hide bottom bar
+- `7faeadc` - feat: Enhanced cleanup and image gallery
+- `e06c9d3` - fix: Remove Supabase Realtime WebSocket fallback warnings
+
+---
+
+## [1.8.0] - 2025-11-06
+
+### 🧹 Auto Cleanup & Maintenance
+
+#### Added
+- Automatic cleanup for corrupt videos
+- Orphaned files detection and removal
+- Cron job configuration for scheduled cleanup
+- Cleanup automation documentation
+
+#### Changed
+- Improved cleanup API with comprehensive checks
+- Better error handling for corrupted entries
+
+#### Commits
+- `962533d` - fix: Correct vercel.json syntax for cron configuration
+- `664305c` - docs: Add quick reference guide for cleanup
+- `9e70771` - docs: Add cleanup automation documentation and cron script
+- `e9f0975` - feat: Add automatic cleanup for corrupt videos
+- `078a0cc` - feat: Add cleanup script for corrupt video entries
+
+---
+
+## [1.7.0] - 2025-11-05
+
+### 🎬 Video Processing Improvements
+
+#### Added
+- Merge video feature: combine multiple images into one video
+- Progress indicator for video generation
+- Debug logging for video processing
+
+#### Fixed
+- Placeholder images no longer appear in slideshow
+- Matching encoding parameters between merge and generate
+- Correct public URL usage for merged videos
+- Metadata creation for merged videos
+
+#### Commits
+- `a70de65` - fix: Hide placeholder images from slideshow
+- `9b21ee1` - feat: Add merge video progress indicator and debug logging
+- `13f49e3` - Change slideshow to video-only mode
+- `7f3ae6c` - Fix: Match merge-video encoding parameters with generate-video
+- `79e43e8` - Fix: Use full public URL for merged video instead of filename
+- `25f2178` - Add merge video feature - combine multiple images into one video
+
+---
+
+## [1.6.0] - 2025-11-04
+
+### 🔧 Database & API Refactoring
+
+#### Changed
+- Simplified images API to use database as single source of truth
+- Correct rendering of images vs videos in slideshow
+- Fixed database column name from display_order to order_index
+
+#### Fixed
+- Merged videos now appear correctly in slideshow
+- Video map properly populated
+- Metadata handling for all video types
+
+#### Commits
+- `f254d12` - Fix: Correct database column name from display_order to order_index
+- `0e9b026` - Refactor: Simplify images API to use database as single source of truth
+- `e6f025c` - Fix: Ensure merged videos appear in slideshow by populating videoMap
+- `876b3db` - Fix merged video display: hide placeholder image, show only video in slideshow
+- `4271aa9` - Fix: Add metadata creation for merged videos with placeholder image
+
+---
+
+## [1.5.0] - 2025-11-03
+
+### 🎮 UI Control System
+
+#### Added
+- Visible UI controls on main slideshow page
+- Control buttons (Previous, Pause/Resume, Next)
+- Mouse movement detection for auto-show/hide
+- Distance threshold to prevent accidental triggers
+
+#### Changed
+- Controls centered in middle of screen
+- Solid white buttons with black theme
+- Transparent background for controls
+- Removed slide name and duration from UI
+
+#### Fixed
+- Auto-show controls with distance threshold
+- Prevented controls appearing unexpectedly
+- Improved hover effects
+
+#### Commits
+- `ab784ec` - Update README to v1.5.0 - Document UI Control System
+- `cf22e63` - Make control buttons solid white (non-transparent)
+- `0ee2258` - Change controls to black theme and fix auto-show with distance threshold
+- `3c667b1` - Fix auto-show controls and add hover effects
+- `ee0bca0` - Fix controls: remove gray background and prevent auto-show
+- `b750ed6` - Make controls background transparent
+- `cd993bc` - Center controls overlay in the middle of screen
+- `1008696` - Fix controls overlay appearing unexpectedly
+- `89573d3` - Remove slide name and duration from UI controls
+- `8492ccd` - Add visible UI controls to main slideshow page
+
+---
+
+## [1.4.0] - 2025-11-02
+
+### 📡 Remote Control Integration
+
+#### Added
+- Real-time remote control via Supabase
+- Separate channels for commands and status
+- Heartbeat channel for reliable connection
+- Initial status broadcast when slides load
+- Remote control page for mobile/tablet devices
+
+#### Fixed
+- Remote control channel subscription issues
+- Two-way communication between display and remote
+
+#### Commits
+- `8466ab9` - Add heartbeat channel for reliable remote connection
+- `cb977a8` - Add initial status broadcast when slides load
+- `7e04a36` - Update remote page to listen on both channels
+- `9db924f` - Fix remote control: use separate channels for commands and status
+- `4bf9589` - Fix remote control channel subscription issue
+- `a3db03b` - Add remote control integration to main page
+
+---
+
+## [1.3.0] - 2025-11-01
+
+### ⚡ Performance Optimization
+
+#### Added
+- Loading spinner for initial load and video transitions
+- Simplified preload system
+- Custom hooks for better code organization (webOS optimization)
+
+#### Changed
+- Clean rebuild with modular architecture
+- Removed debug UI elements
+- Improved video preloading logic
+
+#### Fixed
+- Video transition smoothness
+- Memory management for preloading
+
+#### Commits
+- `11b3be5` - Restore original loading page design
+- `f9bbf23` - Add loading spinner to initial load and video transitions
+- `626bd5d` - Fix: Simplify preload system and remove debug UI
+- `f0bfa97` - Add clean rebuild documentation
+- `2aadaec` - CLEAN REBUILD: Refactor with custom hooks for webOS optimization
+
+---
+
+## [1.2.0] - 2025-10-31
+
+### 💤 Display Management
+
+#### Added
+- Keep display awake during slideshow
+- Periodic synthetic movement to prevent TV sleep
+- Configurable slide durations
+
+#### Changed
+- Increased slide duration from 10s to 30s
+- Better performance for webOS displays
+
+#### Commits
+- `f7f94dc` - feat: keep display awake during slideshow
+- `5a3baf9` - feat: preload slides to avoid transition delay
+- `92de23c` - Increase slide duration from 10s to 30s
+- `6afcb6a` - Prevent TV sleep with periodic synthetic movement
+- `72746bb` - Tingkatkan performa slideshow dan tambahkan favicon
+
+---
+
+## [1.1.0] - 2025-10-30
+
+### 📤 Upload & Admin Improvements
+
+#### Added
+- Admin upload flow with Supabase backend
+- Bilingual slideshow messaging (EN/ID/KO)
+- Improved bulk upload handling
+- Better UI feedback
+
+#### Changed
+- Adjusted upload API for larger payloads
+- Enhanced Supabase usage patterns
+
+#### Fixed
+- Supabase config API types
+
+#### Commits
+- `632847c` - Add admin upload flow with Supabase-backed slideshow
+- `028a464` - Adjust upload API to handle larger payloads
+- `310a4f8` - Improve bulk uploads and add bilingual slideshow messaging
+- `47f1828` - Improve Supabase usage and UI feedback
+- `f3abdf1` - Fix Supabase config API types
+
+---
+
+## [1.0.0] - 2025-10-29
+
+### 🎉 Initial Release
+
+#### Added
+- Basic slideshow functionality
+- Image upload system
+- Supabase integration
+- Next.js foundation
+- Timer functionality
+
+#### Commits
+- `8d849ca` - Initial commit
+- `3f9ae9a` - Initial commit
+- `11dde46` - Add files via upload
+- `87ac8c5` - Add files via upload
+- `2ea97cb` - Update timer
+
+---
+
+## Version Tags
+
+Each version represents a stable, working state of the application:
+
+- **v2.0.0** (aa1c3c5): Glassmorphism UI & Gallery - Current
+- **v1.9.0** (e06c9d3): Image Gallery & Cleanup
+- **v1.8.0** (e9f0975): Auto Cleanup System
+- **v1.7.0** (25f2178): Video Merge Feature
+- **v1.6.0** (0e9b026): Database Refactor
+- **v1.5.0** (8492ccd): UI Controls
+- **v1.4.0** (a3db03b): Remote Control
+- **v1.3.0** (2aadaec): Performance Optimization
+- **v1.2.0** (72746bb): Display Management
+- **v1.1.0** (632847c): Upload System
+- **v1.0.0** (8d849ca): Initial Release
+
+---
+
+**Note**: For creating releases on GitHub, each version tag should point to the last commit of that version as listed above.
