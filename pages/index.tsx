@@ -737,6 +737,42 @@ export default function Home() {
     };
   }, [slides, currentIndex, isPaused, nextVideoReady]);
 
+  // Force video play when index changes (critical for webOS)
+  useEffect(() => {
+    const video = currentVideoRef.current;
+    if (!video) return;
+
+    const currentSlide = slides[currentIndex];
+    if (!currentSlide) return;
+
+    const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
+    
+    // Small delay to let video element mount/update
+    const timer = setTimeout(() => {
+      console.log(`🎬 Force play attempt for slide ${currentIndex + 1}: ${videoName}`);
+      
+      if (video.paused) {
+        console.log(`⏸️ Video is paused, forcing play...`);
+        video.play()
+          .then(() => {
+            console.log(`✅ Force play success: ${videoName}`);
+          })
+          .catch((e) => {
+            console.error(`❌ Force play failed: ${videoName}`, e);
+            // Retry after a delay
+            setTimeout(() => {
+              console.log(`🔄 Retrying force play: ${videoName}`);
+              video.play().catch(e2 => console.error(`❌ Retry failed:`, e2));
+            }, 500);
+          });
+      } else {
+        console.log(`▶️ Video already playing: ${videoName}`);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [currentIndex, slides]);
+
   // Rotate language
   useEffect(() => {
     let index = 0;
@@ -1369,9 +1405,11 @@ export default function Home() {
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
               console.log(`✅ [${currentIndex + 1}/${slides.length}] Video can play - ${videoName}`);
               // Ensure video starts playing
-              if (video && video.paused) {
-                console.log(`▶️ [${currentIndex + 1}/${slides.length}] Auto-playing video - ${videoName}`);
-                video.play().catch(e => console.error('onCanPlay play failed:', e));
+              if (video) {
+                console.log(`▶️ [${currentIndex + 1}/${slides.length}] Forcing play from onCanPlay - ${videoName}`);
+                video.play()
+                  .then(() => console.log(`✅ onCanPlay play success`))
+                  .catch(e => console.error('onCanPlay play failed:', e));
               }
             }}
             onLoadedData={() => {
@@ -1442,8 +1480,14 @@ export default function Home() {
               console.error(`   MEDIA_ERR_ABORTED: 1, MEDIA_ERR_NETWORK: 2, MEDIA_ERR_DECODE: 3, MEDIA_ERR_SRC_NOT_SUPPORTED: 4`);
             }}
             onCanPlayThrough={() => {
+              const video = currentVideoRef.current;
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
               console.log(`✅ Can play through: ${videoName}`);
+              // Force play on canplaythrough as well
+              if (video && video.paused) {
+                console.log(`▶️ Forcing play from canplaythrough: ${videoName}`);
+                video.play().catch(e => console.error('canplaythrough play failed:', e));
+              }
             }}
             onStalled={() => {
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
