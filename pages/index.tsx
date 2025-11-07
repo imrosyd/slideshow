@@ -87,13 +87,6 @@ type Slide = {
   videoUrl?: string;
 };
 
-// Helper function to format countdown timer
-const formatCountdown = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
-
 const styles: Record<string, CSSProperties> = {
   container: {
     display: "flex",
@@ -204,24 +197,14 @@ const styles: Record<string, CSSProperties> = {
     justifyContent: "center" as const,
   },
   controlButton: {
-    padding: "10px 16px",
-    borderRadius: "8px",
+    padding: "1rem 2rem",
+    fontSize: "1.1rem",
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     border: "1px solid rgba(255, 255, 255, 0.2)",
-    color: "#ffffff",
-    fontSize: "0.9rem",
-    fontWeight: 500,
+    borderRadius: "8px",
+    color: "white",
     cursor: "pointer",
-    transition: "all 200ms ease",
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  slideInfo: {
-    textAlign: "center" as const,
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: "0.95rem",
-    fontWeight: 500,
+    transition: "all 0.3s ease",
   },
 };
 
@@ -622,14 +605,6 @@ export default function Home() {
         {showControls && currentSlide && (
           <div style={styles.controlsOverlay}>
             <div style={styles.controlsContainer}>
-              <div style={styles.slideInfo}>
-                <div style={{ fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.5rem" }}>
-                  {currentSlide.name}
-                </div>
-                <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>
-                  Duration: {formatCountdown(currentSlide.durationSeconds)}
-                </div>
-              </div>
               <div style={styles.controlsRow}>
                 <button
                   style={styles.controlButton}
