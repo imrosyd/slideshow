@@ -707,12 +707,17 @@ export default function Home() {
       console.log(`✅ [${nextIndex + 1}/${slides.length}] Next video ready, transitioning: ${nextDisplayName}`);
       setCurrentIndex(nextIndex);
     } else {
-      console.log(`⏳ [${currentIndex + 1}/${slides.length}] Next video not ready (${nextDisplayName}), replaying current`);
-      // Replay current video
-      video.currentTime = 0;
-      video.play().catch(e => console.error('Failed to replay:', e));
+      console.log(`⏳ [${currentIndex + 1}/${slides.length}] Next video not ready yet (${nextDisplayName})`);
+      console.log(`   → Forcing preload NOW and transitioning immediately`);
+      // Force preload the next video NOW (don't wait for 50%)
+      // Then transition to it even if not fully preloaded
+      // The "Force video play" useEffect will handle the actual play attempt
+      handlePreloadNextVideo();
+      // Transition to next video immediately (even if preload not complete)
+      // The video will start playing once preload is ready, or retry via play logic
+      setCurrentIndex(nextIndex);
     }
-  }, [slides, currentIndex, isPaused, nextVideoReady]);
+  }, [slides, currentIndex, isPaused, nextVideoReady, handlePreloadNextVideo]);
 
   // Auto-transition when next video becomes ready and current has played enough
   useEffect(() => {
