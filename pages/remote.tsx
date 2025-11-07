@@ -9,7 +9,6 @@ export default function RemoteControl() {
   const [isPaused, setIsPaused] = useState(false);
   const [channel, setChannel] = useState<any>(null);
   const [currentImageName, setCurrentImageName] = useState<string>("");
-  const [transitionEffect, setTransitionEffect] = useState<string>("fade");
   const [jumpToSlide, setJumpToSlide] = useState<string>("");
   const [autoPlayInterval, setAutoPlayInterval] = useState<number>(5000);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -25,9 +24,6 @@ export default function RemoteControl() {
           setCurrentSlide(payload.payload.current || 0);
           setIsPaused(payload.payload.paused || false);
           setCurrentImageName(payload.payload.currentImage || "");
-          if (payload.payload.transitionEffect) {
-            setTransitionEffect(payload.payload.transitionEffect);
-          }
           setIsConnected(true);
         }
       })
@@ -81,11 +77,6 @@ export default function RemoteControl() {
   const handleLast = useCallback(() => sendCommand('goto', { index: slideCount - 1 }), [sendCommand, slideCount]);
   const handleRestart = useCallback(() => sendCommand('restart'), [sendCommand]);
   const handleRefresh = useCallback(() => sendCommand('refresh'), [sendCommand]);
-  const handleSetTransition = useCallback((effect: string) => {
-    setTransitionEffect(effect);
-    sendCommand('set-transition', { effect });
-    console.log('🎨 Setting transition effect to:', effect);
-  }, [sendCommand]);
   const handleJumpTo = useCallback(() => {
     const slideNumber = parseInt(jumpToSlide);
     if (!isNaN(slideNumber) && slideNumber >= 1 && slideNumber <= slideCount) {
@@ -302,34 +293,6 @@ export default function RemoteControl() {
           <div className="mb-8 rounded-2xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-pink-500/10 p-8 shadow-2xl backdrop-blur-xl">
             <h2 className="mb-6 text-xs font-bold uppercase tracking-widest text-purple-200">Advanced Controls</h2>
             
-            {/* Transition Effect */}
-            <div className="mb-6">
-              <label className="mb-3 block text-sm font-medium text-white/70">
-                Transition Effect
-                {transitionEffect && (
-                  <span className="ml-2 text-xs text-purple-300">
-                    (Current: {transitionEffect})
-                  </span>
-                )}
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {['fade', 'slide', 'zoom', 'none'].map((effect) => (
-                  <button
-                    key={effect}
-                    onClick={() => handleSetTransition(effect)}
-                    disabled={!isConnected}
-                    className={`rounded-lg px-4 py-2.5 text-xs font-bold capitalize transition-all duration-200 active:scale-95 disabled:cursor-not-allowed ${
-                      transitionEffect === effect
-                        ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/50'
-                        : 'border border-white/20 bg-white/5 text-white/80 disabled:opacity-30 hover:bg-white/10'
-                    }`}
-                  >
-                    {effect}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Keyboard Shortcuts Info */}
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-white/70">Keyboard Shortcuts</h3>

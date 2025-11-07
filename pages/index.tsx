@@ -10,9 +10,6 @@ const AUTO_REFRESH_INTERVAL_MS = 60_000; // Check for new images every 60 second
 type Language = "en" | "ko" | "id";
 const LANGUAGE_SEQUENCE: Language[] = ["en", "ko", "id"];
 
-type TransitionEffect = "fade" | "slide" | "zoom" | "none";
-const DEFAULT_TRANSITION: TransitionEffect = "fade";
-
 // Precompute Supabase origin for resource hints
 const SUPABASE_ORIGIN = (() => {
   try {
@@ -366,7 +363,6 @@ export default function Home() {
   const [fadeIn, setFadeIn] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [showControls, setShowControls] = useState(false);
-  const [transitionEffect, setTransitionEffect] = useState<TransitionEffect>(DEFAULT_TRANSITION);
   const [slideCountdowns, setSlideCountdowns] = useState<number[]>([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showCurrentVideo, setShowCurrentVideo] = useState(true); // For buffer swapping
@@ -543,16 +539,6 @@ export default function Home() {
   // Initial fetch on mount
   useEffect(() => {
     fetchSlides(false);
-    
-    // Load transition effect from settings
-    fetch('/api/settings')
-      .then(res => res.json())
-      .then(data => {
-        if (data.transitionEffect) {
-          setTransitionEffect(data.transitionEffect);
-        }
-      })
-      .catch(err => console.error('Failed to load settings:', err));
   }, [fetchSlides]);
 
   // Auto-refresh: Check for new images periodically
@@ -748,33 +734,6 @@ export default function Home() {
     }
   }, [slides.length]);
 
-  // Save transition effect to settings
-  const saveTransitionEffect = useCallback(async (effect: TransitionEffect) => {
-    try {
-      const response = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transitionEffect: effect }),
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to save transition effect:', errorText);
-        // Still update local state even if save fails
-        setTransitionEffect(effect);
-        return;
-      }
-      
-      const data = await response.json();
-      console.log('✅ Transition effect saved:', data);
-      setTransitionEffect(effect);
-    } catch (error) {
-      console.error('Failed to save transition effect:', error);
-      // Still update local state even if save fails
-      setTransitionEffect(effect);
-    }
-  }, []);
-
   const goToNextSlide = useCallback(() => {
     const nextIndex = (currentIndex + 1) % slides.length;
     goToSlide(nextIndex);
@@ -953,13 +912,6 @@ export default function Home() {
           case 'refresh':
             void fetchSlides(true);
             break;
-          case 'set-transition':
-          case 'change-transition':
-            if (data?.effect) {
-              void saveTransitionEffect(data.effect);
-              console.log('🎨 Transition effect changed to:', data.effect);
-            }
-            break;
         }
       })
       .on('broadcast', { event: 'request-status' }, () => {
@@ -973,7 +925,6 @@ export default function Home() {
             current: currentIndex,
             currentImage: slides[currentIndex]?.name || '',
             paused: isPaused,
-            transitionEffect: transitionEffect,
           }
         });
       })
@@ -982,7 +933,7 @@ export default function Home() {
     return () => {
       supabase.removeChannel(remoteChannel);
     };
-  }, [slides, currentIndex, isPaused, transitionEffect, goToNextSlide, goToPreviousSlide, goToSlide, saveTransitionEffect, fetchSlides]);
+  }, [slides, currentIndex, isPaused, goToNextSlide, goToPreviousSlide, goToSlide, fetchSlides]);
 
   // Broadcast status updates
   useEffect(() => {
@@ -992,11 +943,10 @@ export default function Home() {
       current: currentIndex,
       currentImage: slides[currentIndex]?.name || '',
       paused: isPaused,
-      transitionEffect: transitionEffect,
     }).catch(() => {
       // Ignore errors silently
     });
-  }, [slides, currentIndex, isPaused, transitionEffect]);
+  }, [slides, currentIndex, isPaused]);
 
   // Keep screen awake and auto-reload for LG TV - aggressive multi-method approach
   useEffect(() => {
@@ -1354,45 +1304,6 @@ export default function Home() {
     return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Get transition styles based on selected effect
-  const getTransitionStyle = (): CSSProperties => {
-    const baseStyle: CSSProperties = {
-      ...styles.imageWrapper,
-      transition: `all ${FADE_DURATION_MS}ms ease-in-out`,
-    };
-
-    switch (transitionEffect) {
-      case "fade":
-        return {
-          ...baseStyle,
-          opacity: fadeIn ? 1 : 0,
-        };
-      case "slide":
-        return {
-          ...baseStyle,
-          opacity: 1,
-          transform: fadeIn ? "translateX(0)" : "translateX(100%)",
-        };
-      case "zoom":
-        return {
-          ...baseStyle,
-          opacity: fadeIn ? 1 : 0,
-          transform: fadeIn ? "scale(1)" : "scale(0.8)",
-        };
-      case "none":
-        return {
-          ...baseStyle,
-          opacity: 1,
-          transition: "none",
-        };
-      default:
-        return {
-          ...baseStyle,
-          opacity: fadeIn ? 1 : 0,
-        };
-    }
-  };
-
   return (
     <main style={styles.container}>
       <Head>
@@ -1667,45 +1578,6 @@ export default function Home() {
             >
               Next ⏭️
             </button>
-          </div>
-
-          {/* Transition selector */}
-          <div style={styles.controlsRow}>
-            {(['fade', 'slide', 'zoom', 'none'] as TransitionEffect[]).map((effect) => (
-              <button
-                key={effect}
-                onClick={() => saveTransitionEffect(effect)}
-                style={{
-                  padding: '10px 16px',
-                  borderRadius: '8px',
-                  backgroundColor: transitionEffect === effect 
-                    ? "rgba(96, 165, 250, 0.5)" 
-                    : "rgba(255, 255, 255, 0.1)",
-                  border: transitionEffect === effect
-                    ? "1px solid rgba(96, 165, 250, 0.8)"
-                    : "1px solid rgba(255, 255, 255, 0.2)",
-                  color: "#ffffff",
-                  fontSize: '0.9rem',
-                  fontWeight: transitionEffect === effect ? 600 : 500,
-                  cursor: 'pointer',
-                  transition: 'all 200ms ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = transitionEffect === effect
-                    ? "rgba(96, 165, 250, 0.6)"
-                    : "rgba(255, 255, 255, 0.2)";
-                  e.currentTarget.style.transform = "scale(1.05)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = transitionEffect === effect
-                    ? "rgba(96, 165, 250, 0.5)"
-                    : "rgba(255, 255, 255, 0.1)";
-                  e.currentTarget.style.transform = "scale(1)";
-                }}
-              >
-                {effect.charAt(0).toUpperCase() + effect.slice(1)}
-              </button>
-            ))}
           </div>
 
           {/* Thumbnail grid - Video thumbnails */}
