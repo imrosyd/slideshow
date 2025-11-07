@@ -1,9 +1,9 @@
 # 🎞️ Slideshow Dashboard System
 
 **Solusi digital signage all-in-one untuk Smart TV dan display monitor.**  
-Dashboard slideshow profesional untuk TV/Display dengan admin panel intuitif, penyimpanan di Supabase, konversi otomatis gambar/PDF menjadi video, dan optimisasi webOS agar layar tetap menyala selama pemutaran.
+Dashboard slideshow profesional untuk TV/Display dengan admin panel intuitif, penyimpanan di Supabase, konversi manual gambar/PDF menjadi video, dan optimisasi webOS agar layar tetap menyala selama pemutaran.
 
-> **Last Updated**: November 6, 2025 | **Version**: v1.2.0 | **Status**: ✅ Production Ready
+> **Last Updated**: November 7, 2025 | **Version**: v1.3.0 | **Status**: ✅ Production Ready
 
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/) 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
@@ -11,23 +11,28 @@ Dashboard slideshow profesional untuk TV/Display dengan admin panel intuitif, pe
 
 ## 🎯 Apa itu Slideshow?
 
-Slideshow adalah aplikasi **Next.js 14 + TypeScript** yang dirancang khusus untuk menampilkan rotasi konten visual di layar TV secara terus‑menerus tanpa gangguan. Admin dapat mengunggah gambar/PDF, mengatur durasi tampil per slide, urutan, dan caption melalui panel yang user-friendly. Sistem otomatis mengonversi konten menjadi video MP4 yang dioptimalkan untuk playback lancar di perangkat webOS (khususnya LG TV), dilengkapi mekanisme keep-awake agresif dan loop native agar layar tidak sleep.
+Slideshow adalah aplikasi **Next.js 14 + TypeScript** yang dirancang khusus untuk menampilkan rotasi konten visual di layar TV secara terus‑menerus tanpa gangguan. Admin dapat mengunggah gambar/PDF, mengatur durasi tampil per slide, urutan, dan caption melalui panel yang user-friendly. Sistem memungkinkan konversi manual konten menjadi video MP4 yang dioptimalkan untuk playback lancar di perangkat webOS (khususnya LG TV), dilengkapi mekanisme keep-awake agresif dan loop native agar layar tidak sleep.
 
 ## ✨ Fitur
 
 ### 🗂️ Manajemen Konten (Admin)
 - ✅ Upload banyak file sekaligus (gambar/PDF) ke Supabase Storage
 - ✅ Rename file, ubah durasi tampil, caption, urutan, dan visibilitas (hidden)
-- ✅ Generate video MP4 dari gambar/PDF (libx264, yuv420p, optimized for webOS)
-- ✅ Hapus file beserta metadata terkait
+- ✅ Generate video MP4 secara manual per-image (libx264, yuv420p, optimized for webOS)
+- ✅ Individual video generation - setiap gambar memiliki video sendiri
+- ✅ Hapus file beserta metadata dan video terkait
 - ✅ Drag & drop reordering, real-time preview
+- ✅ PDF to images conversion dengan preview
 
 ### 📺 Pemutar Slideshow (Display/TV)
-- ✅ Pemutaran video secara loop tanpa jeda dengan retry/backoff
-- ✅ Keep‑awake agresif (Wake Lock API, event video, dan webOS API)
-- ✅ Optimisasi webOS: throttled triggers dan native loop
-- ✅ Auto refresh konten berkala
-- ✅ Smooth transitions dengan prefetch next slide
+- ✅ Pemutaran video secara loop tanpa jeda dengan retry logic
+- ✅ Auto-transition antar slide dengan preload untuk smooth playback
+- ✅ Keep‑awake agresif untuk webOS TV (Wake Lock API, webOS Power Manager API)
+- ✅ Optimisasi webOS: native video loop, webkit prefixes, retry playback
+- ✅ Auto refresh konten berkala (60 detik)
+- ✅ Smooth transitions dengan prefetch next slide (3 detik timeout)
+- ✅ Fullscreen support dengan user gesture detection
+- ✅ Real-time sync via Supabase channels untuk remote control
 
 ### 🧰 Infrastruktur
 - ✅ Supabase Storage: `slideshow-images` dan `slideshow-videos`
@@ -197,40 +202,45 @@ Pastikan semua SQL migrations (bagian Setup Supabase) sudah dijalankan di Supaba
 slideshow/
 ├── components/
 │   └── admin/
-│       ├── UploadBox.tsx
-│       ├── ImageCard.tsx
-│       ├── ConfirmModal.tsx
-│       ├── BatchVideoDialog.tsx
-│       └── ToastProvider.tsx
+│       ├── UploadBox.tsx            # Upload gambar/PDF
+│       ├── ImageCard.tsx            # Card display untuk setiap image
+│       ├── GenerateVideoDialog.tsx  # Dialog generate video individual
+│       ├── ConfirmModal.tsx         # Modal konfirmasi delete
+│       └── ToastProvider.tsx        # Toast notifications
 ├── hooks/
-│   ├── useImages.ts
-│   └── useToast.ts
+│   ├── useImages.ts                 # Image management logic
+│   └── useToast.ts                  # Toast notification hook
 ├── lib/
-│   ├── auth.ts
-│   ├── supabase.ts
-│   ├── constants.ts
-│   └── webos.ts
+│   ├── auth.ts                      # Authentication utilities
+│   ├── supabase.ts                  # Supabase client setup
+│   ├── constants.ts                 # App constants
+│   └── database.types.ts            # TypeScript types dari Supabase
 ├── pages/
-│   ├── index.tsx                    # Pemutar slideshow (TV)
+│   ├── index.tsx                    # Pemutar slideshow (TV) - webOS optimized
 │   ├── admin.tsx                    # Panel admin
 │   ├── login.tsx                    # Login page
+│   ├── remote.tsx                   # Remote control page
 │   └── api/
 │       ├── admin/
-│       │   ├── generate-video.ts    # FFmpeg video generation
-│       │   ├── metadata.ts
-│       │   ├── images.ts
-│       │   ├── cleanup-videos.ts
-│       │   └── ...
-│       ├── settings.ts
-│       └── ...
+│       │   ├── generate-video.ts    # FFmpeg video generation (individual)
+│       │   ├── delete-video.ts      # Delete video & update metadata
+│       │   ├── metadata.ts          # Update image metadata
+│       │   ├── images.ts            # List images
+│       │   ├── settings.ts          # Video encoding settings
+│       │   ├── force-refresh.ts     # Force slideshow refresh
+│       │   └── cleanup-videos.ts    # Cleanup orphaned videos
+│       ├── settings.ts              # Public settings endpoint
+│       ├── images.ts                # Public image list
+│       └── auth.ts                  # Authentication endpoint
 ├── supabase/                        # SQL migrations
 │   ├── 001_create_image_durations_table.sql
 │   ├── 002_create_slideshow_settings_table.sql
 │   ├── 003_add_video_metadata_columns.sql
 │   └── 004_enable_row_level_security.sql
 ├── public/
+│   └── favicon.svg
 ├── styles/
-├── test-rls.html                    # RLS testing tool
+│   └── globals.css
 ├── next.config.js
 ├── tsconfig.json
 └── package.json
@@ -254,25 +264,25 @@ slideshow/
 | **401 saat akses `/admin`** | Cek `ADMIN_PASSWORD` di `.env.local` |
 | **403 saat upload ke Storage** | Cek Storage Policies sudah dibuat dengan benar |
 | **Anon user bisa menulis data** | Pastikan RLS migration `004` sudah dijalankan |
-| **Canvas2D warning di console (PDF)** | Fixed di v1.2 — upgrade ke versi terbaru |
-| **Video generation error 500** | Lihat bagian "Video Generation" di bawah |
+| **PDF conversion error** | Pastikan pdf.js library loaded, check console |
 
 ### Video Generation
 
 | Masalah | Solusi |
 |--------|--------|
 | **Error 500 saat generate video** | • Durasi harus ≥ 1 detik per slide (auto-clamp)<br/>• Cek FFmpeg binary tersedia (dev: ada, Vercel: pastikan environment ok) |
-| **Video tidak muncul di admin** | • Refresh page<br/>• Cek browser console untuk error<br/>• Cek Storage bucket `slideshow-videos` ada |
-| **Durasi video salah** | • Check image metadata di database (duration_ms)<br/>• Server log: `[Video Gen] Effective total duration: ...` |
+| **Video tidak muncul di admin** | • Refresh page atau klik "Force Refresh"<br/>• Cek browser console untuk error<br/>• Cek Storage bucket `slideshow-videos` ada |
+| **MOTORCYCLE.mp4 sama dengan CAR.mp4** | • Generate ulang video MOTORCYCLE.png secara individual<br/>• Delete video lama dulu, lalu generate baru<br/>• Pastikan setiap image punya video sendiri |
 | **File size besar/kecil tidak expected** | • Tune via `video_crf` (default 22)<br/>• CRF 18 = lebih bagus, lebih besar<br/>• CRF 28 = lebih kecil, kurang bagus |
 
-### TV Playback
+### TV Playback (webOS)
 
 | Masalah | Solusi |
 |--------|--------|
-| **Layar TV sleep/blank** | • Video harus H.264/yuv420p (default ok)<br/>• Koneksi stabil, pastikan buffer.<br/>• Check keep-awake mekanisme di logs |
-| **Video tidak play di TV** | • Verify video format: `ffmpeg -i [file]`<br/>• Try video dengan durasi ≥ 2 detik<br/>• Test di browser PC dulu |
-| **Auto-refresh tidak jalan** | • Check `/api/settings` returns `autoRefreshInterval` (default 60000ms)<br/>• Check Supabase Realtime terhubung |
+| **Layar TV sleep/blank** | • Video harus H.264/yuv420p (default ok)<br/>• Koneksi stabil, pastikan buffer<br/>• Check keep-awake mekanisme di console logs |
+| **Video tidak play di webOS TV** | • Verify video format: `ffmpeg -i [file]`<br/>• Try video dengan durasi ≥ 2 detik<br/>• Check console untuk webOS detection log |
+| **Fullscreen error warning** | • Normal - fullscreen hanya bisa triggered oleh user gesture<br/>• Klik/tap layar untuk trigger fullscreen |
+| **Supabase Realtime warning** | • Fixed di v1.3 - menggunakan httpSend() untuk REST delivery<br/>• No impact ke functionality |
 
 ### Database & RLS
 
@@ -281,24 +291,44 @@ slideshow/
 | **Policies tidak bekerja** | • Re-run migration `004_enable_row_level_security.sql`<br/>• Cek RLS enabled di dashboard<br/>• Use test-rls.html untuk debug |
 | **Service role upload error** | • Cek `SUPABASE_SERVICE_ROLE_KEY` correct<br/>• Service role key hanya di `.env.local` (server-side) |
 
-## 🔄 Recent Updates (v1.2.0)
+## 🔄 Recent Updates (v1.3.0)
 
-### 🐛 Bug Fixes
-- ✅ **FFmpeg single-image videos**: Fixed filter graph untuk single input (ganti concat dengan null passthrough)
-- ✅ **Zero-duration images**: Clamp durasi ke 1 detik minimum, prevent -t 0 failure
-- ✅ **Canvas2D performance warning**: Added willReadFrequently hint pada PDF rendering
+### 🎯 Major Changes
+- ✅ **Manual video generation only**: Removed auto-generate, videos hanya di-generate via button
+- ✅ **Individual video per image**: Setiap gambar memiliki video MP4 sendiri (CAR.png → CAR.mp4, MOTORCYCLE.png → MOTORCYCLE.mp4)
+- ✅ **No batch generation**: Tidak ada lagi batch video generation yang menggabungkan multiple images
 
-### ⚡ Performance & Features
-- ✅ **Configurable encoding**: Read video_* settings dari database (CRF, preset, profile, level, fps, gop, resolution)
-- ✅ **Admin page optimization**: Preconnect/dns-prefetch ke Supabase untuk API calls lebih cepat
-- ✅ **Exposed encoding defaults**: `/api/settings` menampilkan video_* dengan safe defaults
+### 🐛 Bug Fixes  
+- ✅ **Double transition fixed**: Prevented multiple preload events causing duplicate transitions
+- ✅ **Preload timeout**: Added 3-second fallback untuk force transition jika video load lambat
+- ✅ **Supabase Realtime warnings**: Fixed dengan menggunakan `httpSend()` untuk explicit REST delivery
+- ✅ **Fullscreen API warnings**: Added user gesture detection untuk prevent browser warnings
+- ✅ **Video naming in logs**: Console logs sekarang menampilkan nama video yang sebenarnya (`.mp4`) bukan nama PNG
+
+### ⚡ Performance & UX
+- ✅ **webOS optimization**: Full webOS TV compatibility dengan multiple keep-awake methods
+- ✅ **Smooth video transitions**: Improved preload logic dengan prevent double-trigger
+- ✅ **Control overlay fix**: Overlay hanya muncul saat ada user interaction
+- ✅ **Video looping**: Ensured continuous loop untuk single & multiple videos
+- ✅ **File cleanup**: Removed unused components (BatchVideoDialog, GenerateAllVideoDialog)
 
 ### 📝 Documentation
-- ✅ **Updated README**: Dokumentasi encoding options dan troubleshooting lebih lengkap
-- ✅ **RLS testing guide**: `test-rls.html` untuk validasi policies
-- ✅ **Inline logging**: Enhanced console logs di generate-video untuk debugging
+- ✅ **Updated README**: Struktur project terbaru dan workflow manual generation
+- ✅ **webOS compatibility**: Complete checklist untuk webOS TV deployment
+- ✅ **Troubleshooting guide**: Enhanced dengan solusi untuk masalah umum
 
 ## 🔄 Changelog
+
+### v1.3.0 (November 7, 2025)
+- Manual individual video generation (no auto-generate)
+- Fixed double transition bug dengan transitionTriggered flag
+- Added preload timeout fallback (3 seconds)
+- Fixed Supabase Realtime deprecation warnings
+- Fixed fullscreen API user gesture requirement
+- Video naming consistency di logs dan UI
+- webOS full compatibility verified
+- File cleanup: removed unused components
+- Updated documentation dan struktur project
 
 ### v1.2.0 (November 6, 2025)
 - Fixed FFmpeg filter graph untuk single-image videos

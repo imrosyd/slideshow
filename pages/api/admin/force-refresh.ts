@@ -11,27 +11,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Broadcast refresh signal via Supabase channel
+    // Broadcast refresh signal via Supabase channel using explicit REST delivery
     const channel = supabase.channel('slideshow-control');
-    
-    await channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        // Send refresh command explicitly using httpSend
-        await channel.httpSend('broadcast', {
-          event: 'force-refresh',
-          payload: { timestamp: Date.now() }
-        });
-        
-        // Wait a bit for message to be sent
-        setTimeout(async () => {
-          await supabase.removeChannel(channel);
-          res.status(200).json({ 
-            success: true, 
-            message: 'Refresh signal sent to slideshow',
-            timestamp: Date.now()
-          });
-        }, 500);
-      }
+
+    await channel.httpSend('force-refresh', { timestamp: Date.now() });
+    await supabase.removeChannel(channel);
+
+    res.status(200).json({
+      success: true,
+      message: 'Refresh signal sent to slideshow',
+      timestamp: Date.now()
     });
   } catch (error) {
     console.error('Force refresh error:', error);

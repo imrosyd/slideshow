@@ -338,7 +338,13 @@ export default async function handler(
     // 6. Update database for all processed images
     console.log(`[Video Gen] Updating database for ${imagesToProcess.length} image(s)...`);
 
-    for (const imgFilename of imagesToProcess) {
+    // For single image: only update that specific image
+    // For batch: update all images in the batch (they share one concatenated video)
+    const imagesToUpdate = imagesToProcess.length === 1 
+      ? [imagesToProcess[0]] // Only update the single image
+      : imagesToProcess; // Update all images in batch
+
+    for (const imgFilename of imagesToUpdate) {
       const durationSecondsForImage = imageDurations.get(imgFilename) ?? 20;
       const durationMs = Math.max(1, Math.round(durationSecondsForImage)) * 1000;
       const timestamp = new Date().toISOString();

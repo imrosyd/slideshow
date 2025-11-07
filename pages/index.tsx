@@ -371,6 +371,7 @@ export default function Home() {
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fullscreenRequestedRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastKeepAwakeTimeRef = useRef<number>(0);
   const slideStartTimeRef = useRef<number>(Date.now());
@@ -639,26 +640,52 @@ export default function Home() {
 
   // Auto-rotate slides with smooth fade
   useEffect(() => {
-    if (slides.length <= 1 || isPaused) {
-      console.log(`⏸️ Not rotating: ${slides.length} slide(s), paused: ${isPaused}`);
+    // If only 1 slide, let the video loop naturally (no slide rotation needed)
+    if (slides.length <= 1) {
+      if (slides.length === 1) {
+        const slide = slides[0];
+        const displayName = slide.isVideo && slide.videoUrl 
+          ? slide.videoUrl.split('/').pop() || slide.name
+          : slide.name;
+        console.log(`🔁 Single slide mode - video will loop continuously: ${displayName}`);
+      }
+      return;
+    }
+
+    // If paused, don't rotate
+    if (isPaused) {
+      console.log(`⏸️ Slideshow paused`);
       return;
     }
 
     const currentSlide = slides[currentIndex];
     if (!currentSlide) return;
 
-    console.log(`⏱️ Timer set for ${currentSlide.durationSeconds}s (slide ${currentIndex + 1}/${slides.length}: ${currentSlide.name})`);
+    const displayName = currentSlide.isVideo && currentSlide.videoUrl 
+      ? currentSlide.videoUrl.split('/').pop() || currentSlide.name
+      : currentSlide.name;
+
+    console.log(`⏱️ Timer set for ${currentSlide.durationSeconds}s (slide ${currentIndex + 1}/${slides.length}: ${displayName})`);
 
     const timer = setTimeout(() => {
       const nextIndex = (currentIndex + 1) % slides.length;
       const nextSlide = slides[nextIndex];
       
-      console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}: ${nextSlide?.name}`);
+      const nextDisplayName = nextSlide?.isVideo && nextSlide.videoUrl 
+        ? nextSlide.videoUrl.split('/').pop() || nextSlide?.name
+        : nextSlide?.name;
+      
+      console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}: ${nextDisplayName}`);
       
       // Preload next slide before transition (handle both video and image)
       if (nextSlide) {
+        let transitionTriggered = false;
+        
         const preloadComplete = () => {
-          console.log(`🔄 Preloaded: ${nextSlide.name}`);
+          if (transitionTriggered) return; // Prevent double transition
+          transitionTriggered = true;
+          
+          console.log(`🔄 Preloaded: ${nextDisplayName}`);
           // Fade out current
           setFadeIn(false);
           
@@ -670,8 +697,11 @@ export default function Home() {
         };
         
         const preloadFailed = () => {
+          if (transitionTriggered) return; // Prevent double transition
+          transitionTriggered = true;
+          
           // If preload fails, just switch anyway
-          console.error(`❌ Failed to preload: ${nextSlide.name}`);
+          console.error(`❌ Failed to preload: ${nextDisplayName}`);
           setFadeIn(false);
           setTimeout(() => {
             setCurrentIndex(nextIndex);
@@ -684,9 +714,30 @@ export default function Home() {
           const video = document.createElement('video');
           video.preload = 'auto';
           video.src = nextSlide.videoUrl;
-          video.oncanplaythrough = preloadComplete;
-          video.onerror = preloadFailed;
-          // Trigger load by setting src
+          
+          // Timeout fallback - force transition after 3 seconds if video doesn't load
+          const fallbackTimer = setTimeout(() => {
+            if (!transitionTriggered) {
+              console.warn(`⏱️ Preload timeout, forcing transition: ${nextDisplayName}`);
+              preloadComplete();
+            }
+          }, 3000);
+          
+          // Wrap preloadComplete to clear timeout
+          const handlePreloadComplete = () => {
+            clearTimeout(fallbackTimer);
+            preloadComplete();
+          };
+          
+          // Multiple event listeners for better reliability
+          video.addEventListener('canplaythrough', handlePreloadComplete, { once: true });
+          video.addEventListener('loadeddata', handlePreloadComplete, { once: true });
+          video.addEventListener('error', () => {
+            clearTimeout(fallbackTimer);
+            preloadFailed();
+          }, { once: true });
+          
+          // Trigger load
           video.load();
         } else {
           // Preload as image (fallback)
@@ -964,16 +1015,14 @@ export default function Home() {
   // Broadcast status updates
   useEffect(() => {
     const remoteChannel = supabase.channel('remote-control');
-    remoteChannel.send({
-      type: 'broadcast',
-      event: 'slideshow-status',
-      payload: {
-        total: slides.length,
-        current: currentIndex,
-        currentImage: slides[currentIndex]?.name || '',
-        paused: isPaused,
-        transitionEffect: transitionEffect,
-      }
+    remoteChannel.httpSend('slideshow-status', {
+      total: slides.length,
+      current: currentIndex,
+      currentImage: slides[currentIndex]?.name || '',
+      paused: isPaused,
+      transitionEffect: transitionEffect,
+    }).catch(() => {
+      // Ignore errors silently
     });
   }, [slides, currentIndex, isPaused, transitionEffect]);
 
@@ -1147,18 +1196,50 @@ export default function Home() {
     const requestFullscreen = () => {
       try {
         const elem = document.documentElement;
-        if (elem.requestFullscreen && document.fullscreenElement === null) {
-          elem.requestFullscreen().catch(() => {});
-        } else if ((elem as any).webkitRequestFullscreen && !(document as any).webkitFullscreenElement) {
+        const fullscreenElement = document.fullscreenElement
+          || (document as any).webkitFullscreenElement
+          || (document as any).mozFullScreenElement
+          || (document as any).msFullscreenElement;
+
+        const userActivation = typeof navigator !== 'undefined' && (navigator as any).userActivation
+          ? (navigator as any).userActivation
+          : null;
+
+        const canInitiate = fullscreenElement
+          || !userActivation
+          || userActivation.isActive;
+
+        if (!canInitiate) {
+          return;
+        }
+
+        const markRequested = () => {
+          fullscreenRequestedRef.current = true;
+        };
+
+        if (elem.requestFullscreen && !fullscreenElement) {
+          elem.requestFullscreen().then(markRequested).catch(() => {});
+        } else if ((elem as any).webkitRequestFullscreen && !fullscreenElement) {
           (elem as any).webkitRequestFullscreen();
-        } else if ((elem as any).mozRequestFullScreen && !(document as any).mozFullScreenElement) {
+          markRequested();
+        } else if ((elem as any).mozRequestFullScreen && !fullscreenElement) {
           (elem as any).mozRequestFullScreen();
-        } else if ((elem as any).msRequestFullscreen && !(document as any).msFullscreenElement) {
+          markRequested();
+        } else if ((elem as any).msRequestFullscreen && !fullscreenElement) {
           (elem as any).msRequestFullscreen();
+          markRequested();
         }
       } catch (e) {
         console.log('⚠️ Fullscreen request failed');
       }
+    };
+
+    const handleFullscreenChange = () => {
+      const fullscreenElement = document.fullscreenElement
+        || (document as any).webkitFullscreenElement
+        || (document as any).mozFullScreenElement
+        || (document as any).msFullscreenElement;
+      fullscreenRequestedRef.current = Boolean(fullscreenElement);
     };
 
     // 6. Aggressive continuous keep-alive (every 5 minutes)
@@ -1205,11 +1286,16 @@ export default function Home() {
     
     // Re-request wake lock on visibility change
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange as any);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange as any);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange as any);
     
     // Also trigger on user interaction
     const triggerOnInteraction = () => {
       requestWakeLock();
       simulateActivity();
+      requestFullscreen();
     };
     
     document.addEventListener('click', triggerOnInteraction, { once: true });
@@ -1234,6 +1320,10 @@ export default function Home() {
         hiddenVideo.parentNode.removeChild(hiddenVideo);
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange as any);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange as any);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange as any);
       document.removeEventListener('click', triggerOnInteraction);
       document.removeEventListener('keydown', triggerOnInteraction);
       document.removeEventListener('touchstart', triggerOnInteraction);
@@ -1353,27 +1443,30 @@ export default function Home() {
             x-webkit-airplay="allow"
             style={styles.image}
             onLoadStart={() => {
-              console.log(`🔵 Video load started - ${currentSlide.name}`);
+              const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
+              console.log(`🔵 Video load started - ${videoName}`);
             }}
             onLoadedMetadata={() => {
-              console.log(`📊 Video metadata loaded - ${currentSlide.name}`);
+              const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
+              console.log(`📊 Video metadata loaded - ${videoName}`);
             }}
             onLoadedData={() => {
               const video = videoRef.current;
-              console.log(`📺 WebOS: Video loaded, attempting play - ${currentSlide.name}`);
+              const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
+              console.log(`📺 WebOS: Video loaded, attempting play - ${videoName}`);
               if (video) {
                 // WebOS-friendly play with multiple retries
                 const attemptPlay = (retryCount = 0) => {
                   video.play()
                     .then(() => {
-                      console.log(`✅ Play success - ${currentSlide.name}`);
+                      console.log(`✅ Play success - ${videoName}`);
                     })
                     .catch((e) => {
                       if (retryCount < 3) {
                         console.warn(`⚠️ WebOS: Play attempt ${retryCount + 1} failed, retrying...`);
                         setTimeout(() => attemptPlay(retryCount + 1), 200 * (retryCount + 1));
                       } else {
-                        console.error(`❌ WebOS: All play attempts failed - ${currentSlide.name}`, e);
+                        console.error(`❌ WebOS: All play attempts failed - ${videoName}`, e);
                       }
                     });
                 };
@@ -1381,7 +1474,8 @@ export default function Home() {
               }
             }}
             onPlay={() => {
-              console.log(`▶️ Video playing - ${currentSlide.name}`);
+              const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
+              console.log(`▶️ Video playing - ${videoName}`);
               // Trigger keep-awake when video starts playing
               if (typeof document !== 'undefined') {
                 document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
@@ -1403,7 +1497,8 @@ export default function Home() {
             }}
             onEnded={() => {
               // webOS: Native loop attribute handles replay, just trigger keep-awake
-              console.log(`🔄 Video loop restart - ${currentSlide.name}`);
+              const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
+              console.log(`🔄 Video loop restart - ${videoName}`);
               // Trigger keep-awake
               if (typeof document !== 'undefined') {
                 document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
@@ -1412,20 +1507,24 @@ export default function Home() {
             onError={(e) => {
               const target = e.target as HTMLVideoElement;
               const error = target.error;
-              console.error(`❌ Video error - ${currentSlide.name}`);
+              const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
+              console.error(`❌ Video error - ${videoName}`);
               console.error(`   Error code: ${error?.code}`);
               console.error(`   Error message: ${error?.message}`);
               console.error(`   Video URL: ${currentSlide.videoUrl}`);
               console.error(`   MEDIA_ERR_ABORTED: 1, MEDIA_ERR_NETWORK: 2, MEDIA_ERR_DECODE: 3, MEDIA_ERR_SRC_NOT_SUPPORTED: 4`);
             }}
             onCanPlayThrough={() => {
-              console.log(`✅ Can play through: ${currentSlide.name}`);
+              const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
+              console.log(`✅ Can play through: ${videoName}`);
             }}
             onStalled={() => {
-              console.warn(`⚠️ Video stalled - ${currentSlide.name}`);
+              const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
+              console.warn(`⚠️ Video stalled - ${videoName}`);
             }}
             onWaiting={() => {
-              console.log(`⏳ Video waiting - ${currentSlide.name}`);
+              const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
+              console.log(`⏳ Video waiting - ${videoName}`);
             }}
           />
         ) : currentSlide ? (
@@ -1480,7 +1579,9 @@ export default function Home() {
         <div style={styles.controlsContainer}>
           {currentSlide && (
             <div style={styles.slideInfo}>
-              {currentSlide.name} • Sisa waktu: {formatCountdown(slideCountdowns[currentIndex] ?? currentSlide.durationSeconds)}
+              {currentSlide.isVideo && currentSlide.videoUrl 
+                ? currentSlide.videoUrl.split('/').pop() 
+                : currentSlide.name} • Sisa waktu: {formatCountdown(slideCountdowns[currentIndex] ?? currentSlide.durationSeconds)}
             </div>
           )}
           {/* Slide info and playback controls */}
