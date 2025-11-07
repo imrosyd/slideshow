@@ -288,6 +288,7 @@ export default function Home() {
       }
 
       const fetchedSlides = payload.images
+        .filter((item) => item.isVideo && item.videoUrl) // Only include videos
         .map((item) => {
           const durationMs = imageDurations[item.name];
           const durationSeconds =
@@ -295,18 +296,16 @@ export default function Home() {
               ? Math.max(1, Math.round(durationMs / 1000))
               : DEFAULT_SLIDE_DURATION_SECONDS;
 
-          const url = item.isVideo && item.videoUrl ? item.videoUrl : `/api/image/${item.name}`;
-
           return {
             name: item.name,
-            url: url,
+            url: item.videoUrl || "",
             durationSeconds,
             isVideo: item.isVideo,
             videoUrl: item.videoUrl,
           };
         });
 
-      console.log(`✅ Fetched ${fetchedSlides.length} slides`);
+      console.log(`✅ Fetched ${fetchedSlides.length} video slides`);
       setSlides(fetchedSlides);
       setError(null);
 
@@ -619,7 +618,7 @@ export default function Home() {
       {ResourceHints}
       <main style={styles.container}>
         <div style={styles.imageWrapper}>
-          {currentSlide && currentSlide.isVideo && currentSlide.videoUrl ? (
+          {currentSlide && currentSlide.videoUrl ? (
             <video
               ref={videoRef}
               src={currentSlide.videoUrl}
@@ -646,18 +645,6 @@ export default function Home() {
                 const error = target.error;
                 console.error(`❌ Video error: ${currentSlide.name}`);
                 console.error(`   Error code: ${error?.code}, message: ${error?.message}`);
-              }}
-            />
-          ) : currentSlide ? (
-            <img
-              src={currentSlide.url}
-              alt={currentSlide.name}
-              style={styles.image}
-              onLoad={() => {
-                console.log(`✅ Image loaded: ${currentSlide.name}`);
-              }}
-              onError={() => {
-                console.error(`❌ Image load error: ${currentSlide.name}`);
               }}
             />
           ) : null}
