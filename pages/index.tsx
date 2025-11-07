@@ -5,7 +5,7 @@ import { cacheVideo, getCachedVideo, getCacheStats } from "../lib/videoCache";
 
 const DEFAULT_SLIDE_DURATION_SECONDS = 20;
 const LANGUAGE_SWAP_INTERVAL_MS = 4_000;
-const FADE_DURATION_MS = 0; // Instant transition, no fade
+const FADE_DURATION_MS = 300; // Short fade to hide blank screens
 const AUTO_REFRESH_INTERVAL_MS = 60_000; // Check for new images every 60 seconds
 
 type Language = "en" | "ko" | "id";
@@ -393,6 +393,7 @@ export default function Home() {
   const [slideCountdowns, setSlideCountdowns] = useState<number[]>([]);
   const [nextVideoReady, setNextVideoReady] = useState(false);
   const [cachedVideos, setCachedVideos] = useState<Set<string>>(new Set());
+  const [fadeIn, setFadeIn] = useState(true);
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -772,8 +773,16 @@ export default function Home() {
     
     console.log(`🎬 [${currentIndex + 1}/${slides.length}] Playing: ${videoName}`);
     
-    // Always reset to beginning
+    // Fade out before transition
+    setFadeIn(false);
+    
+    // Reset video to beginning
     video.currentTime = 0;
+    
+    // Wait a bit for fade, then fade back in when video plays
+    const fadeTimer = setTimeout(() => {
+      setFadeIn(true);
+    }, FADE_DURATION_MS / 2);
     
     // Aggressive play: try immediately and repeatedly
     const tryPlay = (attempt = 1) => {
@@ -805,7 +814,10 @@ export default function Home() {
       }
     }, 200);
 
-    return () => clearTimeout(delayTimer);
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(delayTimer);
+    };
   }, [currentIndex, slides]);
 
   // Rotate language
@@ -1412,8 +1424,14 @@ export default function Home() {
         <title>Slideshow</title>
       </Head>
       
-      {/* Single video element with instant transition (no fade) */}
-      <div style={styles.imageWrapper}>
+      {/* Single video element with fade transition to hide blank screens */}
+      <div 
+        style={{
+          ...styles.imageWrapper,
+          opacity: fadeIn ? 1 : 0,
+          transition: `opacity ${FADE_DURATION_MS}ms ease-in-out`,
+        }}
+      >
         {currentSlide && currentSlide.videoUrl ? (
           <video
             ref={currentVideoRef}
