@@ -514,6 +514,16 @@ export default function Home() {
       if (slidesChanged) {
         console.log(`${isAutoRefresh ? '🔄 Auto-refresh:' : '✅'} Fetched ${fetchedSlides.length} slides${slidesChanged && isAutoRefresh ? ' (UPDATED!)' : ''}`, fetchedSlides.map(s => s.name));
         
+        // Validation: Log all slides with details
+        console.log(`📋 SLIDES VALIDATION (Total: ${fetchedSlides.length}):`);
+        fetchedSlides.forEach((slide, idx) => {
+          console.log(`  [${idx + 1}/${fetchedSlides.length}] ${slide.name}`);
+          console.log(`     - isVideo: ${slide.isVideo}`);
+          console.log(`     - duration: ${slide.durationSeconds}s`);
+          console.log(`     - videoUrl: ${slide.videoUrl ? '✅' : '❌'} ${slide.videoUrl?.split('/').pop()}`);
+          console.log(`     - url: ${slide.url?.split('/').pop()}`);
+        });
+        
         // Preload first image only on initial load
         if (!isAutoRefresh && fetchedSlides.length > 0) {
           const img = new Image();
@@ -660,7 +670,7 @@ export default function Home() {
 
     // If only one slide, just loop it
     if (slides.length <= 1) {
-      console.log(`🔁 Single slide - looping video`);
+      console.log(`🔁 [1/1] Single slide - looping video`);
       video.currentTime = 0;
       video.play().catch(e => console.error('Failed to loop:', e));
       return;
@@ -678,14 +688,14 @@ export default function Home() {
       ? nextSlide.videoUrl.split('/').pop() || nextSlide?.name
       : nextSlide?.name;
 
-    console.log(`🎬 Video ended: ${currentDisplayName}`);
+    console.log(`🎬 [${currentIndex + 1}/${slides.length}] Video ended: ${currentDisplayName}`);
 
     // Check if next video is ready
     if (nextVideoReady) {
-      console.log(`➡️ Next video ready, transitioning to: ${nextDisplayName}`);
+      console.log(`✅ [${nextIndex + 1}/${slides.length}] Next video ready, transitioning: ${nextDisplayName}`);
       setCurrentIndex(nextIndex);
     } else {
-      console.log(`⏳ Next video not ready yet (${nextDisplayName}), replaying current video`);
+      console.log(`⏳ [${currentIndex + 1}/${slides.length}] Next video not ready (${nextDisplayName}), replaying current`);
       // Replay current video
       video.currentTime = 0;
       video.play().catch(e => console.error('Failed to replay:', e));
@@ -718,12 +728,12 @@ export default function Home() {
           ? nextSlide.videoUrl.split('/').pop() || nextSlide?.name
           : nextSlide?.name;
 
-        console.log(`⏱️ Target duration reached (${targetDuration}s) and next video ready, transitioning to: ${nextDisplayName}`);
+        console.log(`⏱️ [${currentIndex + 1}/${slides.length}→${nextIndex + 1}/${slides.length}] Target duration reached (${targetDuration}s) and next ready, transitioning: ${nextDisplayName}`);
         setCurrentIndex(nextIndex);
       } else if (played >= targetDuration && !nextVideoReady) {
         // Log waiting state
         if (Math.floor(played) % 2 === 0) { // Log every 2 seconds to avoid spam
-          console.log(`⏳ Waiting for next video to be ready (played: ${played.toFixed(1)}s / target: ${targetDuration}s)`);
+          console.log(`⏳ [${currentIndex + 1}/${slides.length}] Waiting for next (played: ${played.toFixed(1)}s / target: ${targetDuration}s)`);
         }
       }
     };
