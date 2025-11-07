@@ -3,13 +3,13 @@
 **Solusi digital signage all-in-one untuk Smart TV dan display monitor.**  
 Dashboard slideshow profesional untuk TV/Display dengan admin panel intuitif, penyimpanan di Supabase, konversi manual gambar/PDF menjadi video, dan optimisasi webOS agar layar tetap menyala selama pemutaran.
 
-> **Last Updated**: November 7, 2025 | **Version**: v1.4.0 | **Status**: ✅ Production Ready
-> **Latest Feature**: 🎬 **Smart 50% Progressive Preload** - Seamless video transitions with zero blank screens
+> **Last Updated**: November 7, 2025 | **Version**: v1.5.0 | **Status**: ✅ Production Ready
+> **Latest Feature**: � **On-Screen UI Controls** - Mouse-activated control panel with distance-based trigger
 
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/) 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Storage%20%26%20DB-green)](https://supabase.com/)
-[![Smart Preload](https://img.shields.io/badge/Smart%20Preload-50%25%20Trigger-blueviolet)](FINAL_SUMMARY.md)
+[![UI Controls](https://img.shields.io/badge/UI%20Controls-Mouse%20Activated-orange)](README.md)
 
 ## 🎯 Apa itu Slideshow?
 
@@ -35,6 +35,21 @@ Slideshow adalah aplikasi **Next.js 14 + TypeScript** yang dirancang khusus untu
 - ✅ Smooth transitions dengan prefetch next slide (3 detik timeout)
 - ✅ Fullscreen support dengan user gesture detection
 - ✅ Real-time sync via Supabase channels untuk remote control
+- ✅ **On-screen UI controls** dengan mouse/touch activation
+
+### 🎮 UI Control System (NEW!)
+- ✅ **Distance-Based Trigger** - Controls appear only when mouse moves 50+ pixels
+- ✅ **Smart Detection** - 2-second delay + first movement skip to prevent accidental triggers
+- ✅ **Auto-Hide** - Automatically hides after 3 seconds of inactivity
+- ✅ **Center Positioned** - Floating controls in the middle of screen
+- ✅ **Three Control Buttons**:
+  - ⏮️ Previous - Jump to previous slide
+  - ⏸️/▶️ Pause/Resume - Toggle playback
+  - ⏭️ Next - Jump to next slide
+- ✅ **Hover Effects** - Visual feedback with scale animation and background change
+- ✅ **Clean Design** - Solid white buttons with black text/border
+- ✅ **Transparent Background** - Minimal interference with content
+- ✅ **Multiple Control Methods**: Keyboard shortcuts, Remote control page, On-screen buttons
 
 ### 🧰 Infrastruktur
 - ✅ Supabase Storage: `slideshow-images` dan `slideshow-videos`
@@ -49,14 +64,6 @@ Slideshow adalah aplikasi **Next.js 14 + TypeScript** yang dirancang khusus untu
 - ✅ Sanitasi nama file dan batas ukuran upload
 - ✅ RLS policies untuk akses terkontrol (enabled via migration)
 - ✅ Service Role Key untuk backend operations (tidak terekspos ke client)
-
-### 🎬 Smart Video Transitions (NEW!)
-- ✅ **Smart 50% Progressive Preload** - Preload next video at 50% of current duration
-- ✅ **Zero Blank Screens** - Next video ready before current ends
-- ✅ **Seamless Instant Transitions** - Direct switch with 0ms animation overhead
-- ✅ **Infinite Loop** - Works seamlessly for 1, 2, 5, 10+ videos
-- ✅ **Intelligent Buffer Timing** - 5-15 second preload buffer for network reliability
-- ✅ See [`FINAL_SUMMARY.md`](FINAL_SUMMARY.md) for technical details
 
 ## 🧱 Tech Stack
 
