@@ -28,7 +28,7 @@ async function readImageList(): Promise<{
   const { data: allDbMetadata, error: dbError } = await supabaseServiceRole
     .from('image_durations')
     .select('*')
-    .order('display_order', { ascending: true });
+    .order('order_index', { ascending: true });
 
   if (dbError) {
     console.error("[Images API] Database error:", dbError);
