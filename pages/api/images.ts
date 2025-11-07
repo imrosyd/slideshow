@@ -120,6 +120,22 @@ async function readImageList(): Promise<{
     })
     .map((file) => file.name);
 
+  // Add video-only entries from database (entries with is_video=true even if image is hidden)
+  if (allDbMetadata) {
+    allDbMetadata.forEach((row) => {
+      // If this is a video entry and the image file is hidden, add it directly
+      if (row.is_video && row.hidden && row.video_url) {
+        console.log(`[Images API] Adding video-only entry: ${row.filename} -> ${row.video_url}`);
+        names.push(row.filename);
+        
+        // Add to maps so it can be processed
+        durationMap[row.filename] = row.duration_ms;
+        captionMap[row.filename] = row.caption;
+        orderMap[row.filename] = row.order_index ?? 999999;
+      }
+    });
+  }
+
   // Sort by order_index from database
   names.sort((a, b) => {
     const orderA = orderMap[a] ?? 999999;

@@ -189,7 +189,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         duration_ms: totalDuration * 1000,
         caption: `Merged: ${images.length} images (${totalDuration}s)`,
         display_order: 999999, // Put at end
-        hidden: false,
+        hidden: true, // Hide placeholder image, only show video
+        is_video: true, // Mark as video entry
         video_url: videoFilename,
         video_generated_at: new Date().toISOString(),
         video_duration_seconds: totalDuration,
