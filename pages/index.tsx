@@ -269,19 +269,34 @@ const styles: Record<string, CSSProperties> = {
     left: 0,
     width: "100vw",
     height: "100vh",
-    background: "radial-gradient(circle at center, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.97) 50%, rgba(0, 0, 0, 1) 100%)",
-    backdropFilter: "blur(16px)",
+    background: "linear-gradient(to bottom right, rgba(2, 6, 23, 0.95), rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.95))",
+    backdropFilter: "blur(24px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 200,
-    animation: "fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+    animation: "fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    padding: "32px",
+  },
+  previewImageContainer: {
+    position: "relative" as const,
+    maxWidth: "95vw",
+    maxHeight: "95vh",
+    borderRadius: "24px",
+    overflow: "hidden",
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    background: "rgba(255, 255, 255, 0.03)",
+    boxShadow: "0 24px 80px -32px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05)",
+    backdropFilter: "blur(12px)",
   },
   previewImage: {
-    width: "100vw",
-    height: "100vh",
+    display: "block",
+    maxWidth: "100%",
+    maxHeight: "95vh",
+    width: "auto",
+    height: "auto",
     objectFit: "contain" as const,
-    padding: "0",
+    borderRadius: "24px",
   },
 
 };
@@ -889,12 +904,14 @@ export default function Home() {
         {/* Image Preview Overlay */}
         {selectedImage && (
           <div style={styles.imagePreviewOverlay} onClick={handleClosePreview}>
-            <img
-              src={selectedImage.url}
-              alt={selectedImage.name}
-              style={styles.previewImage}
-              onClick={(e) => e.stopPropagation()}
-            />
+            <div style={styles.previewImageContainer}>
+              <img
+                src={selectedImage.url}
+                alt={selectedImage.name}
+                style={styles.previewImage}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
           </div>
         )}
       </main>
