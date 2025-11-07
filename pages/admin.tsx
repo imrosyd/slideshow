@@ -39,6 +39,8 @@ const AdminContent = () => {
   const [cleanupConfirm, setCleanupConfirm] = useState(false);
   const [deleteVideoConfirm, setDeleteVideoConfirm] = useState<string | null>(null);
   const [mergeVideoDialog, setMergeVideoDialog] = useState(false);
+  const [mergeProgress, setMergeProgress] = useState<string>("");
+  const [isMerging, setIsMerging] = useState(false);
   
   const { pushToast } = useToast();
   const router = useRouter();
@@ -446,22 +448,21 @@ const AdminContent = () => {
   }, [isForceRefreshing, pushToast]);
 
   const handleMergeVideo = useCallback(async (outputFilename: string) => {
-    setMergeVideoDialog(false);
-    
     // Get visible images only
     const visibleImages = images.filter(img => !img.hidden);
     
     if (visibleImages.length < 2) {
       pushToast({ variant: "error", description: "Need at least 2 visible images to merge" });
+      setMergeVideoDialog(false);
       return;
     }
 
-    pushToast({ 
-      variant: "info", 
-      description: `Starting merge of ${visibleImages.length} images...` 
-    });
+    setIsMerging(true);
+    setMergeProgress(`Preparing to merge ${visibleImages.length} images...`);
 
     try {
+      setMergeProgress("Downloading images from storage...");
+      
       const response = await fetch("/api/admin/merge-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -479,7 +480,11 @@ const AdminContent = () => {
         throw new Error(errorText || "Failed to merge video");
       }
 
+      setMergeProgress("Creating merged video...");
       const data = await response.json();
+      
+      setMergeProgress("Upload complete! Refreshing...");
+      
       pushToast({ 
         variant: "success", 
         description: `Video merged successfully: ${data.filename}` 
@@ -487,12 +492,18 @@ const AdminContent = () => {
       
       // Refresh images to show the new merged video
       await refresh();
+      
+      setMergeVideoDialog(false);
     } catch (error) {
       console.error("Merge video error:", error);
       pushToast({ 
         variant: "error", 
         description: error instanceof Error ? error.message : "Failed to merge video" 
       });
+      setMergeVideoDialog(false);
+    } finally {
+      setIsMerging(false);
+      setMergeProgress("");
     }
   }, [images, pushToast, refresh]);
 
@@ -942,9 +953,11 @@ const AdminContent = () => {
       {/* Merge video dialog */}
       <MergeVideoDialog
         isOpen={mergeVideoDialog}
-        onClose={() => setMergeVideoDialog(false)}
+        onClose={() => !isMerging && setMergeVideoDialog(false)}
         imageCount={images.filter(img => !img.hidden).length}
         onConfirm={handleMergeVideo}
+        isProcessing={isMerging}
+        progress={mergeProgress}
       />
 
       {/* Fullscreen preview modal */}

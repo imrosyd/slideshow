@@ -296,6 +296,12 @@ export default function Home() {
               ? Math.max(1, Math.round(durationMs / 1000))
               : DEFAULT_SLIDE_DURATION_SECONDS;
 
+          console.log(`[Slide Debug] ${item.name}:`, {
+            isVideo: item.isVideo,
+            videoUrl: item.videoUrl,
+            durationSeconds
+          });
+
           return {
             name: item.name,
             url: item.videoUrl || "",
@@ -306,6 +312,7 @@ export default function Home() {
         });
 
       console.log(`✅ Fetched ${fetchedSlides.length} video slides`);
+      console.log(`📹 First video:`, fetchedSlides[0]);
       setSlides(fetchedSlides);
       setError(null);
 

@@ -51,6 +51,7 @@ async function readImageList(): Promise<{
     durationMap[row.filename] = row.duration_ms;
     captionMap[row.filename] = row.caption;
     if (row.is_video && row.video_url) {
+      console.log(`[Images API] Adding to videoMap: ${row.filename} -> ${row.video_url}`);
       videoMap[row.filename] = {
         isVideo: true,
         videoUrl: row.video_url,
@@ -71,11 +72,15 @@ async function readImageList(): Promise<{
   console.log(`[Images API] ${visibleItems.length} items are visible for the slideshow.`);
 
   // Build image data for the client.
-  const imageData = visibleItems.map((item) => ({
-    name: item.filename,
-    isVideo: videoMap[item.filename]?.isVideo || false,
-    videoUrl: videoMap[item.filename]?.videoUrl,
-  }));
+  const imageData = visibleItems.map((item) => {
+    const result = {
+      name: item.filename,
+      isVideo: videoMap[item.filename]?.isVideo || false,
+      videoUrl: videoMap[item.filename]?.videoUrl,
+    };
+    console.log(`[Images API] Item ${item.filename}:`, result);
+    return result;
+  });
 
   return { imageData, durations: durationMap, captions: captionMap };
 }
