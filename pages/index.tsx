@@ -82,6 +82,15 @@ const styles: Record<string, CSSProperties> = {
     padding: "2rem",
     color: "#fff",
   },
+  spinner: {
+    border: "4px solid rgba(255, 255, 255, 0.3)",
+    borderTop: "4px solid #fff",
+    borderRadius: "50%",
+    width: "50px",
+    height: "50px",
+    animation: "spin 1s linear infinite",
+    margin: "20px auto",
+  },
 };
 
 export default function Home() {
@@ -89,6 +98,7 @@ export default function Home() {
   const [error, setError] = useState<AppError | null>(null);
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<Language>("en");
+  const [videoLoading, setVideoLoading] = useState(true);
 
   // Main slideshow controller
   const {
@@ -277,6 +287,7 @@ export default function Home() {
 
   // Force play when currentIndex changes (critical for webOS)
   useEffect(() => {
+    setVideoLoading(true); // Show loading when changing slides
     if (currentSlide?.videoUrl && !isPaused) {
       const video = videoRef.current;
       if (video) {
@@ -290,9 +301,18 @@ export default function Home() {
   if (loading) {
     return (
       <>
+        <Head>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </Head>
         {ResourceHints}
         <div style={styles.container}>
           <div style={styles.errorContainer}>
+            <div style={styles.spinner}></div>
             <h1>{translations.loading[language]}</h1>
           </div>
         </div>
@@ -332,38 +352,67 @@ export default function Home() {
   // Main slideshow render
   return (
     <>
+      <Head>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </Head>
       {ResourceHints}
       <main style={styles.container}>
         <div style={styles.imageWrapper}>
           {currentSlide && currentSlide.videoUrl ? (
-            <video
-              ref={videoRef}
-              src={currentSlide.videoUrl}
-              autoPlay
-              muted
-              playsInline
-              loop={slides.length <= 1}
-              preload="auto"
-              style={styles.image}
-              onLoadStart={() => {
-                console.log(`🔵 Loading: ${currentSlide.name}`);
-              }}
-              onLoadedMetadata={() => {
-                console.log(`📊 Metadata loaded: ${currentSlide.name}`);
-              }}
-              onCanPlay={() => {
-                console.log(`✅ Can play: ${currentSlide.name}`);
-              }}
-              onPlay={() => {
-                console.log(`▶️ Playing: ${currentSlide.name}`);
-              }}
-              onError={(e) => {
-                const target = e.target as HTMLVideoElement;
-                const error = target.error;
-                console.error(`❌ Video error: ${currentSlide.name}`);
-                console.error(`   Error code: ${error?.code}, message: ${error?.message}`);
-              }}
-            />
+            <>
+              <video
+                ref={videoRef}
+                src={currentSlide.videoUrl}
+                autoPlay
+                muted
+                playsInline
+                loop={slides.length <= 1}
+                preload="auto"
+                style={{
+                  ...styles.image,
+                  opacity: videoLoading ? 0 : 1,
+                  transition: 'opacity 0.3s ease-in-out',
+                }}
+                onLoadStart={() => {
+                  console.log(`🔵 Loading: ${currentSlide.name}`);
+                  setVideoLoading(true);
+                }}
+                onLoadedMetadata={() => {
+                  console.log(`📊 Metadata loaded: ${currentSlide.name}`);
+                }}
+                onCanPlay={() => {
+                  console.log(`✅ Can play: ${currentSlide.name}`);
+                  setVideoLoading(false);
+                }}
+                onPlay={() => {
+                  console.log(`▶️ Playing: ${currentSlide.name}`);
+                  setVideoLoading(false);
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLVideoElement;
+                  const error = target.error;
+                  console.error(`❌ Video error: ${currentSlide.name}`);
+                  console.error(`   Error code: ${error?.code}, message: ${error?.message}`);
+                  setVideoLoading(false);
+                }}
+              />
+              {videoLoading && (
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 10,
+                }}>
+                  <div style={styles.spinner}></div>
+                </div>
+              )}
+            </>
           ) : null}
         </div>
 
