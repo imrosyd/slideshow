@@ -126,12 +126,24 @@ async function readImageList(): Promise<{
       // If this is a video entry and the image file is hidden, add it directly
       if (row.is_video && row.hidden && row.video_url) {
         console.log(`[Images API] Adding video-only entry: ${row.filename} -> ${row.video_url}`);
-        names.push(row.filename);
+        
+        // Only add if not already in names (avoid duplicates)
+        if (!names.includes(row.filename)) {
+          names.push(row.filename);
+        }
         
         // Add to maps so it can be processed
         durationMap[row.filename] = row.duration_ms;
         captionMap[row.filename] = row.caption;
         orderMap[row.filename] = row.order_index ?? 999999;
+        
+        // Make sure videoMap has this entry
+        if (!videoMap[row.filename]) {
+          videoMap[row.filename] = {
+            isVideo: true,
+            videoUrl: row.video_url,
+          };
+        }
       }
     });
   }
