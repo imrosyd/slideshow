@@ -369,8 +369,7 @@ export default function Home() {
   const [transitionEffect, setTransitionEffect] = useState<TransitionEffect>(DEFAULT_TRANSITION);
   const [slideCountdowns, setSlideCountdowns] = useState<number[]>([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [showCurrentVideo, setShowCurrentVideo] = useState(true); // For crossfade
-  const [disableTransition, setDisableTransition] = useState(false); // Disable CSS transition during buffer swap
+  const [showCurrentVideo, setShowCurrentVideo] = useState(true); // For buffer swapping
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const nextIndexRef = useRef(0); // Track next video index
@@ -682,36 +681,26 @@ export default function Home() {
       
       console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}: ${nextDisplayName}`);
       
-      // Crossfade transition for video-to-video
+      // Instant transition for video-to-video (no animation to prevent glitches)
       if (currentSlide.isVideo && nextSlide?.isVideo) {
-        console.log(`🎬 Crossfade transition starting`);
+        console.log(`🎬 Instant video transition (no fade)`);
         
-        // Start playing next video
+        // Start playing next video first
         const nextVideo = nextVideoRef.current;
         if (nextVideo) {
           nextVideo.currentTime = 0;
           nextVideo.play().then(() => {
-            console.log(`▶️ Next video started playing: ${nextDisplayName}`);
+            console.log(`▶️ Next video playing: ${nextDisplayName}`);
             
-            // Crossfade: hide current, show next (with animation)
+            // Instant swap (no animation at all)
             setShowCurrentVideo(false);
             
-            // After crossfade animation completes
-            setTimeout(() => {
-              // Disable CSS transition before swapping
-              setDisableTransition(true);
-              
-              // Swap buffer immediately (no animation)
+            // Immediate buffer swap
+            requestAnimationFrame(() => {
               setCurrentIndex(nextIndex);
               setShowCurrentVideo(true);
-              
-              console.log(`✅ Crossfade complete, swapped to: ${nextDisplayName}`);
-              
-              // Re-enable transition for next crossfade (after a frame)
-              requestAnimationFrame(() => {
-                setDisableTransition(false);
-              });
-            }, 300); // Match transition duration
+              console.log(`✅ Instant transition complete: ${nextDisplayName}`);
+            });
           }).catch((e) => {
             console.error(`❌ Failed to play next video, forcing transition`, e);
             setCurrentIndex(nextIndex);
@@ -1424,7 +1413,7 @@ export default function Home() {
           justifyContent: 'center',
           opacity: showCurrentVideo ? 1 : 0,
           zIndex: showCurrentVideo ? 2 : 1,
-          transition: disableTransition ? 'none' : 'opacity 300ms ease-in-out',
+          transition: 'none', // No transition to prevent glitches
         }}
       >
         {currentSlide && currentSlide.videoUrl ? (
@@ -1584,7 +1573,7 @@ export default function Home() {
               justifyContent: 'center',
               opacity: showCurrentVideo ? 0 : 1,
               zIndex: showCurrentVideo ? 1 : 2,
-              transition: disableTransition ? 'none' : 'opacity 300ms ease-in-out',
+              transition: 'none', // No transition to prevent glitches
             }}
           >
             <video
