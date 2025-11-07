@@ -77,6 +77,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await fs.writeFile(concatFilePath, finalConcatContent);
     console.log(`[Merge Video] Concat file created with ${images.length} images`);
 
+    // Get encoding settings from database (same as generate-video)
+    const defaultEnc = {
+      fps: 30,
+      gop: 60,
+      profile: 'high' as 'baseline' | 'main' | 'high',
+      level: '4.0',
+      preset: 'medium' as 'ultrafast' | 'superfast' | 'veryfast' | 'faster' | 'fast' | 'medium' | 'slow' | 'slower' | 'veryslow',
+      crf: 23,
+      width: 1920,
+      height: 1080,
+    };
+
+    try {
+      const { data: encRows, error: encErr } = await supabase
+        .from('slideshow_settings')
+        .select('key,value')
+        .in('key', [
+          'video_fps',
+          'video_gop',
+          'video_profile',
+          'video_level',
+          'video_preset',
+          'video_crf',
+          'video_width',
+          'video_height',
+        ]);
+
+      if (!encErr && encRows && encRows.length > 0) {
+        const map = new Map<string, string>(encRows.map(r => [r.key, r.value]));
+        const fps = parseInt(map.get('video_fps') || '', 10);
+        if (!Number.isNaN(fps) && fps >= 15 && fps <= 60) defaultEnc.fps = fps;
+        const gop = parseInt(map.get('video_gop') || '', 10);
+        if (!Number.isNaN(gop) && gop >= defaultEnc.fps && gop <= defaultEnc.fps * 10) defaultEnc.gop = gop;
+        const profile = (map.get('video_profile') || '').toLowerCase();
+        if (['baseline','main','high'].includes(profile)) defaultEnc.profile = profile as any;
+        const level = map.get('video_level') || '';
+        if (/^\d(\.\d)?$/.test(level)) defaultEnc.level = level;
+        const preset = (map.get('video_preset') || '').toLowerCase();
+        if (['ultrafast','superfast','veryfast','faster','fast','medium','slow','slower','veryslow'].includes(preset)) defaultEnc.preset = preset as any;
+        const crf = parseInt(map.get('video_crf') || '', 10);
+        if (!Number.isNaN(crf) && crf >= 15 && crf <= 35) defaultEnc.crf = crf;
+        const width = parseInt(map.get('video_width') || '', 10);
+        if (!Number.isNaN(width) && width >= 320 && width <= 3840) defaultEnc.width = width;
+        const height = parseInt(map.get('video_height') || '', 10);
+        if (!Number.isNaN(height) && height >= 240 && height <= 2160) defaultEnc.height = height;
+        if (!map.get('video_gop')) defaultEnc.gop = defaultEnc.fps * 2;
+      }
+      console.log(`[Merge Video] Encoder config -> fps=${defaultEnc.fps}, gop=${defaultEnc.gop}, profile=${defaultEnc.profile}, level=${defaultEnc.level}, preset=${defaultEnc.preset}, crf=${defaultEnc.crf}, scale=${defaultEnc.width}x${defaultEnc.height}`);
+    } catch (e) {
+      console.log(`[Merge Video] Using default encoder config: ${e}`);
+    }
+
     // Generate merged video
     const outputPath = path.join(tempDir, "output.mp4");
 
@@ -85,11 +137,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         "-f", "concat",
         "-safe", "0",
         "-i", concatFilePath,
-        "-vsync", "vfr",
-        "-pix_fmt", "yuv420p",
+        "-vf", `scale=${defaultEnc.width}:${defaultEnc.height}:force_original_aspect_ratio=decrease,pad=${defaultEnc.width}:${defaultEnc.height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p`,
         "-c:v", "libx264",
-        "-preset", "medium",
-        "-crf", "23",
+        "-r", defaultEnc.fps.toString(),
+        "-g", defaultEnc.gop.toString(),
+        "-profile:v", defaultEnc.profile,
+        "-level", defaultEnc.level,
+        "-preset", defaultEnc.preset,
+        "-crf", defaultEnc.crf.toString(),
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
+        "-tune", "stillimage",
         "-y",
         outputPath
       ];
