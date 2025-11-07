@@ -288,7 +288,6 @@ export default function Home() {
       }
 
       const fetchedSlides = payload.images
-        .filter((item) => item.isVideo) // Only include videos
         .map((item) => {
           const durationMs = imageDurations[item.name];
           const durationSeconds =
@@ -296,9 +295,11 @@ export default function Home() {
               ? Math.max(1, Math.round(durationMs / 1000))
               : DEFAULT_SLIDE_DURATION_SECONDS;
 
+          const url = item.isVideo && item.videoUrl ? item.videoUrl : `/api/image/${item.name}`;
+
           return {
             name: item.name,
-            url: item.videoUrl || "",
+            url: url,
             durationSeconds,
             isVideo: item.isVideo,
             videoUrl: item.videoUrl,
