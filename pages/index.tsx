@@ -173,31 +173,39 @@ const styles: Record<string, CSSProperties> = {
     textTransform: "uppercase" as const,
     color: "rgba(148, 163, 184, 0.7)",
   },
-  imageGallerySidebar: {
+  imageGalleryBottomBar: {
     position: "fixed" as const,
-    right: 0,
-    top: 0,
-    height: "100vh",
-    width: "280px",
+    left: 0,
+    bottom: 0,
+    width: "100vw",
     backgroundColor: "rgba(15, 23, 42, 0.95)",
     backdropFilter: "blur(12px)",
-    borderLeft: "1px solid rgba(148, 163, 184, 0.2)",
-    padding: "20px",
-    overflowY: "auto" as const,
+    borderTop: "1px solid rgba(148, 163, 184, 0.2)",
+    padding: "20px 40px",
     zIndex: 50,
-    boxShadow: "-4px 0 24px rgba(0, 0, 0, 0.3)",
+    boxShadow: "0 -4px 24px rgba(0, 0, 0, 0.3)",
+    transition: "transform 0.3s ease, opacity 0.3s ease",
+    transform: "translateY(0)",
+    opacity: 1,
+  },
+  imageGalleryBottomBarHidden: {
+    transform: "translateY(100%)",
+    opacity: 0,
+    pointerEvents: "none" as const,
   },
   galleryTitle: {
     color: "rgba(248, 250, 252, 0.95)",
-    fontSize: "1.1rem",
+    fontSize: "1rem",
     fontWeight: 600,
-    marginBottom: "16px",
+    marginBottom: "12px",
     letterSpacing: "-0.01em",
   },
   galleryGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "12px",
+    gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+    gap: "16px",
+    maxHeight: "200px",
+    overflowY: "auto" as const,
   },
   galleryImageCard: {
     position: "relative" as const,
@@ -253,6 +261,7 @@ export default function Home() {
   const [adminImages, setAdminImages] = useState<Array<{name: string; url: string}>>([]);
   const [selectedImage, setSelectedImage] = useState<{name: string; url: string} | null>(null);
   const [wasPaused, setWasPaused] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
 
   // Main slideshow controller
   const {
@@ -523,6 +532,63 @@ export default function Home() {
     }
   }, [wasPaused, togglePause]);
 
+  // Mouse movement handler for gallery show/hide
+  useEffect(() => {
+    let hideTimeout: NodeJS.Timeout;
+    const BOTTOM_TRIGGER_HEIGHT = 150; // pixels from bottom to trigger gallery
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // Don't show gallery if image preview is open
+      if (selectedImage) return;
+
+      const distanceFromBottom = window.innerHeight - e.clientY;
+
+      // Show gallery if mouse is near bottom
+      if (distanceFromBottom <= BOTTOM_TRIGGER_HEIGHT) {
+        setShowGallery(true);
+        
+        // Clear existing timeout
+        if (hideTimeout) clearTimeout(hideTimeout);
+        
+        // Hide gallery after 3 seconds of inactivity
+        hideTimeout = setTimeout(() => {
+          setShowGallery(false);
+        }, 3000);
+      } else if (distanceFromBottom > 300) {
+        // Hide immediately if mouse moves far from bottom
+        setShowGallery(false);
+        if (hideTimeout) clearTimeout(hideTimeout);
+      }
+    };
+
+    const handleTouch = (e: TouchEvent) => {
+      // Don't show gallery if image preview is open
+      if (selectedImage) return;
+
+      const touch = e.touches[0];
+      const distanceFromBottom = window.innerHeight - touch.clientY;
+
+      if (distanceFromBottom <= BOTTOM_TRIGGER_HEIGHT) {
+        setShowGallery(true);
+        
+        if (hideTimeout) clearTimeout(hideTimeout);
+        
+        hideTimeout = setTimeout(() => {
+          setShowGallery(false);
+        }, 3000);
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('touchstart', handleTouch);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchstart', handleTouch);
+      if (hideTimeout) clearTimeout(hideTimeout);
+    };
+  }, [selectedImage]);
+
   // Supabase realtime listener for metadata changes
   useEffect(() => {
     const channel = supabase
@@ -651,17 +717,30 @@ export default function Home() {
             background-color: white;
             transform: scale(1.05);
           }
-          .gallery-sidebar::-webkit-scrollbar {
-            width: 6px;
+          .gallery-bottom-bar::-webkit-scrollbar {
+            height: 6px;
           }
-          .gallery-sidebar::-webkit-scrollbar-track {
+          .gallery-bottom-bar::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.2);
           }
-          .gallery-sidebar::-webkit-scrollbar-thumb {
+          .gallery-bottom-bar::-webkit-scrollbar-thumb {
             background: rgba(148, 163, 184, 0.5);
             border-radius: 3px;
           }
-          .gallery-sidebar::-webkit-scrollbar-thumb:hover {
+          .gallery-bottom-bar::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.7);
+          }
+          .gallery-grid::-webkit-scrollbar {
+            height: 6px;
+          }
+          .gallery-grid::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+          }
+          .gallery-grid::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.5);
+            border-radius: 3px;
+          }
+          .gallery-grid::-webkit-scrollbar-thumb:hover {
             background: rgba(148, 163, 184, 0.7);
           }
         `}</style>
@@ -701,8 +780,14 @@ export default function Home() {
           ) : null}
         </div>
 
-        {/* Image Gallery Sidebar */}
-        <div style={styles.imageGallerySidebar} className="gallery-sidebar">
+        {/* Image Gallery Bottom Bar */}
+        <div 
+          style={{
+            ...styles.imageGalleryBottomBar,
+            ...(showGallery ? {} : styles.imageGalleryBottomBarHidden)
+          }}
+          className="gallery-bottom-bar"
+        >
           <div style={styles.galleryTitle}>Admin Images</div>
           <div style={styles.galleryGrid}>
             {adminImages.map((image) => (
@@ -722,7 +807,7 @@ export default function Home() {
             ))}
           </div>
           {adminImages.length === 0 && (
-            <div style={{ color: "rgba(148, 163, 184, 0.7)", fontSize: "0.9rem", textAlign: "center", marginTop: "20px" }}>
+            <div style={{ color: "rgba(148, 163, 184, 0.7)", fontSize: "0.9rem", textAlign: "center", marginTop: "12px" }}>
               No images available
             </div>
           )}
