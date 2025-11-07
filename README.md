@@ -3,11 +3,13 @@
 **Solusi digital signage all-in-one untuk Smart TV dan display monitor.**  
 Dashboard slideshow profesional untuk TV/Display dengan admin panel intuitif, penyimpanan di Supabase, konversi manual gambar/PDF menjadi video, dan optimisasi webOS agar layar tetap menyala selama pemutaran.
 
-> **Last Updated**: November 7, 2025 | **Version**: v1.3.0 | **Status**: ✅ Production Ready
+> **Last Updated**: November 7, 2025 | **Version**: v1.4.0 | **Status**: ✅ Production Ready
+> **Latest Feature**: 🎬 **Smart 50% Progressive Preload** - Seamless video transitions with zero blank screens
 
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/) 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Storage%20%26%20DB-green)](https://supabase.com/)
+[![Smart Preload](https://img.shields.io/badge/Smart%20Preload-50%25%20Trigger-blueviolet)](FINAL_SUMMARY.md)
 
 ## 🎯 Apa itu Slideshow?
 
@@ -47,6 +49,14 @@ Slideshow adalah aplikasi **Next.js 14 + TypeScript** yang dirancang khusus untu
 - ✅ Sanitasi nama file dan batas ukuran upload
 - ✅ RLS policies untuk akses terkontrol (enabled via migration)
 - ✅ Service Role Key untuk backend operations (tidak terekspos ke client)
+
+### 🎬 Smart Video Transitions (NEW!)
+- ✅ **Smart 50% Progressive Preload** - Preload next video at 50% of current duration
+- ✅ **Zero Blank Screens** - Next video ready before current ends
+- ✅ **Seamless Instant Transitions** - Direct switch with 0ms animation overhead
+- ✅ **Infinite Loop** - Works seamlessly for 1, 2, 5, 10+ videos
+- ✅ **Intelligent Buffer Timing** - 5-15 second preload buffer for network reliability
+- ✅ See [`FINAL_SUMMARY.md`](FINAL_SUMMARY.md) for technical details
 
 ## 🧱 Tech Stack
 
