@@ -375,7 +375,7 @@ export default async function handler(
             duration_ms: durationMs,
             caption: null,
             order_index: imagesToProcess.indexOf(imgFilename),
-            hidden: false,
+            hidden: true, // Hide placeholder image, only show video
             is_video: true,
             video_url: videoUrl,
             video_duration_seconds: totalDurationEffective,
