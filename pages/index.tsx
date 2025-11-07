@@ -597,7 +597,7 @@ export default function Home() {
           .control-button {
             padding: 1rem 2rem;
             font-size: 1.1rem;
-            background-color: transparent;
+            background-color: white;
             border: 2px solid rgba(0, 0, 0, 0.8);
             border-radius: 8px;
             color: black;
@@ -606,7 +606,7 @@ export default function Home() {
             font-weight: 500;
           }
           .control-button:hover {
-            background-color: rgba(0, 0, 0, 0.1);
+            background-color: #f0f0f0;
             border-color: rgba(0, 0, 0, 1);
             transform: scale(1.05);
           }
