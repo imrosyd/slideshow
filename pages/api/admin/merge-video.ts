@@ -136,6 +136,74 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log(`[Merge Video] Uploaded ${videoFilename} successfully`);
 
+    // Calculate total duration
+    const totalDuration = images.reduce((sum, img) => sum + img.durationSeconds, 0);
+
+    // Create a placeholder black image for the gallery
+    const placeholderImageName = videoFilename.replace('.mp4', '.jpg');
+    
+    // Generate a simple black placeholder image using FFmpeg
+    const placeholderPath = path.join(tempDir, 'placeholder.jpg');
+    await new Promise<void>((resolve, reject) => {
+      const args = [
+        '-f', 'lavfi',
+        '-i', 'color=c=black:s=1920x1080:d=1',
+        '-frames:v', '1',
+        '-y',
+        placeholderPath
+      ];
+
+      const ffmpeg = spawn(ffmpegPath.path, args);
+      
+      ffmpeg.on('close', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`FFmpeg placeholder failed with code ${code}`));
+        }
+      });
+
+      ffmpeg.on('error', reject);
+    });
+
+    // Upload placeholder image
+    const placeholderBuffer = await fs.readFile(placeholderPath);
+    const { error: imageUploadError } = await supabase.storage
+      .from("slideshow-images")
+      .upload(placeholderImageName, placeholderBuffer, {
+        contentType: "image/jpeg",
+        upsert: true,
+      });
+
+    if (imageUploadError) {
+      console.error(`[Merge Video] Failed to upload placeholder:`, imageUploadError);
+    } else {
+      console.log(`[Merge Video] Placeholder image uploaded: ${placeholderImageName}`);
+    }
+
+    // Create metadata entry for the merged video
+    const { error: metadataError } = await supabase
+      .from("image_durations")
+      .upsert({
+        filename: placeholderImageName,
+        duration_ms: totalDuration * 1000,
+        caption: `Merged: ${images.length} images (${totalDuration}s)`,
+        display_order: 999999, // Put at end
+        hidden: false,
+        video_url: videoFilename,
+        video_generated_at: new Date().toISOString(),
+        video_duration_seconds: totalDuration,
+      }, {
+        onConflict: "filename"
+      });
+
+    if (metadataError) {
+      console.error(`[Merge Video] Failed to create metadata:`, metadataError);
+      // Don't fail the whole operation, video is already uploaded
+    } else {
+      console.log(`[Merge Video] Metadata created for ${placeholderImageName}`);
+    }
+
     // Clean up temp files
     await fs.rm(tempDir, { recursive: true, force: true });
 
@@ -143,6 +211,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success: true,
       filename: videoFilename,
       imageCount: images.length,
+      totalDuration,
     });
 
   } catch (error) {
