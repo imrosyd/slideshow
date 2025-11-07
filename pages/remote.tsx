@@ -14,11 +14,13 @@ export default function RemoteControl() {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
-    // Subscribe to slideshow status
-    const remoteChannel = supabase
+    console.log('📱 Setting up remote control channels');
+    
+    // Subscribe to slideshow status on BOTH channels
+    const commandChannel = supabase
       .channel('remote-control')
       .on('broadcast', { event: 'slideshow-status' }, (payload) => {
-        console.log('Status update:', payload);
+        console.log('Status update (command channel):', payload);
         if (payload.payload) {
           setSlideCount(payload.payload.total || 0);
           setCurrentSlide(payload.payload.current || 0);
@@ -29,11 +31,26 @@ export default function RemoteControl() {
       })
       .subscribe();
 
-    setChannel(remoteChannel);
+    const statusChannel = supabase
+      .channel('remote-control-status')
+      .on('broadcast', { event: 'slideshow-status' }, (payload) => {
+        console.log('Status update (status channel):', payload);
+        if (payload.payload) {
+          setSlideCount(payload.payload.total || 0);
+          setCurrentSlide(payload.payload.current || 0);
+          setIsPaused(payload.payload.paused || false);
+          setCurrentImageName(payload.payload.currentImage || "");
+          setIsConnected(true);
+        }
+      })
+      .subscribe();
+
+    setChannel(commandChannel);
 
     // Request initial status
     setTimeout(() => {
-      remoteChannel.send({
+      console.log('📡 Requesting initial status');
+      commandChannel.send({
         type: 'broadcast',
         event: 'request-status',
         payload: { timestamp: Date.now() }
@@ -42,7 +59,7 @@ export default function RemoteControl() {
 
     // Auto-request status every 10 seconds
     const statusInterval = setInterval(() => {
-      remoteChannel.send({
+      commandChannel.send({
         type: 'broadcast',
         event: 'request-status',
         payload: { timestamp: Date.now() }
@@ -51,7 +68,8 @@ export default function RemoteControl() {
 
     return () => {
       clearInterval(statusInterval);
-      supabase.removeChannel(remoteChannel);
+      supabase.removeChannel(commandChannel);
+      supabase.removeChannel(statusChannel);
     };
   }, []);
 
