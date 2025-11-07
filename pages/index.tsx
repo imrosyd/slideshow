@@ -5,6 +5,7 @@ import { useSlideshow } from "../hooks/useSlideshow";
 import { useVideoPlayer } from "../hooks/useVideoPlayer";
 import { useVideoPreload } from "../hooks/useVideoPreload";
 import { useKeepAwake } from "../hooks/useKeepAwake";
+import { useRemoteControl } from "../hooks/useRemoteControl";
 
 const DEFAULT_SLIDE_DURATION_SECONDS = 20;
 const LANGUAGE_SWAP_INTERVAL_MS = 4_000;
@@ -186,6 +187,7 @@ export default function Home() {
     isPaused,
     goToNext,
     goToPrevious,
+    goToSlide,
     togglePause,
     handleVideoEnded: onSlideshowEnded,
     currentSlide,
@@ -319,6 +321,18 @@ export default function Home() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Remote control integration
+  useRemoteControl({
+    slides,
+    currentIndex,
+    isPaused,
+    goToNext,
+    goToPrevious,
+    goToSlide,
+    togglePause,
+    fetchSlides,
+  });
 
   // Reset preload flag when slide changes
   useEffect(() => {
