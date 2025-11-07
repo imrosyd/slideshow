@@ -20,6 +20,7 @@ import { ToastProvider } from "../components/admin/ToastProvider";
 const UploadBox = dynamic(async () => (await import("../components/admin/UploadBox")).UploadBox as any, { ssr: false }) as any;
 const ImageCard = dynamic(async () => (await import("../components/admin/ImageCard")).ImageCard as any, { ssr: false }) as any;
 const ConfirmModal = dynamic(async () => (await import("../components/admin/ConfirmModal")).ConfirmModal as any, { ssr: false }) as any;
+const MergeVideoDialog = dynamic(async () => (await import("../components/admin/MergeVideoDialog")).MergeVideoDialog as any, { ssr: false }) as any;
 import { useImages } from "../hooks/useImages";
 import { useToast } from "../hooks/useToast";
 import { getAdminAuthCookieName, getExpectedAdminToken } from "../lib/auth";
@@ -37,6 +38,7 @@ const AdminContent = () => {
   const [renameInput, setRenameInput] = useState("");
   const [cleanupConfirm, setCleanupConfirm] = useState(false);
   const [deleteVideoConfirm, setDeleteVideoConfirm] = useState<string | null>(null);
+  const [mergeVideoDialog, setMergeVideoDialog] = useState(false);
   
   const { pushToast } = useToast();
   const router = useRouter();
@@ -443,6 +445,57 @@ const AdminContent = () => {
     }
   }, [isForceRefreshing, pushToast]);
 
+  const handleMergeVideo = useCallback(async (outputFilename: string) => {
+    setMergeVideoDialog(false);
+    
+    // Get visible images only
+    const visibleImages = images.filter(img => !img.hidden);
+    
+    if (visibleImages.length < 2) {
+      pushToast({ variant: "error", description: "Need at least 2 visible images to merge" });
+      return;
+    }
+
+    pushToast({ 
+      variant: "info", 
+      description: `Starting merge of ${visibleImages.length} images...` 
+    });
+
+    try {
+      const response = await fetch("/api/admin/merge-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          images: visibleImages.map(img => ({
+            filename: img.name,
+            durationSeconds: img.durationSeconds || 10,
+          })),
+          outputFilename: outputFilename + ".mp4",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to merge video");
+      }
+
+      const data = await response.json();
+      pushToast({ 
+        variant: "success", 
+        description: `Video merged successfully: ${data.filename}` 
+      });
+      
+      // Refresh images to show the new merged video
+      await refresh();
+    } catch (error) {
+      console.error("Merge video error:", error);
+      pushToast({ 
+        variant: "error", 
+        description: error instanceof Error ? error.message : "Failed to merge video" 
+      });
+    }
+  }, [images, pushToast, refresh]);
+
   const handleDragStart = useCallback((index: number) => {
     setDraggedIndex(index);
   }, []);
@@ -524,6 +577,18 @@ const AdminContent = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 Refresh Gallery
+              </button>
+              <button
+                type="button"
+                onClick={() => setMergeVideoDialog(true)}
+                disabled={images.filter(img => !img.hidden).length < 2}
+                className="inline-flex items-center gap-2 rounded-lg border border-purple-400/30 bg-purple-500/10 px-4 py-2.5 text-sm font-medium text-purple-200 transition hover:border-purple-400/50 hover:bg-purple-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Merge visible images into one video with individual durations"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                </svg>
+                Merge to Video ({images.filter(img => !img.hidden).length})
               </button>
               <button
                 type="button"
@@ -872,6 +937,14 @@ const AdminContent = () => {
         confirmLabel="Delete Video"
         onCancel={() => setDeleteVideoConfirm(null)}
         onConfirm={handleDeleteVideoConfirm}
+      />
+
+      {/* Merge video dialog */}
+      <MergeVideoDialog
+        isOpen={mergeVideoDialog}
+        onClose={() => setMergeVideoDialog(false)}
+        imageCount={images.filter(img => !img.hidden).length}
+        onConfirm={handleMergeVideo}
       />
 
       {/* Fullscreen preview modal */}

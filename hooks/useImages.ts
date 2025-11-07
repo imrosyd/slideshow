@@ -20,6 +20,7 @@ export type ImageAsset = {
   originalDurationSeconds: number | null;
   originalCaption: string;
   previewUrl: string;
+  hidden?: boolean;
   // Video properties
   isVideo?: boolean;
   videoUrl?: string;
