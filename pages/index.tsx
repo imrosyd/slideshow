@@ -182,6 +182,13 @@ const styles: Record<string, CSSProperties> = {
     padding: "40px 20px 20px",
     zIndex: 100,
     transition: "opacity 300ms ease, transform 300ms ease",
+    opacity: 1,
+    transform: "translateY(0)",
+  },
+  controlsOverlayHidden: {
+    opacity: 0,
+    transform: "translateY(100%)",
+    pointerEvents: "none" as const,
   },
   controlsContainer: {
     maxWidth: "1200px",
@@ -602,8 +609,13 @@ export default function Home() {
         </div>
 
         {/* Controls overlay */}
-        {showControls && currentSlide && (
-          <div style={styles.controlsOverlay}>
+        {currentSlide && (
+          <div 
+            style={{
+              ...styles.controlsOverlay,
+              ...(showControls ? {} : styles.controlsOverlayHidden)
+            }}
+          >
             <div style={styles.controlsContainer}>
               <div style={styles.controlsRow}>
                 <button
