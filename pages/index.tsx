@@ -178,48 +178,90 @@ const styles: Record<string, CSSProperties> = {
     left: 0,
     bottom: 0,
     width: "100vw",
-    backgroundColor: "rgba(15, 23, 42, 0.95)",
-    backdropFilter: "blur(12px)",
-    borderTop: "1px solid rgba(148, 163, 184, 0.2)",
-    padding: "20px 40px",
+    backgroundColor: "rgba(15, 23, 42, 0.98)",
+    backdropFilter: "blur(20px)",
+    borderTop: "1px solid rgba(148, 163, 184, 0.15)",
+    padding: "24px 48px 28px",
     zIndex: 50,
-    boxShadow: "0 -4px 24px rgba(0, 0, 0, 0.3)",
-    transition: "transform 0.3s ease, opacity 0.3s ease",
+    boxShadow: "0 -8px 32px rgba(0, 0, 0, 0.4)",
+    transition: "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
     transform: "translateY(0)",
     opacity: 1,
   },
   imageGalleryBottomBarHidden: {
-    transform: "translateY(100%)",
+    transform: "translateY(calc(100% + 10px))",
     opacity: 0,
     pointerEvents: "none" as const,
   },
   galleryTitle: {
-    color: "rgba(248, 250, 252, 0.95)",
-    fontSize: "1rem",
+    color: "rgba(248, 250, 252, 0.98)",
+    fontSize: "0.875rem",
     fontWeight: 600,
-    marginBottom: "12px",
-    letterSpacing: "-0.01em",
+    marginBottom: "16px",
+    letterSpacing: "0.05em",
+    textTransform: "uppercase" as const,
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  galleryBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "4px 10px",
+    backgroundColor: "rgba(56, 189, 248, 0.15)",
+    borderRadius: "6px",
+    fontSize: "0.75rem",
+    fontWeight: 600,
+    color: "rgba(125, 211, 252, 0.95)",
+    letterSpacing: "0.02em",
   },
   galleryGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-    gap: "16px",
-    maxHeight: "200px",
+    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+    gap: "20px",
+    maxHeight: "220px",
     overflowY: "auto" as const,
+    overflowX: "hidden" as const,
+    paddingRight: "8px",
   },
   galleryImageCard: {
     position: "relative" as const,
     aspectRatio: "1",
-    borderRadius: "8px",
+    borderRadius: "12px",
     overflow: "hidden",
     cursor: "pointer",
-    border: "2px solid transparent",
-    transition: "all 0.2s ease",
+    border: "2px solid rgba(148, 163, 184, 0.2)",
+    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    backgroundColor: "rgba(30, 41, 59, 0.4)",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
+  },
+  galleryImageCardHover: {
+    borderColor: "rgba(56, 189, 248, 0.8)",
+    transform: "translateY(-4px) scale(1.02)",
+    boxShadow: "0 8px 24px rgba(56, 189, 248, 0.25), 0 0 0 1px rgba(56, 189, 248, 0.3)",
   },
   galleryImage: {
     width: "100%",
     height: "100%",
     objectFit: "cover" as const,
+    transition: "transform 0.3s ease",
+  },
+  galleryImageName: {
+    position: "absolute" as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: "8px 10px",
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backdropFilter: "blur(8px)",
+    color: "rgba(248, 250, 252, 0.95)",
+    fontSize: "0.75rem",
+    fontWeight: 500,
+    whiteSpace: "nowrap" as const,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    opacity: 0,
+    transition: "opacity 0.3s ease",
   },
   imagePreviewOverlay: {
     position: "fixed" as const,
@@ -227,29 +269,54 @@ const styles: Record<string, CSSProperties> = {
     left: 0,
     width: "100vw",
     height: "100vh",
-    backgroundColor: "rgba(0, 0, 0, 0.95)",
+    backgroundColor: "rgba(0, 0, 0, 0.96)",
+    backdropFilter: "blur(8px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 200,
+    animation: "fadeIn 0.2s ease",
   },
   previewImage: {
-    maxWidth: "90%",
-    maxHeight: "90%",
+    maxWidth: "92%",
+    maxHeight: "92%",
     objectFit: "contain" as const,
+    borderRadius: "8px",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.5)",
   },
   closeButton: {
     position: "absolute" as const,
-    top: "20px",
-    right: "20px",
-    padding: "12px 24px",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    top: "24px",
+    right: "24px",
+    padding: "14px 28px",
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
     border: "none",
-    borderRadius: "8px",
+    borderRadius: "10px",
     fontSize: "1rem",
     fontWeight: 600,
     cursor: "pointer",
-    transition: "all 0.2s ease",
+    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+    letterSpacing: "0.02em",
+  },
+  previewImageName: {
+    position: "absolute" as const,
+    bottom: "32px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    padding: "12px 24px",
+    backgroundColor: "rgba(15, 23, 42, 0.9)",
+    backdropFilter: "blur(12px)",
+    borderRadius: "10px",
+    color: "rgba(248, 250, 252, 0.95)",
+    fontSize: "0.95rem",
+    fontWeight: 500,
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+    maxWidth: "80%",
+    textAlign: "center" as const,
+    whiteSpace: "nowrap" as const,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
   },
 };
 
@@ -709,39 +776,67 @@ export default function Home() {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
           }
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
+          }
+          @keyframes slideIn {
+            from {
+              transform: translateY(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+          .gallery-image-card {
+            position: relative;
+          }
           .gallery-image-card:hover {
-            border-color: rgba(56, 189, 248, 0.8);
+            border-color: rgba(56, 189, 248, 0.8) !important;
+            transform: translateY(-4px) scale(1.02) !important;
+            box-shadow: 0 8px 24px rgba(56, 189, 248, 0.25), 0 0 0 1px rgba(56, 189, 248, 0.3) !important;
+          }
+          .gallery-image-card:hover img {
             transform: scale(1.05);
+          }
+          .gallery-image-card:hover .gallery-image-name {
+            opacity: 1;
+          }
+          .gallery-image-card:active {
+            transform: translateY(-2px) scale(1.01) !important;
           }
           .close-button:hover {
             background-color: white;
-            transform: scale(1.05);
+            transform: scale(1.08);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
           }
-          .gallery-bottom-bar::-webkit-scrollbar {
-            height: 6px;
-          }
-          .gallery-bottom-bar::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
-          }
-          .gallery-bottom-bar::-webkit-scrollbar-thumb {
-            background: rgba(148, 163, 184, 0.5);
-            border-radius: 3px;
-          }
-          .gallery-bottom-bar::-webkit-scrollbar-thumb:hover {
-            background: rgba(148, 163, 184, 0.7);
+          .close-button:active {
+            transform: scale(0.98);
           }
           .gallery-grid::-webkit-scrollbar {
-            height: 6px;
+            width: 8px;
+            height: 8px;
           }
           .gallery-grid::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
           }
           .gallery-grid::-webkit-scrollbar-thumb {
-            background: rgba(148, 163, 184, 0.5);
-            border-radius: 3px;
+            background: linear-gradient(180deg, rgba(148, 163, 184, 0.5) 0%, rgba(148, 163, 184, 0.7) 100%);
+            border-radius: 4px;
+            border: 2px solid rgba(15, 23, 42, 0.3);
           }
           .gallery-grid::-webkit-scrollbar-thumb:hover {
-            background: rgba(148, 163, 184, 0.7);
+            background: linear-gradient(180deg, rgba(148, 163, 184, 0.7) 0%, rgba(148, 163, 184, 0.9) 100%);
+          }
+          .gallery-grid::-webkit-scrollbar-corner {
+            background: transparent;
           }
         `}</style>
       </Head>
@@ -788,8 +883,11 @@ export default function Home() {
           }}
           className="gallery-bottom-bar"
         >
-          <div style={styles.galleryTitle}>Admin Images</div>
-          <div style={styles.galleryGrid}>
+          <div style={styles.galleryTitle}>
+            <span>📁 Image Gallery</span>
+            <span style={styles.galleryBadge}>{adminImages.length} {adminImages.length === 1 ? 'Image' : 'Images'}</span>
+          </div>
+          <div style={styles.galleryGrid} className="gallery-grid">
             {adminImages.map((image) => (
               <div
                 key={image.name}
@@ -803,12 +901,22 @@ export default function Home() {
                   style={styles.galleryImage}
                   loading="lazy"
                 />
+                <div style={styles.galleryImageName} className="gallery-image-name">
+                  {image.name.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '')}
+                </div>
               </div>
             ))}
           </div>
           {adminImages.length === 0 && (
-            <div style={{ color: "rgba(148, 163, 184, 0.7)", fontSize: "0.9rem", textAlign: "center", marginTop: "12px" }}>
-              No images available
+            <div style={{ 
+              color: "rgba(148, 163, 184, 0.6)", 
+              fontSize: "0.875rem", 
+              textAlign: "center", 
+              marginTop: "16px",
+              padding: "20px",
+              fontStyle: "italic"
+            }}>
+              No images available in gallery
             </div>
           )}
         </div>
@@ -822,6 +930,9 @@ export default function Home() {
               style={styles.previewImage}
               onClick={(e) => e.stopPropagation()}
             />
+            <div style={styles.previewImageName}>
+              {selectedImage.name.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '')}
+            </div>
             <button
               style={styles.closeButton}
               className="close-button"
