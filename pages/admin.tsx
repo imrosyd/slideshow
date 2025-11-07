@@ -41,6 +41,7 @@ const AdminContent = () => {
   const [mergeVideoDialog, setMergeVideoDialog] = useState(false);
   const [mergeProgress, setMergeProgress] = useState<string>("");
   const [isMerging, setIsMerging] = useState(false);
+  const [isCleaningCorrupt, setIsCleaningCorrupt] = useState(false);
   
   const { pushToast } = useToast();
   const router = useRouter();
@@ -415,6 +416,53 @@ const AdminContent = () => {
     }
   }, [deleteVideoConfirm, deleteVideo, pushToast, refresh]);
 
+  const handleCleanupCorruptVideos = useCallback(async () => {
+    if (isCleaningCorrupt) return;
+    setIsCleaningCorrupt(true);
+    
+    try {
+      pushToast({ 
+        variant: "info", 
+        description: "Checking for corrupt videos..." 
+      });
+
+      const response = await fetch("/api/admin/cleanup-corrupt-videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Cleanup failed");
+      }
+
+      const result = await response.json();
+      
+      if (result.deleted > 0) {
+        pushToast({ 
+          variant: "success", 
+          description: `Cleaned up ${result.deleted} corrupt video(s). ${result.kept} valid video(s) kept.` 
+        });
+      } else {
+        pushToast({ 
+          variant: "success", 
+          description: `No corrupt videos found. All ${result.kept} video(s) are valid.` 
+        });
+      }
+      
+      // Refresh gallery to reflect changes
+      await refresh();
+    } catch (error) {
+      console.error("Cleanup corrupt videos error:", error);
+      pushToast({ 
+        variant: "error", 
+        description: error instanceof Error ? error.message : "Failed to cleanup corrupt videos" 
+      });
+    } finally {
+      setIsCleaningCorrupt(false);
+    }
+  }, [isCleaningCorrupt, pushToast, refresh]);
+
   const handleForceRefresh = useCallback(async () => {
     if (isForceRefreshing) return;
     setIsForceRefreshing(true);
@@ -600,6 +648,27 @@ const AdminContent = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                 </svg>
                 Merge to Video ({images.filter(img => !img.hidden).length})
+              </button>
+              <button
+                type="button"
+                onClick={handleCleanupCorruptVideos}
+                disabled={isCleaningCorrupt}
+                className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition hover:border-red-400/50 hover:bg-red-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Remove corrupt or inaccessible videos from database"
+              >
+                {isCleaningCorrupt ? (
+                  <>
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-transparent"></span>
+                    Cleaning...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Cleanup Corrupt
+                  </>
+                )}
               </button>
               <button
                 type="button"
