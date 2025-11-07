@@ -1334,7 +1334,6 @@ export default function Home() {
         {currentSlide && currentSlide.videoUrl ? (
           <video
             ref={currentVideoRef}
-            key={currentSlide.videoUrl}
             src={currentSlide.videoUrl}
             autoPlay
             muted
