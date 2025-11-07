@@ -283,22 +283,6 @@ const styles: Record<string, CSSProperties> = {
     objectFit: "contain" as const,
     padding: "0",
   },
-  closeButton: {
-    position: "absolute" as const,
-    top: "32px",
-    right: "32px",
-    padding: "16px 32px",
-    background: "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%)",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "1.05rem",
-    fontWeight: 700,
-    cursor: "pointer",
-    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-    boxShadow: "0 6px 20px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15)",
-    letterSpacing: "0.03em",
-    color: "rgba(15, 23, 42, 1)",
-  },
 
 };
 export default function Home() {
@@ -793,12 +777,6 @@ export default function Home() {
           .gallery-image-card:active {
             transform: translateY(-3px) scale(1.02) !important;
           }
-          .close-button:hover {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(248, 250, 252, 1) 100%);
-            transform: scale(1.1);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
-          }
-          .close-button:active {
             transform: scale(1.05);
           }
           .gallery-grid::-webkit-scrollbar {
@@ -916,13 +894,6 @@ export default function Home() {
               style={styles.previewImage}
               onClick={(e) => e.stopPropagation()}
             />
-            <button
-              style={styles.closeButton}
-              className="close-button"
-              onClick={handleClosePreview}
-            >
-              ✕ Close
-            </button>
           </div>
         )}
       </main>
