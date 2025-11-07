@@ -614,14 +614,14 @@ export default function Home() {
   }, [slides, currentIndex, computeCountdowns]);
 
   useEffect(() => {
-    if (!slides.length) return;
+    if (!slides.length || isPaused) return;
 
     const interval = setInterval(() => {
       setSlideCountdowns(computeCountdowns());
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [slides.length, computeCountdowns]);
+  }, [slides.length, computeCountdowns, isPaused]);
 
   // Smart preload function - triggered at 50% of current video duration
   const handlePreloadNextVideo = useCallback(() => {
