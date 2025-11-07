@@ -694,13 +694,15 @@ export default function Home() {
 
   // Auto-transition when next video becomes ready and current has played enough
   useEffect(() => {
-    if (slides.length <= 1 || isPaused || !nextVideoReady) return;
+    if (slides.length <= 1 || isPaused) return;
 
     const currentSlide = slides[currentIndex];
     if (!currentSlide) return;
 
     const currentVideo = currentVideoRef.current;
     if (!currentVideo) return;
+
+    console.log(`🔧 Timer interval started for slide ${currentIndex + 1}/${slides.length}, nextReady: ${nextVideoReady}`);
 
     // Check if current video has played beyond its duration
     const checkTransition = () => {
@@ -718,13 +720,21 @@ export default function Home() {
 
         console.log(`⏱️ Target duration reached (${targetDuration}s) and next video ready, transitioning to: ${nextDisplayName}`);
         setCurrentIndex(nextIndex);
+      } else if (played >= targetDuration && !nextVideoReady) {
+        // Log waiting state
+        if (Math.floor(played) % 2 === 0) { // Log every 2 seconds to avoid spam
+          console.log(`⏳ Waiting for next video to be ready (played: ${played.toFixed(1)}s / target: ${targetDuration}s)`);
+        }
       }
     };
 
-    // Check every 500ms
+    // Check every 500ms - always run, not dependent on nextVideoReady
     const interval = setInterval(checkTransition, 500);
 
-    return () => clearInterval(interval);
+    return () => {
+      console.log(`🛑 Timer interval stopped for slide ${currentIndex + 1}`);
+      clearInterval(interval);
+    };
   }, [slides, currentIndex, isPaused, nextVideoReady]);
 
   // Rotate language
