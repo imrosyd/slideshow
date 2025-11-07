@@ -72,7 +72,7 @@ export function useRemoteControl({
             currentImage: slides[currentIndex]?.name || '',
             paused: isPaused,
           }
-        });
+        }, { httpSend: true });
       })
       .subscribe();
 
@@ -99,7 +99,7 @@ export function useRemoteControl({
         currentImage: slides[currentIndex]?.name || '',
         paused: isPaused,
       }
-    }).catch(() => {
+    }, { httpSend: true }).catch(() => {
       // Ignore send errors
     });
 
@@ -125,7 +125,7 @@ export function useRemoteControl({
           currentImage: slides[currentIndex]?.name || '',
           paused: isPaused,
         }
-      }).then(() => {
+      }, { httpSend: true }).then(() => {
         supabase.removeChannel(channel);
       }).catch(() => {
         supabase.removeChannel(channel);

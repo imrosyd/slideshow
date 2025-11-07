@@ -380,7 +380,7 @@ export default function Home() {
           currentImage: slides[currentIndex]?.name || '',
           paused: isPaused,
         }
-      }).then(() => {
+      }, { httpSend: true }).then(() => {
         console.log('✅ Initial status sent');
         supabase.removeChannel(channel);
       }).catch((err) => {
