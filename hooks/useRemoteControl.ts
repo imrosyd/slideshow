@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
 interface UseRemoteControlProps {
@@ -26,10 +26,11 @@ export function useRemoteControl({
   togglePause,
   fetchSlides,
 }: UseRemoteControlProps) {
-  const channelRef = useRef<any>(null);
   
-  // Listen for remote control commands and send status updates
+  // Listen for remote control commands
   useEffect(() => {
+    console.log('🔌 Setting up remote control listener');
+    
     const remoteChannel = supabase
       .channel('remote-control')
       .on('broadcast', { event: 'remote-command' }, (payload) => {
@@ -60,8 +61,8 @@ export function useRemoteControl({
         }
       })
       .on('broadcast', { event: 'request-status' }, () => {
-        // Send current status to remote
-        console.log('📡 Sending status to remote');
+        // Send current status to remote when requested
+        console.log('📡 Status requested - sending:', { total: slides.length, current: currentIndex });
         remoteChannel.send({
           type: 'broadcast',
           event: 'slideshow-status',
@@ -75,20 +76,19 @@ export function useRemoteControl({
       })
       .subscribe();
 
-    channelRef.current = remoteChannel;
-
     return () => {
+      console.log('🔌 Removing remote control channel');
       supabase.removeChannel(remoteChannel);
-      channelRef.current = null;
     };
   }, [slides, currentIndex, isPaused, goToNext, goToPrevious, goToSlide, togglePause, fetchSlides]);
 
-  // Broadcast status updates whenever state changes
+  // Broadcast status updates when state changes
   useEffect(() => {
-    if (!channelRef.current) return;
+    console.log('📡 Broadcasting status update');
     
-    // Use the same channel that's already subscribed
-    channelRef.current.send({
+    const remoteChannel = supabase.channel('remote-control-status');
+    
+    remoteChannel.send({
       type: 'broadcast',
       event: 'slideshow-status',
       payload: {
@@ -97,8 +97,12 @@ export function useRemoteControl({
         currentImage: slides[currentIndex]?.name || '',
         paused: isPaused,
       }
-    }).catch((err: any) => {
-      console.log('Status broadcast error (ignored):', err);
+    }).catch(() => {
+      // Ignore send errors
     });
+
+    return () => {
+      supabase.removeChannel(remoteChannel);
+    };
   }, [slides.length, currentIndex, isPaused]);
 }
