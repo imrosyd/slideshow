@@ -197,17 +197,6 @@ const styles: Record<string, CSSProperties> = {
     gap: "12px",
     justifyContent: "center" as const,
   },
-  controlButton: {
-    padding: "1rem 2rem",
-    fontSize: "1.1rem",
-    backgroundColor: "transparent",
-    border: "2px solid rgba(255, 255, 255, 0.8)",
-    borderRadius: "8px",
-    color: "white",
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-    fontWeight: "500" as const,
-  },
 };
 
 export default function Home() {
@@ -216,6 +205,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<Language>("en");
   const [showControls, setShowControls] = useState(false);
+  const hasInteractedRef = useRef(false);
 
   // Main slideshow controller
   const {
@@ -423,13 +413,12 @@ export default function Home() {
   // Mouse movement handler for controls
   useEffect(() => {
     let hideTimeout: NodeJS.Timeout;
-    let isFirstMove = true;
 
-    const handleMouseMove = () => {
-      // Skip initial small movements (page load jitter)
-      if (isFirstMove) {
-        isFirstMove = false;
-        return;
+    const handleMouseMove = (e: MouseEvent) => {
+      // Only show controls if user has moved mouse significantly
+      if (!hasInteractedRef.current) {
+        hasInteractedRef.current = true;
+        return; // Skip first movement
       }
 
       setShowControls(true);
@@ -443,16 +432,27 @@ export default function Home() {
       }, 3000);
     };
 
-    // Add small delay before starting to listen to avoid page load triggers
+    const handleTouch = () => {
+      hasInteractedRef.current = true;
+      setShowControls(true);
+      
+      if (hideTimeout) clearTimeout(hideTimeout);
+      
+      hideTimeout = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    };
+
+    // Add delay before starting to listen
     const startTimeout = setTimeout(() => {
       window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('touchstart', handleMouseMove);
-    }, 500);
+      window.addEventListener('touchstart', handleTouch);
+    }, 1000); // Increased to 1 second
 
     return () => {
       clearTimeout(startTimeout);
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchstart', handleMouseMove);
+      window.removeEventListener('touchstart', handleTouch);
       if (hideTimeout) clearTimeout(hideTimeout);
     };
   }, []);
@@ -577,6 +577,25 @@ export default function Home() {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
           }
+          .control-button {
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            background-color: transparent;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+          }
+          .control-button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 1);
+            transform: scale(1.05);
+          }
+          .control-button:active {
+            transform: scale(0.95);
+          }
         `}</style>
       </Head>
       {ResourceHints}
@@ -625,21 +644,21 @@ export default function Home() {
             <div style={styles.controlsContainer}>
               <div style={styles.controlsRow}>
                 <button
-                  style={styles.controlButton}
+                  className="control-button"
                   onClick={goToPrevious}
                   aria-label="Previous slide"
                 >
                   ⏮️ Previous
                 </button>
                 <button
-                  style={styles.controlButton}
+                  className="control-button"
                   onClick={togglePause}
                   aria-label={isPaused ? "Resume" : "Pause"}
                 >
                   {isPaused ? "▶️ Resume" : "⏸️ Pause"}
                 </button>
                 <button
-                  style={styles.controlButton}
+                  className="control-button"
                   onClick={goToNext}
                   aria-label="Next slide"
                 >
