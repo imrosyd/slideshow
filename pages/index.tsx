@@ -837,6 +837,20 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  // Handle pause/play when isPaused state changes
+  useEffect(() => {
+    const video = currentVideoRef.current;
+    if (!video) return;
+
+    if (isPaused) {
+      console.log(`⏸️ Pausing video`);
+      video.pause();
+    } else {
+      console.log(`▶️ Resuming video`);
+      video.play().catch(e => console.error('Failed to resume:', e));
+    }
+  }, [isPaused]);
+
   // Navigation functions
   const goToSlide = useCallback((index: number) => {
     if (index >= 0 && index < slides.length) {
