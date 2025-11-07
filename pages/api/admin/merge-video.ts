@@ -136,6 +136,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log(`[Merge Video] Uploaded ${videoFilename} successfully`);
 
+    // Get public URL for the video
+    const { data: videoPublicData } = supabase.storage
+      .from("slideshow-videos")
+      .getPublicUrl(videoFilename);
+
+    const videoUrl = videoPublicData.publicUrl;
+    console.log(`[Merge Video] Video URL: ${videoUrl}`);
+
     // Calculate total duration
     const totalDuration = images.reduce((sum, img) => sum + img.durationSeconds, 0);
 
@@ -188,10 +196,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         filename: placeholderImageName,
         duration_ms: totalDuration * 1000,
         caption: `Merged: ${images.length} images (${totalDuration}s)`,
-        display_order: 999999, // Put at end
+        order_index: 999999, // Put at end
         hidden: true, // Hide placeholder image, only show video
         is_video: true, // Mark as video entry
-        video_url: videoFilename,
+        video_url: videoUrl, // Use full public URL instead of filename
         video_generated_at: new Date().toISOString(),
         video_duration_seconds: totalDuration,
       }, {
