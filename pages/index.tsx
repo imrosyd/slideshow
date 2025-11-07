@@ -299,25 +299,6 @@ const styles: Record<string, CSSProperties> = {
     boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
     letterSpacing: "0.02em",
   },
-  previewImageName: {
-    position: "absolute" as const,
-    bottom: "32px",
-    left: "50%",
-    transform: "translateX(-50%)",
-    padding: "12px 24px",
-    backgroundColor: "rgba(15, 23, 42, 0.9)",
-    backdropFilter: "blur(12px)",
-    borderRadius: "10px",
-    color: "rgba(248, 250, 252, 0.95)",
-    fontSize: "0.95rem",
-    fontWeight: 500,
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
-    maxWidth: "80%",
-    textAlign: "center" as const,
-    whiteSpace: "nowrap" as const,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
 };
 
 export default function Home() {
@@ -930,9 +911,6 @@ export default function Home() {
               style={styles.previewImage}
               onClick={(e) => e.stopPropagation()}
             />
-            <div style={styles.previewImageName}>
-              {selectedImage.name.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '')}
-            </div>
             <button
               style={styles.closeButton}
               className="close-button"
