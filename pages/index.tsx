@@ -1316,6 +1316,15 @@ export default function Home() {
 
   // Display current slide
   const currentSlide = slides[currentIndex];
+  
+  // Debug logging
+  console.log(`🎯 Rendering slide ${currentIndex + 1}/${slides.length}:`, {
+    hasSlide: !!currentSlide,
+    hasVideoUrl: !!currentSlide?.videoUrl,
+    videoUrl: currentSlide?.videoUrl?.split('/').pop(),
+    nextVideoReady,
+  });
+
   const formatCountdown = (seconds?: number) => {
     if (typeof seconds !== "number" || Number.isNaN(seconds)) {
       return "--:--";
@@ -1349,25 +1358,26 @@ export default function Home() {
             style={styles.image}
             onLoadStart={() => {
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
-              console.log(`🔵 Current video load started - ${videoName}`);
+              console.log(`🔵 [${currentIndex + 1}/${slides.length}] Video load started - ${videoName}`);
             }}
             onLoadedMetadata={() => {
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
-              console.log(`📊 Current video metadata loaded - ${videoName}`);
+              console.log(`📊 [${currentIndex + 1}/${slides.length}] Video metadata loaded - ${videoName}`);
             }}
             onCanPlay={() => {
               const video = currentVideoRef.current;
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
-              console.log(`✅ Current video can play - ${videoName}`);
+              console.log(`✅ [${currentIndex + 1}/${slides.length}] Video can play - ${videoName}`);
               // Ensure video starts playing
               if (video && video.paused) {
+                console.log(`▶️ [${currentIndex + 1}/${slides.length}] Auto-playing video - ${videoName}`);
                 video.play().catch(e => console.error('onCanPlay play failed:', e));
               }
             }}
             onLoadedData={() => {
               const video = currentVideoRef.current;
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
-              console.log(`📺 WebOS: Current video loaded, attempting play - ${videoName}`);
+              console.log(`📺 [${currentIndex + 1}/${slides.length}] WebOS: Video loaded, attempting play - ${videoName}`);
               if (video) {
                 // WebOS-friendly play with multiple retries
                 const attemptPlay = (retryCount = 0) => {
@@ -1458,6 +1468,10 @@ export default function Home() {
             padding: '40px',
             gap: '20px',
           }}>
+            {(() => {
+              console.log(`⚠️ No videoUrl for slide ${currentIndex + 1}: ${currentSlide.name}`);
+              return null;
+            })()}
             <div style={{ fontSize: '24px', color: '#ff6b6b' }}>⚠️ No Video Available</div>
             <div style={{ fontSize: '16px', color: '#aaa' }}>{currentSlide.name}</div>
             <div style={{ fontSize: '14px', color: '#666', maxWidth: '600px', wordBreak: 'break-all' }}>
