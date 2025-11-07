@@ -190,11 +190,6 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column" as const,
     gap: "16px",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    padding: "30px 40px",
-    borderRadius: "16px",
-    backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
   },
   controlsRow: {
     display: "flex",
