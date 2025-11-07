@@ -16,7 +16,7 @@ export default function RemoteControl() {
   useEffect(() => {
     console.log('📱 Setting up remote control channels');
     
-    // Subscribe to slideshow status on BOTH channels
+    // Subscribe to slideshow status on ALL channels
     const commandChannel = supabase
       .channel('remote-control')
       .on('broadcast', { event: 'slideshow-status' }, (payload) => {
@@ -35,6 +35,20 @@ export default function RemoteControl() {
       .channel('remote-control-status')
       .on('broadcast', { event: 'slideshow-status' }, (payload) => {
         console.log('Status update (status channel):', payload);
+        if (payload.payload) {
+          setSlideCount(payload.payload.total || 0);
+          setCurrentSlide(payload.payload.current || 0);
+          setIsPaused(payload.payload.paused || false);
+          setCurrentImageName(payload.payload.currentImage || "");
+          setIsConnected(true);
+        }
+      })
+      .subscribe();
+
+    const heartbeatChannel = supabase
+      .channel('remote-control-heartbeat')
+      .on('broadcast', { event: 'slideshow-status' }, (payload) => {
+        console.log('Status update (heartbeat channel):', payload);
         if (payload.payload) {
           setSlideCount(payload.payload.total || 0);
           setCurrentSlide(payload.payload.current || 0);
@@ -70,6 +84,7 @@ export default function RemoteControl() {
       clearInterval(statusInterval);
       supabase.removeChannel(commandChannel);
       supabase.removeChannel(statusChannel);
+      supabase.removeChannel(heartbeatChannel);
     };
   }, []);
 

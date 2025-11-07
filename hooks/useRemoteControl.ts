@@ -84,6 +84,8 @@ export function useRemoteControl({
 
   // Broadcast status updates when state changes
   useEffect(() => {
+    if (slides.length === 0) return; // Don't broadcast if no slides
+    
     console.log('📡 Broadcasting status update');
     
     const remoteChannel = supabase.channel('remote-control-status');
@@ -104,5 +106,32 @@ export function useRemoteControl({
     return () => {
       supabase.removeChannel(remoteChannel);
     };
+  }, [slides.length, currentIndex, isPaused]);
+  
+  // Periodic status broadcast (every 5 seconds) to ensure remote stays connected
+  useEffect(() => {
+    if (slides.length === 0) return;
+    
+    const interval = setInterval(() => {
+      console.log('⏰ Periodic status broadcast');
+      
+      const channel = supabase.channel('remote-control-heartbeat');
+      channel.send({
+        type: 'broadcast',
+        event: 'slideshow-status',
+        payload: {
+          total: slides.length,
+          current: currentIndex,
+          currentImage: slides[currentIndex]?.name || '',
+          paused: isPaused,
+        }
+      }).then(() => {
+        supabase.removeChannel(channel);
+      }).catch(() => {
+        supabase.removeChannel(channel);
+      });
+    }, 5000); // Every 5 seconds
+    
+    return () => clearInterval(interval);
   }, [slides.length, currentIndex, isPaused]);
 }
