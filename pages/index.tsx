@@ -653,7 +653,18 @@ export default function Home() {
 
   // Handle video transition when current video ends
   const handleVideoEnded = useCallback(() => {
-    if (isPaused || slides.length <= 1) return;
+    if (isPaused) return;
+
+    const video = currentVideoRef.current;
+    if (!video) return;
+
+    // If only one slide, just loop it
+    if (slides.length <= 1) {
+      console.log(`🔁 Single slide - looping video`);
+      video.currentTime = 0;
+      video.play().catch(e => console.error('Failed to loop:', e));
+      return;
+    }
 
     const nextIndex = (currentIndex + 1) % slides.length;
     const currentSlide = slides[currentIndex];
@@ -676,11 +687,8 @@ export default function Home() {
     } else {
       console.log(`⏳ Next video not ready yet (${nextDisplayName}), replaying current video`);
       // Replay current video
-      const video = currentVideoRef.current;
-      if (video) {
-        video.currentTime = 0;
-        video.play().catch(e => console.error('Failed to replay:', e));
-      }
+      video.currentTime = 0;
+      video.play().catch(e => console.error('Failed to replay:', e));
     }
   }, [slides, currentIndex, isPaused, nextVideoReady]);
 
@@ -1324,6 +1332,7 @@ export default function Home() {
             autoPlay
             muted
             playsInline
+            loop={slides.length <= 1}
             preload="auto"
             webkit-playsinline="true"
             x-webkit-airplay="allow"
@@ -1335,6 +1344,15 @@ export default function Home() {
             onLoadedMetadata={() => {
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
               console.log(`📊 Current video metadata loaded - ${videoName}`);
+            }}
+            onCanPlay={() => {
+              const video = currentVideoRef.current;
+              const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
+              console.log(`✅ Current video can play - ${videoName}`);
+              // Ensure video starts playing
+              if (video && video.paused) {
+                video.play().catch(e => console.error('onCanPlay play failed:', e));
+              }
             }}
             onLoadedData={() => {
               const video = currentVideoRef.current;
