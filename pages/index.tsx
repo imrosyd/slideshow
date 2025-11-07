@@ -200,12 +200,13 @@ const styles: Record<string, CSSProperties> = {
   controlButton: {
     padding: "1rem 2rem",
     fontSize: "1.1rem",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    border: "1px solid rgba(255, 255, 255, 0.2)",
+    backgroundColor: "transparent",
+    border: "2px solid rgba(255, 255, 255, 0.8)",
     borderRadius: "8px",
     color: "white",
     cursor: "pointer",
     transition: "all 0.3s ease",
+    fontWeight: "500" as const,
   },
 };
 
@@ -422,8 +423,15 @@ export default function Home() {
   // Mouse movement handler for controls
   useEffect(() => {
     let hideTimeout: NodeJS.Timeout;
+    let isFirstMove = true;
 
     const handleMouseMove = () => {
+      // Skip initial small movements (page load jitter)
+      if (isFirstMove) {
+        isFirstMove = false;
+        return;
+      }
+
       setShowControls(true);
       
       // Clear existing timeout
@@ -435,10 +443,14 @@ export default function Home() {
       }, 3000);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('touchstart', handleMouseMove);
+    // Add small delay before starting to listen to avoid page load triggers
+    const startTimeout = setTimeout(() => {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('touchstart', handleMouseMove);
+    }, 500);
 
     return () => {
+      clearTimeout(startTimeout);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('touchstart', handleMouseMove);
       if (hideTimeout) clearTimeout(hideTimeout);
