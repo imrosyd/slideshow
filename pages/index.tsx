@@ -87,6 +87,13 @@ type Slide = {
   videoUrl?: string;
 };
 
+// Helper function to format countdown timer
+const formatCountdown = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
 const styles: Record<string, CSSProperties> = {
   container: {
     display: "flex",
@@ -173,6 +180,49 @@ const styles: Record<string, CSSProperties> = {
     textTransform: "uppercase" as const,
     color: "rgba(148, 163, 184, 0.7)",
   },
+  controlsOverlay: {
+    position: "fixed" as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    background: "linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent)",
+    padding: "40px 20px 20px",
+    zIndex: 100,
+    transition: "opacity 300ms ease, transform 300ms ease",
+  },
+  controlsContainer: {
+    maxWidth: "1200px",
+    margin: "0 auto",
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "16px",
+  },
+  controlsRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    justifyContent: "center" as const,
+  },
+  controlButton: {
+    padding: "10px 16px",
+    borderRadius: "8px",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    border: "1px solid rgba(255, 255, 255, 0.2)",
+    color: "#ffffff",
+    fontSize: "0.9rem",
+    fontWeight: 500,
+    cursor: "pointer",
+    transition: "all 200ms ease",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  slideInfo: {
+    textAlign: "center" as const,
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: "0.95rem",
+    fontWeight: 500,
+  },
 };
 
 export default function Home() {
@@ -180,6 +230,7 @@ export default function Home() {
   const [error, setError] = useState<AppError | null>(null);
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<Language>("en");
+  const [showControls, setShowControls] = useState(false);
 
   // Main slideshow controller
   const {
@@ -384,6 +435,32 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goToNext, goToPrevious, togglePause]);
 
+  // Mouse movement handler for controls
+  useEffect(() => {
+    let hideTimeout: NodeJS.Timeout;
+
+    const handleMouseMove = () => {
+      setShowControls(true);
+      
+      // Clear existing timeout
+      if (hideTimeout) clearTimeout(hideTimeout);
+      
+      // Hide controls after 3 seconds of inactivity
+      hideTimeout = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('touchstart', handleMouseMove);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchstart', handleMouseMove);
+      if (hideTimeout) clearTimeout(hideTimeout);
+    };
+  }, []);
+
   // Supabase realtime listener for metadata changes
   useEffect(() => {
     const channel = supabase
@@ -540,6 +617,45 @@ export default function Home() {
             />
           ) : null}
         </div>
+
+        {/* Controls overlay */}
+        {showControls && currentSlide && (
+          <div style={styles.controlsOverlay}>
+            <div style={styles.controlsContainer}>
+              <div style={styles.slideInfo}>
+                <div style={{ fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.5rem" }}>
+                  {currentSlide.name}
+                </div>
+                <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>
+                  Duration: {formatCountdown(currentSlide.durationSeconds)}
+                </div>
+              </div>
+              <div style={styles.controlsRow}>
+                <button
+                  style={styles.controlButton}
+                  onClick={goToPrevious}
+                  aria-label="Previous slide"
+                >
+                  ⏮️ Previous
+                </button>
+                <button
+                  style={styles.controlButton}
+                  onClick={togglePause}
+                  aria-label={isPaused ? "Resume" : "Pause"}
+                >
+                  {isPaused ? "▶️ Resume" : "⏸️ Pause"}
+                </button>
+                <button
+                  style={styles.controlButton}
+                  onClick={goToNext}
+                  aria-label="Next slide"
+                >
+                  Next ⏭️
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Debug info - REMOVED per user request */}
       </main>
