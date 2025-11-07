@@ -368,11 +368,13 @@ export default function Home() {
   const [showControls, setShowControls] = useState(false);
   const [transitionEffect, setTransitionEffect] = useState<TransitionEffect>(DEFAULT_TRANSITION);
   const [slideCountdowns, setSlideCountdowns] = useState<number[]>([]);
+  const [nextIndex, setNextIndex] = useState<number | null>(null); // For crossfade transition
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fullscreenRequestedRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const nextVideoRef = useRef<HTMLVideoElement>(null); // For preloading next video
   const lastKeepAwakeTimeRef = useRef<number>(0);
   const slideStartTimeRef = useRef<number>(Date.now());
 
@@ -677,56 +679,57 @@ export default function Home() {
       
       console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}: ${nextDisplayName}`);
       
-      // Preload next slide before transition (handle both video and image)
+      // Preload next slide before transition
       if (nextSlide) {
         let transitionTriggered = false;
         
-        const preloadComplete = () => {
+        const performTransition = () => {
           if (transitionTriggered) return; // Prevent double transition
           transitionTriggered = true;
           
           console.log(`🔄 Preloaded: ${nextDisplayName}`);
-          // Fade out current
-          setFadeIn(false);
           
-          // After fade out, switch slide and fade in
-          setTimeout(() => {
+          // For video-to-video transition: instant switch (no fade) to avoid blank screen
+          if (currentSlide.isVideo && nextSlide.isVideo) {
+            console.log(`🎬 Video-to-video: instant transition`);
             setCurrentIndex(nextIndex);
-            setFadeIn(true);
-          }, FADE_DURATION_MS);
+            // Keep fadeIn true for instant display
+          } else {
+            // For other transitions: use fade effect
+            setFadeIn(false);
+            setTimeout(() => {
+              setCurrentIndex(nextIndex);
+              setFadeIn(true);
+            }, FADE_DURATION_MS);
+          }
         };
         
-        const preloadFailed = () => {
-          if (transitionTriggered) return; // Prevent double transition
+        const transitionFailed = () => {
+          if (transitionTriggered) return;
           transitionTriggered = true;
           
-          // If preload fails, just switch anyway
           console.error(`❌ Failed to preload: ${nextDisplayName}`);
-          setFadeIn(false);
-          setTimeout(() => {
-            setCurrentIndex(nextIndex);
-            setFadeIn(true);
-          }, FADE_DURATION_MS);
+          // Force instant transition even on error
+          setCurrentIndex(nextIndex);
         };
         
-        // If next slide is a video, preload as video; otherwise preload as image
+        // Preload video or image
         if (nextSlide.isVideo && nextSlide.videoUrl) {
           const video = document.createElement('video');
           video.preload = 'auto';
           video.src = nextSlide.videoUrl;
           
-          // Timeout fallback - force transition after 3 seconds if video doesn't load
+          // Timeout fallback - force transition after 2 seconds
           const fallbackTimer = setTimeout(() => {
             if (!transitionTriggered) {
               console.warn(`⏱️ Preload timeout, forcing transition: ${nextDisplayName}`);
-              preloadComplete();
+              performTransition();
             }
-          }, 3000);
+          }, 2000);
           
-          // Wrap preloadComplete to clear timeout
           const handlePreloadComplete = () => {
             clearTimeout(fallbackTimer);
-            preloadComplete();
+            performTransition();
           };
           
           // Multiple event listeners for better reliability
@@ -734,17 +737,16 @@ export default function Home() {
           video.addEventListener('loadeddata', handlePreloadComplete, { once: true });
           video.addEventListener('error', () => {
             clearTimeout(fallbackTimer);
-            preloadFailed();
+            transitionFailed();
           }, { once: true });
           
-          // Trigger load
           video.load();
         } else {
           // Preload as image (fallback)
           const img = new Image();
           img.src = nextSlide.url;
-          img.onload = preloadComplete;
-          img.onerror = preloadFailed;
+          img.onload = performTransition;
+          img.onerror = transitionFailed;
         }
       }
     }, currentSlide.durationSeconds * 1000);
@@ -1566,6 +1568,27 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Hidden preload video for next slide to ensure smooth transition */}
+      {slides.length > 1 && (() => {
+        const nextIdx = (currentIndex + 1) % slides.length;
+        const nextSlide = slides[nextIdx];
+        return nextSlide?.isVideo && nextSlide.videoUrl ? (
+          <video
+            ref={nextVideoRef}
+            key={`preload-${nextSlide.videoUrl}`}
+            src={nextSlide.videoUrl}
+            preload="auto"
+            muted
+            playsInline
+            style={{ display: 'none' }}
+            onLoadedData={() => {
+              const videoName = nextSlide.videoUrl?.split('/').pop() || nextSlide.name;
+              console.log(`🎬 Next video preloaded: ${videoName}`);
+            }}
+          />
+        ) : null;
+      })()}
 
       {/* Controls Overlay */}
       <div 
