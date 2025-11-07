@@ -205,7 +205,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<Language>("en");
   const [showControls, setShowControls] = useState(false);
-  const hasInteractedRef = useRef(false);
 
   // Main slideshow controller
   const {
@@ -413,13 +412,32 @@ export default function Home() {
   // Mouse movement handler for controls
   useEffect(() => {
     let hideTimeout: NodeJS.Timeout;
+    let lastX = 0;
+    let lastY = 0;
+    let isInitialized = false;
 
     const handleMouseMove = (e: MouseEvent) => {
-      // Only show controls if user has moved mouse significantly
-      if (!hasInteractedRef.current) {
-        hasInteractedRef.current = true;
-        return; // Skip first movement
+      // Initialize position on first call without showing controls
+      if (!isInitialized) {
+        lastX = e.clientX;
+        lastY = e.clientY;
+        isInitialized = true;
+        return;
       }
+
+      // Calculate distance moved
+      const deltaX = Math.abs(e.clientX - lastX);
+      const deltaY = Math.abs(e.clientY - lastY);
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+      // Only show if mouse moved significantly (at least 50 pixels)
+      if (distance < 50) {
+        return;
+      }
+
+      // Update last position
+      lastX = e.clientX;
+      lastY = e.clientY;
 
       setShowControls(true);
       
@@ -433,7 +451,6 @@ export default function Home() {
     };
 
     const handleTouch = () => {
-      hasInteractedRef.current = true;
       setShowControls(true);
       
       if (hideTimeout) clearTimeout(hideTimeout);
@@ -447,7 +464,7 @@ export default function Home() {
     const startTimeout = setTimeout(() => {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('touchstart', handleTouch);
-    }, 1000); // Increased to 1 second
+    }, 2000); // Increased to 2 seconds
 
     return () => {
       clearTimeout(startTimeout);
@@ -581,16 +598,16 @@ export default function Home() {
             padding: 1rem 2rem;
             font-size: 1.1rem;
             background-color: transparent;
-            border: 2px solid rgba(255, 255, 255, 0.8);
+            border: 2px solid rgba(0, 0, 0, 0.8);
             border-radius: 8px;
-            color: white;
+            color: black;
             cursor: pointer;
             transition: all 0.3s ease;
             font-weight: 500;
           }
           .control-button:hover {
-            background-color: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 1);
+            background-color: rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 0, 0, 1);
             transform: scale(1.05);
           }
           .control-button:active {
