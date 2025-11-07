@@ -368,13 +368,15 @@ export default function Home() {
   const [showControls, setShowControls] = useState(false);
   const [transitionEffect, setTransitionEffect] = useState<TransitionEffect>(DEFAULT_TRANSITION);
   const [slideCountdowns, setSlideCountdowns] = useState<number[]>([]);
-  const [nextIndex, setNextIndex] = useState<number | null>(null); // For crossfade transition
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showCurrentVideo, setShowCurrentVideo] = useState(true); // For crossfade
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
+  const nextIndexRef = useRef(0); // Track next video index
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fullscreenRequestedRef = useRef(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const nextVideoRef = useRef<HTMLVideoElement>(null); // For preloading next video
+  const currentVideoRef = useRef<HTMLVideoElement>(null);
+  const nextVideoRef = useRef<HTMLVideoElement>(null);
   const lastKeepAwakeTimeRef = useRef<number>(0);
   const slideStartTimeRef = useRef<number>(Date.now());
 
@@ -679,82 +681,48 @@ export default function Home() {
       
       console.log(`➡️ Transitioning to slide ${nextIndex + 1}/${slides.length}: ${nextDisplayName}`);
       
-      // Preload next slide before transition
-      if (nextSlide) {
-        let transitionTriggered = false;
+      // Crossfade transition for video-to-video
+      if (currentSlide.isVideo && nextSlide?.isVideo) {
+        console.log(`🎬 Crossfade transition starting`);
         
-        const performTransition = () => {
-          if (transitionTriggered) return; // Prevent double transition
-          transitionTriggered = true;
-          
-          console.log(`🔄 Preloaded: ${nextDisplayName}`);
-          
-          // For video-to-video transition: instant switch (no fade) to avoid blank screen
-          if (currentSlide.isVideo && nextSlide.isVideo) {
-            console.log(`🎬 Video-to-video: instant transition`);
-            setCurrentIndex(nextIndex);
-            // Keep fadeIn true for instant display
-          } else {
-            // For other transitions: use fade effect
-            setFadeIn(false);
+        // Start playing next video
+        const nextVideo = nextVideoRef.current;
+        if (nextVideo) {
+          nextVideo.currentTime = 0;
+          nextVideo.play().then(() => {
+            console.log(`▶️ Next video started playing: ${nextDisplayName}`);
+            
+            // Crossfade: hide current, show next
+            setShowCurrentVideo(false);
+            
+            // After crossfade completes, update index and swap buffers
             setTimeout(() => {
               setCurrentIndex(nextIndex);
-              setFadeIn(true);
-            }, FADE_DURATION_MS);
-          }
-        };
-        
-        const transitionFailed = () => {
-          if (transitionTriggered) return;
-          transitionTriggered = true;
-          
-          console.error(`❌ Failed to preload: ${nextDisplayName}`);
-          // Force instant transition even on error
-          setCurrentIndex(nextIndex);
-        };
-        
-        // Preload video or image
-        if (nextSlide.isVideo && nextSlide.videoUrl) {
-          const video = document.createElement('video');
-          video.preload = 'auto';
-          video.src = nextSlide.videoUrl;
-          
-          // Timeout fallback - force transition after 2 seconds
-          const fallbackTimer = setTimeout(() => {
-            if (!transitionTriggered) {
-              console.warn(`⏱️ Preload timeout, forcing transition: ${nextDisplayName}`);
-              performTransition();
-            }
-          }, 2000);
-          
-          const handlePreloadComplete = () => {
-            clearTimeout(fallbackTimer);
-            performTransition();
-          };
-          
-          // Multiple event listeners for better reliability
-          video.addEventListener('canplaythrough', handlePreloadComplete, { once: true });
-          video.addEventListener('loadeddata', handlePreloadComplete, { once: true });
-          video.addEventListener('error', () => {
-            clearTimeout(fallbackTimer);
-            transitionFailed();
-          }, { once: true });
-          
-          video.load();
+              setShowCurrentVideo(true);
+              console.log(`✅ Crossfade complete, swapped to: ${nextDisplayName}`);
+            }, 300); // Match transition duration
+          }).catch((e) => {
+            console.error(`❌ Failed to play next video, forcing transition`, e);
+            setCurrentIndex(nextIndex);
+          });
         } else {
-          // Preload as image (fallback)
-          const img = new Image();
-          img.src = nextSlide.url;
-          img.onload = performTransition;
-          img.onerror = transitionFailed;
+          console.warn(`⚠️ Next video ref not ready, fallback to instant transition`);
+          setCurrentIndex(nextIndex);
         }
+      } else {
+        // For non-video transitions: use fade effect
+        setFadeIn(false);
+        setTimeout(() => {
+          setCurrentIndex(nextIndex);
+          setFadeIn(true);
+        }, FADE_DURATION_MS);
       }
     }, currentSlide.durationSeconds * 1000);
 
     return () => {
       clearTimeout(timer);
     };
-  }, [slides, currentIndex, isPaused]);
+  }, [slides, currentIndex, isPaused, showCurrentVideo]);
 
   // Rotate language
   useEffect(() => {
@@ -1428,13 +1396,20 @@ export default function Home() {
       <Head>
         <title>Slideshow</title>
       </Head>
+      
+      {/* Double buffering: Always render both current and next video */}
+      {/* Current video */}
       <div 
-        style={getTransitionStyle()}
+        style={{
+          ...getTransitionStyle(),
+          opacity: showCurrentVideo ? 1 : 0,
+          zIndex: showCurrentVideo ? 2 : 1,
+        }}
       >
         {currentSlide && currentSlide.videoUrl ? (
           <video
-            ref={videoRef}
-            key={currentSlide.videoUrl}
+            ref={currentVideoRef}
+            key={`current-${currentSlide.videoUrl}`}
             src={currentSlide.videoUrl}
             autoPlay
             muted
@@ -1446,26 +1421,26 @@ export default function Home() {
             style={styles.image}
             onLoadStart={() => {
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
-              console.log(`🔵 Video load started - ${videoName}`);
+              console.log(`🔵 Current video load started - ${videoName}`);
             }}
             onLoadedMetadata={() => {
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
-              console.log(`📊 Video metadata loaded - ${videoName}`);
+              console.log(`📊 Current video metadata loaded - ${videoName}`);
             }}
             onLoadedData={() => {
-              const video = videoRef.current;
+              const video = currentVideoRef.current;
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
-              console.log(`📺 WebOS: Video loaded, attempting play - ${videoName}`);
+              console.log(`📺 WebOS: Current video loaded, attempting play - ${videoName}`);
               if (video) {
                 // WebOS-friendly play with multiple retries
                 const attemptPlay = (retryCount = 0) => {
                   video.play()
                     .then(() => {
-                      console.log(`✅ Play success - ${videoName}`);
+                      console.log(`✅ Current play success - ${videoName}`);
                     })
-                    .catch((e) => {
+                    .catch((e: any) => {
                       if (retryCount < 3) {
-                        console.warn(`⚠️ WebOS: Play attempt ${retryCount + 1} failed, retrying...`);
+                        console.warn(`⚠️ WebOS: Current play attempt ${retryCount + 1} failed, retrying...`);
                         setTimeout(() => attemptPlay(retryCount + 1), 200 * (retryCount + 1));
                       } else {
                         console.error(`❌ WebOS: All play attempts failed - ${videoName}`, e);
@@ -1569,24 +1544,47 @@ export default function Home() {
         )}
       </div>
 
-      {/* Hidden preload video for next slide to ensure smooth transition */}
+      {/* Next video (for seamless crossfade) - always ready in background */}
       {slides.length > 1 && (() => {
         const nextIdx = (currentIndex + 1) % slides.length;
         const nextSlide = slides[nextIdx];
+        nextIndexRef.current = nextIdx;
+        
         return nextSlide?.isVideo && nextSlide.videoUrl ? (
-          <video
-            ref={nextVideoRef}
-            key={`preload-${nextSlide.videoUrl}`}
-            src={nextSlide.videoUrl}
-            preload="auto"
-            muted
-            playsInline
-            style={{ display: 'none' }}
-            onLoadedData={() => {
-              const videoName = nextSlide.videoUrl?.split('/').pop() || nextSlide.name;
-              console.log(`🎬 Next video preloaded: ${videoName}`);
+          <div 
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              opacity: showCurrentVideo ? 0 : 1,
+              zIndex: showCurrentVideo ? 1 : 2,
+              transition: 'opacity 300ms ease-in-out',
             }}
-          />
+          >
+            <video
+              ref={nextVideoRef}
+              key={`next-${nextSlide.videoUrl}`}
+              src={nextSlide.videoUrl}
+              autoPlay={false}
+              muted
+              playsInline
+              loop
+              preload="auto"
+              webkit-playsinline="true"
+              x-webkit-airplay="allow"
+              style={styles.image}
+              onLoadedData={() => {
+                const videoName = nextSlide.videoUrl?.split('/').pop() || nextSlide.name;
+                console.log(`🎬 Next video ready for crossfade: ${videoName}`);
+              }}
+              onCanPlayThrough={() => {
+                const videoName = nextSlide.videoUrl?.split('/').pop() || nextSlide.name;
+                console.log(`✅ Next video can play through: ${videoName}`);
+              }}
+            />
+          </div>
         ) : null;
       })()}
 
