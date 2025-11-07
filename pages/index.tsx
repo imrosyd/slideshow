@@ -835,6 +835,16 @@ export default function Home() {
   // Navigation functions
   const goToSlide = useCallback((index: number) => {
     if (index >= 0 && index < slides.length) {
+      // Stop current video before changing src (critical for seamless transition)
+      const video = currentVideoRef.current;
+      if (video) {
+        console.log(`⏹️ Stopping current video before switch to index ${index}`);
+        video.pause();
+        video.currentTime = 0;
+        // Clear any pending preload
+        has50PercentReachedRef.current = false;
+      }
+      
       // Instant transition - no fade
       setCurrentIndex(index);
     }
