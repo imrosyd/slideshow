@@ -619,7 +619,7 @@ export default function Home() {
       {ResourceHints}
       <main style={styles.container}>
         <div style={styles.imageWrapper}>
-          {currentSlide && currentSlide.videoUrl ? (
+          {currentSlide && currentSlide.isVideo && currentSlide.videoUrl ? (
             <video
               ref={videoRef}
               src={currentSlide.videoUrl}
@@ -646,6 +646,18 @@ export default function Home() {
                 const error = target.error;
                 console.error(`❌ Video error: ${currentSlide.name}`);
                 console.error(`   Error code: ${error?.code}, message: ${error?.message}`);
+              }}
+            />
+          ) : currentSlide ? (
+            <img
+              src={currentSlide.url}
+              alt={currentSlide.name}
+              style={styles.image}
+              onLoad={() => {
+                console.log(`✅ Image loaded: ${currentSlide.name}`);
+              }}
+              onError={() => {
+                console.error(`❌ Image load error: ${currentSlide.name}`);
               }}
             />
           ) : null}
