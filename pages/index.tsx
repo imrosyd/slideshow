@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import Head from "next/head";
 import { supabase } from "../lib/supabase";
+import { cacheVideo, getCachedVideo, getCacheStats } from "../lib/videoCache";
 
 const DEFAULT_SLIDE_DURATION_SECONDS = 20;
 const LANGUAGE_SWAP_INTERVAL_MS = 4_000;
@@ -391,6 +392,7 @@ export default function Home() {
   const [showControls, setShowControls] = useState(false);
   const [slideCountdowns, setSlideCountdowns] = useState<number[]>([]);
   const [nextVideoReady, setNextVideoReady] = useState(false);
+  const [cachedVideos, setCachedVideos] = useState<Set<string>>(new Set());
   const slidesRef = useRef<Slide[]>([]);
   const indexRef = useRef(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -406,6 +408,17 @@ export default function Home() {
   useEffect(() => {
     indexRef.current = currentIndex;
   }, [currentIndex]);
+
+  // Initialize video cache on mount
+  useEffect(() => {
+    getCacheStats()
+      .then(stats => {
+        console.log(`📊 Video Cache initialized: ${stats.videoCount} videos, ${(stats.totalSize / 1024 / 1024).toFixed(2)} MB`);
+        const urls = new Set(stats.videos.map(v => v.url));
+        setCachedVideos(urls);
+      })
+      .catch(err => console.error('Failed to initialize cache:', err));
+  }, []);
 
   // Fetch slides from API (reusable function)
   const fetchSlides = useCallback(async (isAutoRefresh = false) => {
@@ -1508,6 +1521,27 @@ export default function Home() {
               const video = currentVideoRef.current;
               const videoName = currentSlide.videoUrl?.split('/').pop() || currentSlide.name;
               console.log(`✅ Can play through: ${videoName}`);
+              
+              // Auto-cache video on first successful load
+              if (currentSlide.videoUrl && !cachedVideos.has(currentSlide.videoUrl)) {
+                console.log(`💾 Auto-caching video: ${videoName}`);
+                
+                // Fetch and cache the video blob
+                fetch(currentSlide.videoUrl)
+                  .then(response => response.blob())
+                  .then(blob => {
+                    cacheVideo(currentSlide.videoUrl!, blob)
+                      .then(() => {
+                        setCachedVideos(prev => new Set(prev).add(currentSlide.videoUrl!));
+                        console.log(`✅ Video cached successfully: ${videoName}`);
+                      })
+                      .catch(err => console.error(`❌ Failed to cache video: ${videoName}`, err));
+                  })
+                  .catch(err => console.error(`❌ Failed to fetch video for caching: ${videoName}`, err));
+              } else if (currentSlide.videoUrl && cachedVideos.has(currentSlide.videoUrl)) {
+                console.log(`✅ Using cached video: ${videoName}`);
+              }
+              
               // Force play on canplaythrough as well
               if (video && video.paused) {
                 console.log(`▶️ Forcing play from canplaythrough: ${videoName}`);
