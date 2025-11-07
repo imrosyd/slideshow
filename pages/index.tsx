@@ -178,12 +178,12 @@ const styles: Record<string, CSSProperties> = {
     left: 0,
     bottom: 0,
     width: "100vw",
-    backgroundColor: "rgba(15, 23, 42, 0.98)",
-    backdropFilter: "blur(20px)",
-    borderTop: "1px solid rgba(148, 163, 184, 0.15)",
-    padding: "24px 48px 28px",
+    background: "linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.97) 20%, rgba(15, 23, 42, 0.99) 100%)",
+    backdropFilter: "blur(24px)",
+    borderTop: "1px solid rgba(148, 163, 184, 0.12)",
+    padding: "32px 56px 32px",
     zIndex: 50,
-    boxShadow: "0 -8px 32px rgba(0, 0, 0, 0.4)",
+    boxShadow: "0 -12px 48px rgba(0, 0, 0, 0.5), 0 -4px 16px rgba(0, 0, 0, 0.3)",
     transition: "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
     transform: "translateY(0)",
     opacity: 1,
@@ -194,74 +194,74 @@ const styles: Record<string, CSSProperties> = {
     pointerEvents: "none" as const,
   },
   galleryTitle: {
-    color: "rgba(248, 250, 252, 0.98)",
+    color: "rgba(248, 250, 252, 1)",
     fontSize: "0.875rem",
-    fontWeight: 600,
-    marginBottom: "16px",
-    letterSpacing: "0.05em",
+    fontWeight: 700,
+    marginBottom: "20px",
+    letterSpacing: "0.08em",
     textTransform: "uppercase" as const,
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: "12px",
+    textShadow: "0 2px 8px rgba(0, 0, 0, 0.4)",
   },
   galleryBadge: {
     display: "inline-flex",
     alignItems: "center",
-    padding: "4px 10px",
-    backgroundColor: "rgba(56, 189, 248, 0.15)",
-    borderRadius: "6px",
+    padding: "6px 14px",
+    background: "linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(14, 165, 233, 0.15) 100%)",
+    borderRadius: "8px",
     fontSize: "0.75rem",
-    fontWeight: 600,
-    color: "rgba(125, 211, 252, 0.95)",
-    letterSpacing: "0.02em",
+    fontWeight: 700,
+    color: "rgba(186, 230, 253, 1)",
+    letterSpacing: "0.03em",
+    boxShadow: "0 2px 8px rgba(56, 189, 248, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.1)",
+    border: "1px solid rgba(56, 189, 248, 0.3)",
   },
   galleryGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-    gap: "20px",
-    maxHeight: "220px",
+    gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+    gap: "24px",
+    maxHeight: "240px",
     overflowY: "auto" as const,
     overflowX: "hidden" as const,
-    paddingRight: "8px",
+    paddingRight: "12px",
+    paddingBottom: "4px",
   },
   galleryImageCard: {
     position: "relative" as const,
     aspectRatio: "1",
-    borderRadius: "12px",
+    borderRadius: "16px",
     overflow: "hidden",
     cursor: "pointer",
-    border: "2px solid rgba(148, 163, 184, 0.2)",
+    border: "2px solid rgba(148, 163, 184, 0.25)",
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    backgroundColor: "rgba(30, 41, 59, 0.4)",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
-  },
-  galleryImageCardHover: {
-    borderColor: "rgba(56, 189, 248, 0.8)",
-    transform: "translateY(-4px) scale(1.02)",
-    boxShadow: "0 8px 24px rgba(56, 189, 248, 0.25), 0 0 0 1px rgba(56, 189, 248, 0.3)",
+    backgroundColor: "rgba(30, 41, 59, 0.5)",
+    boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.05)",
   },
   galleryImage: {
     width: "100%",
     height: "100%",
     objectFit: "cover" as const,
-    transition: "transform 0.3s ease",
+    transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
   },
   galleryImageName: {
     position: "absolute" as const,
     bottom: 0,
     left: 0,
     right: 0,
-    padding: "8px 10px",
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-    backdropFilter: "blur(8px)",
-    color: "rgba(248, 250, 252, 0.95)",
-    fontSize: "0.75rem",
-    fontWeight: 500,
+    padding: "10px 12px",
+    background: "linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.85) 30%, rgba(0, 0, 0, 0.95) 100%)",
+    backdropFilter: "blur(12px)",
+    color: "rgba(255, 255, 255, 1)",
+    fontSize: "0.8rem",
+    fontWeight: 600,
     whiteSpace: "nowrap" as const,
     overflow: "hidden",
     textOverflow: "ellipsis",
     opacity: 0,
-    transition: "opacity 0.3s ease",
+    transition: "opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    textShadow: "0 1px 3px rgba(0, 0, 0, 0.5)",
   },
   imagePreviewOverlay: {
     position: "fixed" as const,
@@ -269,38 +269,38 @@ const styles: Record<string, CSSProperties> = {
     left: 0,
     width: "100vw",
     height: "100vh",
-    backgroundColor: "rgba(0, 0, 0, 0.96)",
-    backdropFilter: "blur(8px)",
+    background: "radial-gradient(circle at center, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.97) 50%, rgba(0, 0, 0, 1) 100%)",
+    backdropFilter: "blur(16px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 200,
-    animation: "fadeIn 0.2s ease",
+    animation: "fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
   },
   previewImage: {
-    maxWidth: "92%",
-    maxHeight: "92%",
+    width: "100vw",
+    height: "100vh",
     objectFit: "contain" as const,
-    borderRadius: "8px",
-    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.5)",
+    padding: "0",
   },
   closeButton: {
     position: "absolute" as const,
-    top: "24px",
-    right: "24px",
-    padding: "14px 28px",
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    top: "32px",
+    right: "32px",
+    padding: "16px 32px",
+    background: "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%)",
     border: "none",
-    borderRadius: "10px",
-    fontSize: "1rem",
-    fontWeight: 600,
+    borderRadius: "12px",
+    fontSize: "1.05rem",
+    fontWeight: 700,
     cursor: "pointer",
     transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-    letterSpacing: "0.02em",
+    boxShadow: "0 6px 20px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15)",
+    letterSpacing: "0.03em",
+    color: "rgba(15, 23, 42, 1)",
   },
-};
 
+};
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [error, setError] = useState<AppError | null>(null);
@@ -776,29 +776,34 @@ export default function Home() {
             }
           }
           .gallery-image-card {
+          .gallery-image-card {
             position: relative;
           }
           .gallery-image-card:hover {
-            border-color: rgba(56, 189, 248, 0.8) !important;
-            transform: translateY(-4px) scale(1.02) !important;
-            box-shadow: 0 8px 24px rgba(56, 189, 248, 0.25), 0 0 0 1px rgba(56, 189, 248, 0.3) !important;
+            border-color: rgba(56, 189, 248, 0.9) !important;
+            transform: translateY(-6px) scale(1.03) !important;
+            box-shadow: 0 12px 32px rgba(56, 189, 248, 0.3), 0 0 0 2px rgba(56, 189, 248, 0.4), 0 4px 16px rgba(0, 0, 0, 0.4) !important;
           }
           .gallery-image-card:hover img {
-            transform: scale(1.05);
+            transform: scale(1.08);
           }
           .gallery-image-card:hover .gallery-image-name {
             opacity: 1;
           }
           .gallery-image-card:active {
-            transform: translateY(-2px) scale(1.01) !important;
+            transform: translateY(-3px) scale(1.02) !important;
           }
           .close-button:hover {
-            background-color: white;
-            transform: scale(1.08);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(248, 250, 252, 1) 100%);
+            transform: scale(1.1);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
           }
           .close-button:active {
-            transform: scale(0.98);
+            transform: scale(1.05);
+          }
+          .gallery-grid::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
           }
           .gallery-grid::-webkit-scrollbar {
             width: 8px;
