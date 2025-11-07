@@ -511,6 +511,7 @@ export default function Home() {
         supabase.removeChannel(channel);
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slides.length]); // Only when slides first load
 
   // Reset preload flag when slide changes
