@@ -15,7 +15,6 @@ const SUPABASE_ORIGIN = (() => {
   }
 })();
 import { ToastProvider } from "../components/admin/ToastProvider";
-import { getAdminAuthCookieName } from "../lib/auth";
 
 // Lazy-load komponen berat untuk memperkecil bundle awal halaman admin
 const UploadBox = dynamic(async () => (await import("../components/admin/UploadBox")).UploadBox as any, { ssr: false }) as any;

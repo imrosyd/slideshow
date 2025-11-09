@@ -530,6 +530,7 @@ export default function Home() {
         .map((item) => {
           // For videos, the duration should come from the video_duration_seconds field
           // not from the regular durationMs field which is for the source image
+          const durationMs = imageDurations[item.name];
           const durationSeconds = item.videoDurationSeconds ?? (
             typeof durationMs === "number" && durationMs > 0
               ? Math.max(1, Math.round(durationMs / 1000))
