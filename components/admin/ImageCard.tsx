@@ -90,7 +90,16 @@ export const ImageCard = ({
   onRename,
   isRenaming = false,
 }: Props) => {
-  const durationValue = useMemo(() => image.durationSeconds ?? 10, [image.durationSeconds]);
+  const durationValue = useMemo(() => {
+    // For videos, show the video duration instead of individual image duration
+    if (image.isVideo && image.videoDurationSeconds) {
+      return image.videoDurationSeconds;
+    }
+    // For regular images, if duration is null in database, display 0
+    return image.durationSeconds ?? 0;
+  }, [image.durationSeconds, image.isVideo, image.videoDurationSeconds]);
+
+  
 
   const hasChanges = useMemo(() => {
     const currentDuration = image.durationSeconds ?? null;
@@ -116,7 +125,8 @@ export const ImageCard = ({
     if (Number.isNaN(numeric)) {
       return;
     }
-    onChange(image.name, { durationSeconds: Math.max(0, Math.round(numeric)) });
+    // Allow 0 as a valid value, but ensure it's not negative
+    onChange(image.name, { durationSeconds: numeric >= 0 ? Math.round(numeric) : 0 });
   };
 
   const handleCaptionChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -161,14 +171,19 @@ export const ImageCard = ({
         </div>
 
         <label className="flex flex-col gap-2">
-          <span className="text-xs font-medium text-white/70">Display duration (seconds)</span>
+          <span className="text-xs font-medium text-white/70">
+            {image.isVideo ? 'Total video duration (seconds)' : 'Display duration (seconds)'}
+          </span>
           <input
             type="number"
             min={0}
             step={1}
             value={durationValue}
             onChange={handleDurationChange}
-            className="w-full rounded-xl border border-white/15 bg-slate-900/60 px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus:border-sky-400/70 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+            disabled={image.isVideo}
+            className={`w-full rounded-xl border border-white/15 bg-slate-900/60 px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus:border-sky-400/70 focus:outline-none focus:ring-2 focus:ring-sky-500/30 ${
+              image.isVideo ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           />
         </label>
 

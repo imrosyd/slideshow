@@ -646,11 +646,25 @@ export const useImages = (authToken: string | null) => {
       try {
         console.log(`[useImages] Converting PDF: ${file.name}`);
         
-        // Dynamically import PDF.js for client-side rendering
-        const pdfjsLib = await import('pdfjs-dist');
+        // Check if we're in the browser
+        if (typeof window === 'undefined') {
+          throw new Error('PDF conversion can only run in browser');
+        }
         
-        // Set worker path
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        // Dynamically import PDF.js (warnings suppressed in next.config.mjs)
+        console.log('[useImages] Importing PDF.js library...');
+        // @ts-ignore - Dynamic import of PDF.js
+        const pdfjsLib = await import('pdfjs-dist');
+        console.log('[useImages] PDF.js library imported successfully');
+        
+        // Set worker path - use local worker file
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+        console.log('[useImages] Worker path set to /pdf.worker.min.js');
+        
+        // Ensure window is defined (client-side)
+        if (typeof window !== 'undefined') {
+          (window as any).pdfjsLib = pdfjsLib;
+        }
         
         // Read PDF file
         const arrayBuffer = await file.arrayBuffer();
@@ -685,7 +699,7 @@ export const useImages = (authToken: string | null) => {
           
           // Render page to canvas
           await page.render({
-            canvasContext: context as unknown as CanvasRenderingContext2D,
+            canvasContext: context,
             viewport: viewport,
           }).promise;
           

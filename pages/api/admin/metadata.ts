@@ -38,7 +38,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const upsertPayload: UpsertRecord[] = payload
         .filter((item): item is MetadataPayload => Boolean(item?.filename))
         .map((item, index) => {
-          const hasValidDuration = typeof item.durationMs === "number" && Number.isFinite(item.durationMs);
+          // Check if durationMs is provided (including 0)
+          const hasDurationMs = item.durationMs !== null && item.durationMs !== undefined;
+          const hasValidDuration = hasDurationMs && typeof item.durationMs === "number" && !Number.isNaN(item.durationMs);
+          
+          // Use the provided duration if valid, otherwise use default
+          // Special case: if durationMs is 0, it's valid and should be stored as 0
           const roundedDuration = hasValidDuration
             ? Math.max(0, Math.round(item.durationMs as number))
             : DEFAULT_DURATION_MS;

@@ -328,7 +328,7 @@ const AdminContent = () => {
           },
           body: JSON.stringify([{
             filename: imageToSave.name,
-            durationMs: imageToSave.durationSeconds ? imageToSave.durationSeconds * 1000 : null,
+            durationMs: imageToSave.durationSeconds !== null && imageToSave.durationSeconds !== undefined ? imageToSave.durationSeconds * 1000 : null,
             caption: imageToSave.caption || null,
             order: images.findIndex(img => img.name === filename),
           }]),
@@ -572,17 +572,17 @@ const AdminContent = () => {
   
 
   const handleMergeVideo = useCallback(async () => {
-    // Get gallery-visible images (same as main page gallery)
-    const visibleImages = images.filter(img => !img.hidden && !img.isVideo);
+    // Get gallery-visible images that have non-zero duration (same as main page gallery)
+    const visibleImages = images.filter(img => !img.hidden && !img.isVideo && img.durationSeconds !== 0);
     
     if (visibleImages.length < 1) {
-      pushToast({ variant: "error", description: "Need at least 1 image from gallery section to merge" });
+      pushToast({ variant: "error", description: "Need at least 1 image with non-zero duration to merge" });
       setMergeVideoDialog(false);
       return;
     }
 
     setIsMerging(true);
-    setMergeProgress(`Preparing to merge ${visibleImages.length} images...`);
+    setMergeProgress(`Preparing to merge ${visibleImages.length} images with visible duration...`);
 
     try {
       setMergeProgress("Downloading images from storage...");
@@ -718,7 +718,7 @@ const AdminContent = () => {
               <button
                 type="button"
                 onClick={() => setMergeVideoDialog(true)}
-                disabled={images.filter(img => !img.hidden).length < 1}
+                disabled={images.filter(img => !img.hidden && !img.isVideo && img.durationSeconds !== 0).length < 1}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-400/30 bg-purple-500/10 px-4 py-2.5 text-sm font-medium text-purple-200 transition hover:border-purple-400/50 hover:bg-purple-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                 title="Merge visible images into one video with individual durations"
               >
@@ -1076,7 +1076,7 @@ const AdminContent = () => {
       <MergeVideoDialog
         isOpen={mergeVideoDialog}
         onClose={() => !isMerging && setMergeVideoDialog(false)}
-        imageCount={images.filter(img => !img.hidden && !img.isVideo).length}
+        imageCount={images.filter(img => !img.hidden && !img.isVideo && img.durationSeconds !== 0).length}
         onConfirm={handleMergeVideo}
         isProcessing={isMerging}
         progress={mergeProgress}

@@ -28,8 +28,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { images }: RequestBody = req.body;
 
-  if (!images || !Array.isArray(images) || images.length < 2) {
-    return res.status(400).json({ error: "At least 2 images required" });
+  if (!images || !Array.isArray(images) || images.length < 1) {
+    return res.status(400).json({ error: "At least 1 image required" });
   }
 
   // Fixed filenames for simplicity
@@ -337,19 +337,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const generatedAt = new Date().toISOString();
     const cacheBustTimestamp = Date.now();
     
+    const metadataData = {
+      filename: videoFilename, // dashboard.mp4 - consistent naming
+      duration_ms: totalDuration * 1000,
+      caption: `Merged: ${images.length} images (${totalDuration}s)`,
+      order_index: 999999, // Put at end
+      hidden: false, // Show in gallery so admin can see the dashboard
+      is_video: true, // Mark as video entry
+      video_url: `${videoUrl}?t=${cacheBustTimestamp}`, // Link to the actual MP4 file with cache busting
+      video_generated_at: generatedAt,
+      video_duration_seconds: totalDuration,
+    };
+    
+    // Also save metadata for the placeholder image (dashboard.jpg) with same video info
+    const placeholderMetadataData = {
+      filename: storagePlaceholderName, // dashboard.jpg
+      duration_ms: totalDuration * 1000,
+      caption: `Merged: ${images.length} images (${totalDuration}s)`,
+      order_index: 999999, // Put at end
+      hidden: false, // Show in gallery so admin can see the dashboard
+      is_video: true, // Mark as video entry
+      video_url: `${videoUrl}?t=${cacheBustTimestamp}`, // Link to the actual MP4 file with cache busting
+      video_generated_at: generatedAt,
+      video_duration_seconds: totalDuration,
+    };
+    
     const { error: metadataError } = await supabase
       .from("image_durations")
-      .upsert({
-        filename: videoFilename, // dashboard.mp4 - consistent naming
-        duration_ms: totalDuration * 1000,
-        caption: `Merged: ${images.length} images (${totalDuration}s)`,
-        order_index: 999999, // Put at end
-        hidden: false, // Show in gallery so admin can see the dashboard
-        is_video: true, // Mark as video entry
-        video_url: `${videoUrl}?t=${cacheBustTimestamp}`, // Link to the actual MP4 file with cache busting
-        video_generated_at: generatedAt,
-        video_duration_seconds: totalDuration,
-      }, {
+      .upsert(metadataData, {
+        onConflict: "filename"
+      });
+
+    // Also save metadata for placeholder image
+    const { error: placeholderMetadataError } = await supabase
+      .from("image_durations")
+      .upsert(placeholderMetadataData, {
         onConflict: "filename"
       });
 
@@ -357,7 +379,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error(`[Merge Video] Failed to create metadata:`, metadataError);
       // Don't fail the whole operation, video is already uploaded
     } else {
-      console.log(`[Merge Video] Metadata created for ${placeholderImageName}`);
+      console.log(`[Merge Video] Metadata created for ${videoFilename}`);
+    }
+
+    if (placeholderMetadataError) {
+      console.error(`[Merge Video] Failed to create placeholder metadata:`, placeholderMetadataError);
+      // Don't fail the whole operation, video is already uploaded
+    } else {
+      console.log(`[Merge Video] Placeholder metadata created for ${storagePlaceholderName}`);
     }
 
     // Broadcast video update to all main page viewers
