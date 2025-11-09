@@ -35,13 +35,24 @@ export default async function handler(
 
     console.log(`[Remote Images] Loaded ${allDbMetadata.length} metadata entries from database`);
 
-    // Build image data including visibility status
-    const imageData = allDbMetadata.map((item: any) => ({
-      name: item.filename,
-      isVideo: item.is_video || false,
-      hidden: item.hidden || false,
-      videoUrl: item.video_url,
-    }));
+    // Build image data excluding hidden items (like merge video placeholders)
+    const imageData = allDbMetadata
+      .filter((item: any) => {
+        // Hide merge video placeholders completely
+        if (item.is_video && item.hidden && item.caption && item.caption.includes('Merged:')) {
+          console.log(`[Remote Images] Excluding merge placeholder: ${item.filename}`);
+          return false;
+        }
+        // Show everything else (regular images and regular videos)
+        return true;
+      })
+      .map((item: any) => ({
+        name: item.filename,
+        isVideo: item.is_video || false,
+        hidden: false,
+        videoUrl: item.video_url,
+        videoDurationSeconds: item.video_duration_seconds,
+      }));
 
     console.log(`[Remote Images] ${imageData.length} total entries returned`);
     console.log(`[Remote Images] Hidden items: ${imageData.filter(item => item.hidden).length}`);
