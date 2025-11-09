@@ -76,17 +76,44 @@ export default async function handler(
       console.log(`[Delete Video] ✅ Verified: Video file removed from storage`);
     }
 
-    // 4. Update database to clear video flags
-    const { error: dbError } = await supabase
+    // 4. Check if this is a merged video placeholder (hidden and has no actual image)
+    const { data: imageData } = await supabase
       .from('image_durations')
-      .update({
-        is_video: false,
-        video_url: null,
-        video_duration_seconds: null,
-        video_generated_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('filename', filename);
+      .select('hidden')
+      .eq('filename', filename)
+      .single();
+
+    const isMergedPlaceholder = imageData?.hidden ?? false;
+
+    // 5. For merged video placeholders, delete the entire metadata entry
+    // For regular images, just clear video flags
+    let dbError;
+    if (isMergedPlaceholder) {
+      // Completely delete the metadata entry for merged video placeholders
+      const { error: deleteError } = await supabase
+        .from('image_durations')
+        .delete()
+        .eq('filename', filename);
+      
+      dbError = deleteError;
+      if (!deleteError) {
+        console.log(`[Delete Video] ✅ Deleted merged video placeholder metadata: ${filename}`);
+      }
+    } else {
+      // For regular images, just clear video flags
+      const { error: updateError } = await supabase
+        .from('image_durations')
+        .update({
+          is_video: false,
+          video_url: null,
+          video_duration_seconds: null,
+          video_generated_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('filename', filename);
+      
+      dbError = updateError;
+    }
 
     if (dbError) {
       console.error('[Delete Video] Database update error:', dbError);
