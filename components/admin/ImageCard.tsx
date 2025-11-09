@@ -9,7 +9,6 @@ type Props = {
   onDelete: (filename: string) => void;
   onPreview: (filename: string) => void;
   onDeleteVideo?: (filename: string) => void;
-  onGenerateVideo?: (filename: string, durationSeconds: number) => Promise<void>;
   isSaving?: boolean;
   isGeneratingVideo?: boolean;
   onRename?: (filename: string) => void;
@@ -86,7 +85,6 @@ export const ImageCard = ({
   onDelete,
   onPreview,
   onDeleteVideo,
-  onGenerateVideo,
   isSaving = false,
   isGeneratingVideo = false,
   onRename,
@@ -189,8 +187,8 @@ export const ImageCard = ({
       </div>
 
       <div className="mt-auto flex flex-col gap-3 pt-2">
-        {/* Action Buttons - 5 buttons grid */}
-        <div className="grid grid-cols-5 gap-2">
+        {/* Action Buttons - 4 buttons grid */}
+        <div className="grid grid-cols-4 gap-2">
           {/* Button 1: Rename */}
           <button
             type="button"
@@ -264,43 +262,7 @@ export const ImageCard = ({
             </svg>
           </button>
 
-          {/* Button 5: Generate Video or Video Status */}
-          {image.isVideo ? (
-            <button
-              type="button"
-              className="inline-flex h-10 items-center justify-center rounded-xl border border-emerald-400/40 bg-emerald-500/20 text-emerald-100 transition cursor-default"
-              title="Video already generated"
-              aria-label="Video already generated"
-            >
-              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                const duration = image.durationSeconds || 6; // Default 6 seconds if not set
-                void onGenerateVideo?.(image.name, duration);
-              }}
-              disabled={!onGenerateVideo || isGeneratingVideo}
-              className="inline-flex h-10 items-center justify-center rounded-xl border border-emerald-400/40 bg-emerald-500/20 text-emerald-100 transition hover:border-emerald-300/60 hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-30"
-              title={`Generate video (${image.durationSeconds || 6}s)`}
-              aria-label="Generate video"
-            >
-              {isGeneratingVideo ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-200 border-t-transparent" />
-                  <span className="sr-only">Generating</span>
-                </>
-              ) : (
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h1m4 0h1m5-10V7a4 4 0 00-4-4h-4a4 4 0 00-4 4v5M3 21h18" />
-                </svg>
-              )}
-            </button>
-          )}
-        </div>
+          </div>
       </div>
 
     </article>
