@@ -118,43 +118,15 @@ export default function RemoteControl() {
   useEffect(() => {
     const fetchImages = async () => {
       try {
-        // Use remote images API which includes hidden flags
-        const response = await fetch('/api/remote-images');
+        // Use gallery images API which shows all visible images (excluding dashboard.jpg)
+        const response = await fetch('/api/gallery-images');
         const data = await response.json();
         
         if (data.images) {
-          const availableImages = data.images
-            .filter((item: any) => {
-              console.log('Filtering item:', item.name, 'isVideo:', item.isVideo, 'hidden:', item.hidden);
-              
-              // NEW LOGIC for image gallery: Show all regular images (original source images)
-              // This is for users to select images for video generation
-              // Exclude any item marked as hidden (merge placeholders) or already converted to videos
-              if (item.hidden) return false; // Exclude hidden items
-              if (item.isVideo) return false; // Exclude already-converted images
-              
-              return true; // Show regular images for selection
-            })
-            .map((item: any) => ({
-              name: item.name,
-              url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-images/${item.name}`
-            }));
-
-          setImages(availableImages);
-          console.log('🖼️ Loaded images with hidden exclusions:', availableImages.length);
-          console.log('📝 Available images:', availableImages.map((img: { name: string; url: string }) => img.name));
-          console.log('📊 Full DB data:', data.images);
-          console.log('🔍 Hidden items:', data.images.filter((i: any) => i.hidden));
-          console.log('🎬 Video items:', data.images.filter((i: any) => i.isVideo));
-          console.log('📊 Filtered from total:', data.images.length, '- Hidden:', data.images.filter((i: any) => i.hidden).length, '- Videos:', data.images.filter((i: any) => i.isVideo).length);
-          
-          // Log scenario explanation
-          console.log('🎯 NEW Gallery Logic:');
-          console.log('  - Always show regular images (non-video) for user selection');
-          console.log('  - Exclude items that are already converted to videos (isVideo: true)');
-          console.log('  - Merge video remains hidden (as usual)');
-          console.log('  - CORE RULE: Image gallery = available source images for video generation');
-          console.log('  - Current state:', availableImages.length, 'regular images available for selection');
+          // The gallery-images API already filters to show only visible images
+          setImages(data.images);
+          console.log('🖼️ Loaded gallery images:', data.images.length);
+          console.log('📝 Available images:', data.images.map((img: { name: string }) => img.name));
         }
       } catch (error) {
         console.error('Failed to fetch images:', error);

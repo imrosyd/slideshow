@@ -20,12 +20,12 @@ export default async function handler(
     }
 
     // Check specifically for videos
-    const videos = allData.filter(item => item.is_video);
-    const nonVideos = allData.filter(item => !item.is_video);
+    const videos = allData.filter((item: any) => item.is_video);
+    const nonVideos = allData.filter((item: any) => !item.is_video);
     
     const result = {
       total: allData.length,
-      videos: videos.map(v => ({
+      videos: videos.map((v: any) => ({
         filename: v.filename,
         is_video: v.is_video,
         video_url: v.video_url,

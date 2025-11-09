@@ -10,7 +10,8 @@ import useSingleVideoLoop from "../hooks/useSingleVideoLoop";
 
 const DEFAULT_SLIDE_DURATION_SECONDS = 20;
 const LANGUAGE_SWAP_INTERVAL_MS = 4_000;
-const AUTO_REFRESH_INTERVAL_MS = 60_000;
+const AUTO_REFRESH_INTERVAL_MS = 30_000; // Increase to reduce server load
+const FAST_REFRESH_INTERVAL_MS = 2_000; // Fast refresh after video updates
 
 type Language = "en" | "ko" | "id";
 const LANGUAGE_SEQUENCE: Language[] = ["en", "ko", "id"];
@@ -180,7 +181,7 @@ const styles: Record<string, CSSProperties> = {
   left: 0,
   bottom: 0,
   width: "100vw",
-  background: "linear-gradient(180deg, rgba(0, 7, 28, 0.88) 0%, rgba(7, 14, 39, 0.94) 60%,rgba(12, 18, 44, 0.97) 100%);",
+  background: `linear-gradient(180deg, rgba(0, 7, 28, 0.88) 0%, rgba(7, 14, 39, 0.94) 60%,rgba(12, 18, 44, 0.97) 100%)`,
   backdropFilter: "blur(18px)",
   borderTop: "1px solid rgba(148, 163, 184, 0.12)",
   padding: "clamp(4px, 0.5vw, 8px) clamp(8px, 1vw, 16px)",
@@ -392,6 +393,9 @@ export default function Home() {
   const [showGallery, setShowGallery] = useState(false);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const [isVideoOverlayMode, setIsVideoOverlayMode] = useState(false); // NEW: Track if overlay is for video
+  const [fastRefreshTimer, setFastRefreshTimer] = useState<NodeJS.Timeout | null>(null);
+  const [videoVersion, setVideoVersion] = useState<number>(0);
+  const previousVideoUrlRef = useRef<string | null>(null);
 
   // Main slideshow controller
   const {
@@ -435,6 +439,33 @@ export default function Home() {
   // Keep webOS TV awake
   useKeepAwake(!isPaused);
 
+  // Check orientation on mount and when it changes
+  useEffect(() => {
+    const checkOrientation = () => {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      const warning = document.getElementById('landscape-warning');
+      if (warning) {
+        if (isLandscape) {
+          warning.style.display = 'none';
+        } else {
+          warning.style.display = 'flex';
+        }
+      }
+    };
+
+    // Check initially
+    checkOrientation();
+
+    // Listen for orientation changes
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+    };
+  }, []);
+
   // Resource hints for Supabase
   const ResourceHints = (
     <Head>
@@ -447,11 +478,11 @@ export default function Home() {
     </Head>
   );
 
-  // Fetch admin images (exclude placeholders from merge-video)
+  // Fetch admin images for gallery overlay
   const fetchAdminImages = useCallback(async () => {
     try {
-      // Use remote images API which includes all images with metadata
-      const response = await fetch('/api/remote-images', {
+      // Use gallery images API which returns all visible images (excluding dashboard.jpg)
+      const response = await fetch('/api/gallery-images', {
         cache: "no-store",
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -464,36 +495,11 @@ export default function Home() {
       const data = await response.json();
       
       if (data.images) {
-        const availableImages = data.images
-          .filter((item: any) => {
-            // Show all images except:
-            // - Regular hidden items
-            // - Merge video placeholder images (isVideo=true AND hidden=true, AND caption contains "Merged:")
-            if (item.hidden && !item.isVideo) return false; // Exclude hidden regular items
-            
-            // Exclude merge video placeholders (they have both isVideo=true and hidden=true)
-            if (item.isVideo && item.hidden) {
-              // Additional check: if caption mentions "Merged:", it's definitely a placeholder
-              if (item.caption && item.caption.includes('Merged:')) {
-                console.log(`[Image Gallery] Excluding merge placeholder: ${item.name}`);
-                return false;
-              }
-              // For safety, exclude any item that's both a video AND hidden
-              return false;
-            }
-            
-            return true; // Show everything else (regular images and video sources)
-          })
-          .map((item: any) => ({
-            name: item.name,
-            url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-images/${item.name}`
-          }));
-
-        console.log(`✅ Fetched ${availableImages.length} admin images (including video sources)`);
-        setAdminImages(availableImages);
+        console.log(`✅ Fetched ${data.images.length} images for gallery overlay`);
+        setAdminImages(data.images);
       }
     } catch (err) {
-      console.error("❌ Error fetching admin images:", err);
+      console.error("❌ Error fetching gallery images:", err);
     }
   }, []);
 
@@ -503,7 +509,7 @@ export default function Home() {
       if (!isAutoRefresh) setLoading(true);
 
       const cacheBuster = `?t=${Date.now()}`;
-      const response = await fetch(`/api/images${cacheBuster}`, {
+      const response = await fetch(`/api/remote-images${cacheBuster}`, {
         cache: "no-store",
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -556,11 +562,15 @@ export default function Home() {
             isVideo: item.isVideo,
             videoUrl: item.videoUrl,
             videoDurationSeconds: item.videoDurationSeconds,
-          };
+          } as Slide;
         });
 
       console.log(`✅ Fetched ${fetchedSlides.length} video slides`);
-      console.log(`📹 First video:`, fetchedSlides[0]);
+      if (fetchedSlides.length > 0) {
+        console.log(`📹 First video:`, fetchedSlides[0]);
+      } else {
+        console.log(`⚠️ No videos found in response`);
+      }
       setSlides(fetchedSlides);
       setError(null);
 
@@ -582,6 +592,26 @@ export default function Home() {
     fetchAdminImages();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array - run only once on mount
+
+  // Adjust currentIndex when slides array changes and handle video clearing
+  useEffect(() => {
+    if (slides.length > 0) {
+      // If current index is out of bounds (e.g., when videos are removed/replaced), reset to 0
+      if (currentIndex >= slides.length) {
+        console.log(`⚠️ Current index ${currentIndex} out of bounds, resetting to 0`);
+        goToSlide(0);
+      }
+    } else {
+      // When no slides exist, clear the video element
+      console.log("📹 No slides available, clearing video");
+      const video = videoRef.current;
+      if (video) {
+        // Pause and clear without removing src
+        video.pause();
+        video.currentTime = 0;
+      }
+    }
+  }, [slides.length, currentIndex, goToSlide]); // Include goToSlide dependency
 
   // Auto-refresh slides
   useEffect(() => {
@@ -786,23 +816,73 @@ export default function Home() {
 
   // Additional listener specifically for video updates
   useEffect(() => {
+    // Use a unique channel ID to avoid conflicts
+    const channelName = `video-updates-${Date.now()}`;
     const channel = supabase
-      .channel("video-updates")
-      .on("broadcast", (payload) => {
-        console.log("📹 Video update received:", payload);
+      .channel(channelName)
+      .on("broadcast", { event: 'video-updated' }, (payload) => {
+        console.log(`📹 Video update received on channel ${channelName}:`, payload);
+        console.log(`📹 Updated video: ${payload.slideName}, current slide: ${currentSlide?.name}`);
         
-        // If this matches the current video, refresh immediately
-        if (payload.slideName === currentSlide?.name) {
-          console.log("📹 Current video updated, refreshing...");
-          fetchSlides(true);
+        // Handle different video actions
+        if (payload.action === 'deleted') {
+          console.log("📹 Video was deleted, forcing immediate slides refresh...");
+          fetchSlides(true).then(() => {
+            console.log("✅ Slides refreshed after video deletion");
+          }).catch(err => {
+            console.error("❌ Failed to refresh slides after video deletion:", err);
+          });
+        } else {
+          // Handle video creation/replacement
+          console.log("📹 Video updated (created/replaced), forcing slides refresh...");
+          
+          // Clear any existing fast refresh timer
+          if (fastRefreshTimer) {
+            clearInterval(fastRefreshTimer);
+            setFastRefreshTimer(null);
+          }
+          
+          // Initial refresh
+          fetchSlides(true).then(() => {
+            console.log("✅ Slides refreshed after video update");
+            
+            // Set up fast refresh for the next 20 seconds (every 2 seconds)
+            console.log("⚡ Setting up fast refresh for the next 20 seconds...");
+            const timer = setInterval(() => {
+              console.log("⚡ Fast refresh checking for updates...");
+              fetchSlides(true);
+            }, FAST_REFRESH_INTERVAL_MS);
+            
+            setFastRefreshTimer(timer);
+            
+            // Stop fast refresh after 20 seconds
+            setTimeout(() => {
+              if (timer) {
+                clearInterval(timer);
+                setFastRefreshTimer(null);
+                console.log("⚡ Fast refresh stopped, returning to normal interval");
+              }
+            }, 20_000);
+          }).catch(err => {
+            console.error("❌ Failed to refresh slides after video update:", err);
+          });
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`📡 Video updates channel ${channelName} status:`, status);
+      });
     
     return () => {
+      console.log(`📡 Cleaning up video updates channel ${channelName}`);
       supabase.removeChannel(channel);
+      
+      // Clean up fast refresh timer
+      if (fastRefreshTimer) {
+        clearInterval(fastRefreshTimer);
+        setFastRefreshTimer(null);
+      }
     };
-  }, [currentSlide?.name]); // Stabilize dependency to prevent infinite loops
+  }, [fastRefreshTimer]); // Include fastRefreshTimer for cleanup
 
   // Overlay mode state management
   useEffect(() => {
@@ -820,6 +900,32 @@ export default function Home() {
     }
   }, [isOverlayVisible, wasPaused, isVideoOverlayMode, slideshowPause, slideshowPlay]);
 
+  // Detect video URL changes and force reload
+  useEffect(() => {
+    const currentUrl = currentSlide?.videoUrl || null;
+    const previousUrl = previousVideoUrlRef.current;
+    
+    if (currentUrl && currentUrl !== previousUrl) {
+      console.log(`🔄 Video URL changed from ${previousUrl} to ${currentUrl}`);
+      // Increment version to trigger video reload with cache bust
+      setVideoVersion(prev => prev + 1);
+      previousVideoUrlRef.current = currentUrl;
+    } else if (currentUrl !== previousUrl) {
+      previousVideoUrlRef.current = currentUrl;
+      
+      // If URL became null, completely clear video element
+      if (!currentUrl && previousUrl) {
+        console.log('📹 Video URL is now null, clearing video element');
+        const video = videoRef.current;
+        if (video) {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+        }
+      }
+    }
+  }, [currentSlide?.videoUrl]); // Only watch videoUrl changes
+
   // Force play when currentIndex changes (critical for webOS)
   useEffect(() => {
     if (currentSlide?.videoUrl && !isPaused) {
@@ -830,6 +936,84 @@ export default function Home() {
       }
     }
   }, [currentIndex, currentSlide, isPaused, play, videoRef]);
+
+  // Additional listener for image metadata updates
+  useEffect(() => {
+    const channelName = `image-updates-${Date.now()}`;
+    const channel = supabase
+      .channel(channelName)
+      .on("broadcast", { event: 'image-updated' }, (payload) => {
+        console.log(`🖼️ Image update received on channel ${channelName}:`, payload);
+        
+        // When images are added, deleted, or metadata changes, refresh the gallery
+        console.log("🖼️ Images updated, refreshing gallery...");
+        fetchAdminImages().catch(err => {
+          console.error("❌ Failed to refresh gallery after image update:", err);
+        });
+      })
+      .subscribe((status) => {
+        console.log(`🖼️ Image updates channel ${channelName} status:`, status);
+      });
+    
+    return () => {
+      console.log(`🖼️ Cleaning up image updates channel ${channelName}`);
+      supabase.removeChannel(channel);
+    };
+  }, [fetchAdminImages]);
+
+  // Dashboard status checker - ensures main page mirrors admin page
+  useEffect(() => {
+    const checkDashboardStatus = async () => {
+      try {
+        const response = await fetch('/api/check-dashboard');
+        const data = await response.json();
+        
+        const dashboardExists = data.exists;
+        const currentHasVideo = slides.length > 0 && currentSlide?.videoUrl;
+        
+        console.log(`[Dashboard Status] Dashboard exists: ${dashboardExists}, Main page has video: ${currentHasVideo}`);
+        
+        // If admin has no dashboard but main page does, refresh main page
+        if (!dashboardExists && currentHasVideo) {
+          console.log("⚠️ Mismatch detected: Admin has no dashboard but main page is showing video. Refreshing...");
+          fetchSlides(true).then(() => {
+            console.log("✅ Main page refreshed to match admin dashboard status");
+          });
+        }
+        // If admin has dashboard but main page has no video, refresh
+        else if (dashboardExists && !currentHasVideo) {
+          console.log("⚠️ Mismatch detected: Admin has dashboard but main page has no video. Refreshing...");
+          fetchSlides(true).then(() => {
+            console.log("✅ Main page refreshed to match admin dashboard status");
+          });
+        }
+      } catch (error) {
+        console.error("[Dashboard Status] Error checking dashboard status:", error);
+      }
+    };
+
+    // Check immediately
+    checkDashboardStatus();
+    
+    // Check every 10 seconds
+    const interval = setInterval(checkDashboardStatus, 10000);
+    
+    // Also check when force-refresh is triggered
+    const handleForceRefresh = () => {
+      console.log("🔄 Force refresh detected, checking dashboard status...");
+      setTimeout(checkDashboardStatus, 500); // Small delay to allow API to update
+    };
+    
+    // Listen for force-refresh events
+    const forceRefreshChannel = supabase.channel('slideshow-control');
+    forceRefreshChannel.on('broadcast', { event: 'force-refresh' }, handleForceRefresh);
+    forceRefreshChannel.subscribe();
+    
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(forceRefreshChannel);
+    };
+  }, [slides.length, currentSlide?.videoUrl, fetchSlides]); // Include dependencies
 
   // Loading state
   if (loading) {
@@ -915,6 +1099,35 @@ export default function Home() {
   // Main slideshow render
   return (
     <>
+      <Head>
+          <style>{`
+          /* Landscape orientation styles */
+          html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+          }
+          `}</style>
+      </Head>
+      
+      {/* Landscape Warning Overlay */}
+      <div id="landscape-warning">
+        <svg className="rotation-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+          <line x1="12" y1="18" x2="12.01" y2="18" />
+        </svg>
+        <h2 style={{ color: '#fff', fontSize: '24px', marginBottom: '10px' }}>Rotate Your Device</h2>
+        <p style={{ color: '#fff', fontSize: '16px', marginBottom: '20px' }}>
+          This display works only in landscape mode
+        </p>
+        <a href="#" className="skip-landscape" onClick={(e) => {
+          e.preventDefault();
+          document.getElementById('landscape-warning')!.style.display = 'none';
+        }}>
+          Continue Anyway
+        </a>
+      </div>
+
       <Head>
           <style>{`
           @keyframes spin {
@@ -1215,6 +1428,66 @@ export default function Home() {
             opacity: 1;
           }
           
+          /* Landscape orientation enforcement */
+          @media (orientation: portrait) {
+            body {
+              margin: 0;
+              padding: 0;
+            }
+            
+            #landscape-warning {
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100vw;
+              height: 100vh;
+              background: #000;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              z-index: 9999;
+              text-align: center;
+            }
+            
+            .rotation-icon {
+              width: 80px;
+              height: 80px;
+              margin-bottom: 20px;
+              animation: rotate-device 2s ease-in-out infinite;
+            }
+            
+            @keyframes rotate-device {
+              0%, 90% { transform: rotate(0deg); }
+              25% { transform: rotate(-90deg); }
+              75% { transform: rotate(-90deg); }
+              100% { transform: rotate(0deg); }
+            }
+            
+            .skip-landscape {
+              position: absolute;
+              bottom: 40px;
+              padding: 12px 24px;
+              background: rgba(255, 255, 255, 0.1);
+              border: 1px solid rgba(255, 255, 255, 0.2);
+              border-radius: 8px;
+              color: white;
+              text-decoration: none;
+              font-size: 14px;
+              transition: background-color 0.2s;
+            }
+            
+            .skip-landscape:hover {
+              background: rgba(255, 255, 255, 0.2);
+            }
+          }
+          
+          @media (orientation: landscape) {
+            #landscape-warning {
+              display: none !important;
+            }
+          }
+          
           /* Smooth transitions for all interactive elements */
           * {
             transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
@@ -1224,10 +1497,10 @@ export default function Home() {
       {ResourceHints}
       <main style={styles.container}>
         <div style={styles.imageWrapper}>
-          {currentSlide && currentSlide.videoUrl ? (
+          {slides.length > 0 && currentSlide && currentSlide.videoUrl ? (
             <video
               ref={videoRef}
-              src={currentSlide.videoUrl}
+              src={`${currentSlide.videoUrl}?v=${videoVersion}`}
               autoPlay
               muted
               playsInline
@@ -1251,11 +1524,32 @@ export default function Home() {
                 const error = target.error;
                 console.error(`❌ Video error: ${currentSlide.name}`);
                 console.error(`   Error code: ${error?.code}, message: ${error?.message}`);
+                
+                // If the video fails to load, treat it as deleted
+                if (error && (error.code === 4 || error.code === 2)) {
+                  console.log(`📹 Video failed to load, assuming deleted - clearing video`);
+                  // Force refresh slides to remove the deleted video
+                  fetchSlides(true).then(() => {
+                    console.log("✅ Slides refreshed after video load error");
+                  });
+                }
               }}
             />
           ) : (
-            <div style={{ color: 'white', fontSize: '24px', textAlign: 'center', paddingTop: '50vh' }}>
-              No video available. Please upload or generate a video in the admin panel.
+            <div style={styles.placeholderCard}>
+              <div style={styles.glow} />
+              <span style={styles.accentBadge}>
+                {translations.badgeReady[language]}
+              </span>
+              <h2 style={styles.noSlidesMessage}>
+                {translations.noSlides[language]}
+              </h2>
+              <p style={styles.subtleText}>
+                {translations.noSlidesSubtext[language]}
+              </p>
+              <span style={styles.fadeText}>
+                {translations.noSlidesFooter[language]}
+              </span>
             </div>
           )}
         </div>

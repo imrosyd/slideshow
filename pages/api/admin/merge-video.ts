@@ -18,7 +18,7 @@ type ImageInput = {
 
 type RequestBody = {
   images: ImageInput[];
-  outputFilename: string;
+  // outputFilename is no longer needed, we'll use fixed names
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -26,15 +26,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { images, outputFilename }: RequestBody = req.body;
+  const { images }: RequestBody = req.body;
 
   if (!images || !Array.isArray(images) || images.length < 2) {
     return res.status(400).json({ error: "At least 2 images required" });
   }
 
-  if (!outputFilename) {
-    return res.status(400).json({ error: "Output filename required" });
-  }
+  // Fixed filenames for simplicity
+  const videoFilename = "dashboard.mp4";
+  const placeholderImageName = "dashboard.jpg";
 
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "merge-video-"));
   const tempFiles: string[] = [];
@@ -177,9 +177,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     });
 
-    // Upload merged video to Supabase
+    // Upload merged video to Supabase (always use dashboard.mp4)
     const videoBuffer = await fs.readFile(outputPath);
-    const videoFilename = outputFilename.endsWith(".mp4") ? outputFilename : `${outputFilename}.mp4`;
 
     const { error: uploadError } = await supabase.storage
       .from("slideshow-videos")
@@ -253,9 +252,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const totalDuration = images.reduce((sum, img) => sum + img.durationSeconds, 0);
 
     // Create a placeholder black image for the gallery
-    const placeholderImageName = videoFilename.replace('.mp4', '.jpg');
+    // Use video filename directly without extension change to avoid confusion
+    const placeholderImageName = videoFilename;
     
     // Generate a simple black placeholder image using FFmpeg
+    // Keep .jpg extension for the actual image file since it's a JPEG
     const placeholderPath = path.join(tempDir, 'placeholder.jpg');
     await new Promise<void>((resolve, reject) => {
       const args = [
@@ -280,7 +281,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // Upload placeholder image to storage to maintain consistency
-    console.log(`[Merge Video] Uploading placeholder image: ${placeholderImageName}`);
+    // For storage, keep .jpg extension since it's an image file
+    const storagePlaceholderName = videoFilename.replace('.mp4', '.jpg');
+    console.log(`[Merge Video] Uploading placeholder image: ${storagePlaceholderName}`);
     
     // Read the generated placeholder image
     const placeholderBuffer = await fs.readFile(placeholderPath);
@@ -288,7 +291,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Upload to slideshow-images bucket
     const { error: placeholderUploadError } = await supabase.storage
       .from("slideshow-images")
-      .upload(placeholderImageName, placeholderBuffer, {
+      .upload(storagePlaceholderName, placeholderBuffer, {
         contentType: "image/jpeg",
         cacheControl: "3600",
         upsert: true,
@@ -302,22 +305,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get public URL for the placeholder
     const { data: placeholderPublicData } = supabase.storage
       .from("slideshow-images")
-      .getPublicUrl(placeholderImageName);
+      .getPublicUrl(storagePlaceholderName);
     
     const placeholderUrl = placeholderPublicData.publicUrl;
     console.log(`[Merge Video] Placeholder image uploaded: ${placeholderUrl}`);
 
     // Create metadata entry for the merged video
+    // Store as dashboard.mp4 in database to be consistent
     const { error: metadataError } = await supabase
       .from("image_durations")
       .upsert({
-        filename: placeholderImageName,
+        filename: videoFilename, // dashboard.mp4 - consistent naming
         duration_ms: totalDuration * 1000,
         caption: `Merged: ${images.length} images (${totalDuration}s)`,
         order_index: 999999, // Put at end
-        hidden: true, // Hide placeholder image, only show video
+        hidden: false, // Show in gallery so admin can see the dashboard
         is_video: true, // Mark as video entry
-        video_url: videoUrl, // Use full public URL instead of filename
+        video_url: videoUrl, // Link to the actual MP4 file
         video_generated_at: new Date().toISOString(),
         video_duration_seconds: totalDuration,
       }, {
@@ -333,24 +337,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Broadcast video update to all main page viewers
     try {
-      const { data } = createClient(
+      const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
 
-      const channel = data.channel('video-updates');
+      const channel = supabase.channel('video-updates');
       await channel.send({
         type: 'broadcast',
         event: 'video-updated',
         payload: {
-          slideName: placeholderImageName, // Send placeholder name for identification
+          slideName: videoFilename, // dashboard.mp4 for identification
           videoUrl: videoUrl,
           videoDurationSeconds: totalDuration,
           action: 'created'
         }
-      }, { httpSend: true });
+      }, { httpSend: true, compress: true });
       
-      console.log(`[Merge Video] Broadcast: Created merged video to main pages - ${videoFilename}`);
+      console.log(`[Merge Video] Broadcast: Created merged video to main pages - dashboard.mp4`);
     } catch (broadcastError) {
       console.warn('[Merge Video] Failed to broadcast video update:', broadcastError);
     }
@@ -360,7 +364,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const result = {
       success: true,
-      filename: videoFilename,
+      filename: "dashboard.mp4", // Always dashboard.mp4
       imageCount: images.length,
       mainPage: true, // Indicate this will display on main page
       totalDuration,

@@ -16,9 +16,9 @@ export type ImageAsset = {
   createdAt: string | null;
   updatedAt: string | null;
   durationSeconds: number | null;
-  caption: string;
+  caption: string | null;
   originalDurationSeconds: number | null;
-  originalCaption: string;
+  originalCaption: string | null;
   previewUrl: string;
   hidden?: boolean;
   // Video properties
@@ -95,7 +95,7 @@ export const useImages = (authToken: string | null) => {
       const payload = await response.json();
       const fetched = (payload?.images ?? []).map((item: any) => {
         const durationSeconds = toSeconds(item.durationMs);
-        const caption = item.caption ?? "";
+        const caption = item.caption ?? null; // Keep as null if empty
         return {
           name: item.name,
           size: item.size ?? 0,
@@ -267,6 +267,23 @@ export const useImages = (authToken: string | null) => {
             ? {
                 ...image,
                 ...patch,
+              }
+            : image
+        )
+      );
+    },
+    []
+  );
+
+  const updateMultipleMetadataDraft = useCallback(
+    (filenames: string[], updates: { durationSeconds?: number | null; caption?: string | null }) => {
+      setImagesState((prev) =>
+        prev.map((image) =>
+          filenames.includes(image.name)
+            ? {
+                ...image,
+                ...(updates.durationSeconds !== undefined && { durationSeconds: updates.durationSeconds }),
+                ...(updates.caption !== undefined && { caption: updates.caption }),
               }
             : image
         )
@@ -687,6 +704,64 @@ export const useImages = (authToken: string | null) => {
     [uploadImages]
   );
 
+  const saveMultipleMetadata = useCallback(
+    async (filenames: string[]) => {
+      if (!filenames.length) return false;
+
+      const snapshot = imagesRef.current;
+      const selectedImages = snapshot.filter(img => filenames.includes(img.name));
+
+      const payload = selectedImages.map((image, index) => ({
+        filename: image.name,
+        durationMs: toMilliseconds(image.durationSeconds),
+        caption: image.caption,
+        order: snapshot.findIndex(img => img.name === image.name),
+      }));
+
+      console.log(`[useImages] saveMultipleMetadata: ${payload.length} items`);
+
+      setIsSavingMetadata(true);
+      try {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (authToken) {
+          headers.Authorization = `Token ${authToken}`;
+        }
+
+        const response = await fetch("/api/admin/metadata", {
+          method: "PUT",
+          headers,
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+
+        setImagesState((prev) =>
+          prev.map((image) =>
+            filenames.includes(image.name)
+              ? {
+                  ...image,
+                  originalCaption: image.caption,
+                  originalDurationSeconds: image.durationSeconds,
+                }
+              : image
+          )
+        );
+
+        return true;
+      } catch (error) {
+        console.error("Failed to save multiple metadata:", error);
+        return false;
+      } finally {
+        setIsSavingMetadata(false);
+      }
+    },
+    [authToken, setImagesState]
+  );
+
   return {
     images,
     isLoading,
@@ -698,8 +773,10 @@ export const useImages = (authToken: string | null) => {
     uploadImages,
     deleteImage,
     updateMetadataDraft,
+    updateMultipleMetadataDraft,
     resetMetadataDraft,
     saveMetadata,
+    saveMultipleMetadata,
     reorderImages,
     generateVideo,
     generateBatchVideo,

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import type { UploadTask } from "../../hooks/useImages";
 
 type Props = {
@@ -11,6 +11,7 @@ type Props = {
 export const UploadBox = ({ isUploading, uploadTasks, onFilesSelected, onPdfSelected }: Props) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showUploadStatus, setShowUploadStatus] = useState(true);
 
   const handleFiles = useCallback(
     (fileList: FileList | null) => {
@@ -52,6 +53,29 @@ export const UploadBox = ({ isUploading, uploadTasks, onFilesSelected, onPdfSele
     setIsDragOver(false);
   }, []);
 
+  // Auto-hide upload status when all uploads are complete
+  useEffect(() => {
+    if (uploadTasks.length === 0) {
+      setShowUploadStatus(true);
+      return;
+    }
+
+    const allTasksComplete = uploadTasks.every(
+      (task) => task.status === "success" || task.status === "error"
+    );
+    
+    if (allTasksComplete) {
+      const timer = setTimeout(() => {
+        setShowUploadStatus(false);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    } else {
+      // Reset visibility when new uploads start
+      setShowUploadStatus(true);
+    }
+  }, [uploadTasks]);
+
   return (
     <div className="flex flex-col gap-6">
       <div
@@ -87,7 +111,7 @@ export const UploadBox = ({ isUploading, uploadTasks, onFilesSelected, onPdfSele
         />
       </div>
 
-      {uploadTasks.length > 0 && (
+      {uploadTasks.length > 0 && showUploadStatus && (
         <div className="flex flex-col gap-3 rounded-3xl border border-white/10 bg-slate-900/60 p-5 text-white/80 shadow-glass">
           <p className="text-sm font-semibold tracking-wide text-white/70">Upload status</p>
           <div className="flex flex-col gap-3">

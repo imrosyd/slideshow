@@ -11,7 +11,7 @@ type VideoUpdatePayload = {
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<VideoUpdatePayload>
+  res: NextApiResponse
 ) {
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
@@ -27,12 +27,12 @@ export default async function handler(
     const payload = req.body as VideoUpdatePayload;
     
     // Broadcast to all connected main page clients
-    const { data } = createClient(
+    const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const channel = data.channel('video-updates');
+    const channel = supabase.channel('video-updates');
     
     await channel.send({
       type: 'broadcast',

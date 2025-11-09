@@ -2,9 +2,11 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 
 interface Slide {
   name: string;
-  videoUrl?: string;
+  url: string;
   durationSeconds: number;
   isVideo?: boolean;
+  videoUrl?: string;
+  videoDurationSeconds?: number;
 }
 
 interface UseSlideshowProps {
@@ -91,21 +93,8 @@ export function useSlideshow({
   const handleVideoEnded = useCallback(() => {
     if (isPaused) return;
     
-    // For single slide, manually ensure immediate restart
-    if (slides.length <= 1) {
-      console.log('🔁 Single slide - immediate restart');
-      if (videoRef.current) {
-        // Force immediate restart without delay
-        setTimeout(() => {
-          videoRef.current.currentTime = 0;
-          videoRef.current.play().catch(e => console.error('Failed to restart single video:', e));
-        }, 1); // Minimal delay to ensure video state is reset
-      }
-      return;
-    }
-
     goToNext();
-  }, [isPaused, slides.length, goToNext]);
+  }, [isPaused, goToNext]);
 
   // Reset pause state when slides change
   useEffect(() => {

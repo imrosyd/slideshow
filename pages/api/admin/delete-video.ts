@@ -139,12 +139,12 @@ export default async function handler(
 
     // Broadcast video deletion to all main page viewers
     try {
-      const { data } = createClient(
+      const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
 
-      const channel = data.channel('video-updates');
+      const channel = supabase.channel('video-updates');
       await channel.send({
         type: 'broadcast',
         event: 'video-updated',

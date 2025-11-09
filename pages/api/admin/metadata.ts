@@ -71,6 +71,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       console.log(`[Metadata] Upserted ${upsertPayload.length} records successfully`);
+      
+      // Broadcast image metadata changes to refresh galleries
+      try {
+        const supabase = getSupabaseServiceRoleClient();
+        const channel = supabase.channel('image-metadata-updates');
+        await channel.send({
+          type: 'broadcast',
+          event: 'image-updated',
+          payload: {
+            updatedAt: new Date().toISOString(),
+            totalCount: upsertPayload.length
+          }
+        }, { httpSend: true });
+        console.log(`[Metadata] Broadcast: Updated ${upsertPayload.length} images`);
+      } catch (broadcastError) {
+        console.warn('[Metadata] Failed to broadcast image update:', broadcastError);
+      }
+      
       return res.status(200).json({ success: true, count: upsertPayload.length });
     } catch (error: any) {
       console.error("[Metadata] PUT error:", error);

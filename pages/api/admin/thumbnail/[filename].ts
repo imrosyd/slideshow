@@ -1,4 +1,4 @@
-import { NextApiRequest, NextApiResponse } from "next";
+import type { NextApiRequest, NextApiResponse } from "next";
 import { getSupabaseServiceRoleClient } from "../../../../lib/supabase";
 import { isAuthorizedAdminRequest } from "../../../../lib/auth";
 
@@ -16,68 +16,75 @@ export default async function handler(
     return res.status(400).json({ error: "Filename is required" });
   }
 
-  const { video: isVideo } = req.query;
+  // Check if request is for video thumbnail
   const isVideoRequest = isVideo === "true";
 
-  if (!process.env.ADMIN_PASSWORD) {
-    console.error("ADMIN_PASSWORD is not set");
-    return res.status(500).json({ error: "Server configuration error" });
-  }
-
-  if (!isAuthorizedAdminRequest(req)) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
   try {
-    const supabase = getSupabaseServiceRoleClient();
+    let filePath: string;
+    let fileBuffer: Buffer | undefined;
 
+    // Special handling for video: get metadata and create thumbnail
     if (isVideoRequest) {
-      // Return a placeholder for videos that don't have image files
-      const svg = `<svg width="1920" height="1080" xmlns="http://www.w3.org/2000/svg">
-        <rect width="100%" height="100%" fill="#1e293b"/>
-        <text x="50%" y="50%" text-anchor="middle" font-family="Arial, sans-serif" font-size="48" fill="#f8fafc">
-          🔗 ${decodeURIComponent(filename).replace(/\.[^/.]+$/, "")}
-        </text>
-        <text x="50%" y="55%" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#cbd5e1">
-          Merged Video File
-        </text>
-        <polygon points="800,480 900,540 800,600" fill="#ef4444"/>
-      </svg>`;
-      
-      res.setHeader("Content-Type", "image/svg+xml");
-      res.setHeader("Cache-Control", "no-store");
-      return res.status(200).send(svg);
-    } else {
-      // Regular image - download from storage and return
-      const { data, error } = await supabase.storage
-        .from("slideshow-images")
-        .download(filename);
+      // Extract video duration metadata from database
+      const { data: imageData, error } = await supabaseAdminClient
+        .from('image_durations')
+        .eq('filename', filename)
+        .single();
 
-      if (error || !data) {
-        return res.status(404).json({ error: "Image not found" });
+      if (error) {
+        console.error(`[Thumbnail] Error fetching metadata for ${filename}:`, error);
+        return res.status(500).json({ error: error.message });
       }
 
-      const buffer = Buffer.from(await data.arrayBuffer());
+      if (data) {
+        fileBuffer = Buffer.from(data.videoBlob || '');
+        filePath = `/tmp/thumbnail-${filename}.jpg`;
+        await new Promise<void>((resolve, reject) => {
+          const ffmpegArgs = [
+            '-f', 'lavfi',
+            '-i', 'color=c=black',
+            '-s', `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-videos`,
+            '-frames:v', '1',
+            '-y',
+            '-y',
+            filePath,
+          ];
       
-      // Determine content type
-      const ext = filename.split('.').pop()?.toLowerCase();
-      const contentType = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'gif': 'image/gif',
-        'webp': 'image/webp',
-        'svg': 'image/svg+xml',
-        'bmp': 'image/bmp',
-        'avif': 'image/avif'
-      }[ext || ''] || 'image/jpeg';
-
-      res.setHeader("Content-Type", contentType);
-      res.setHeader("Cache-Control", "no-store");
-      return res.status(200).send(buffer);
+          await new Promise<void>((resolve, reject) => {
+            ffmpegArgs.push('error', e => console.error(`[Thumbnail] FFmpeg error:`, e));
+          });
+          
+          // Copy to Supabase using public URL
+          try {
+            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-videos/${filename}`;
+            const response = await fetch(publicUrl, { cache: 'no-store' });
+            const buffer = await response.arrayBuffer();
+            await fs.writeFile(filePath, buffer);
+            return res.status(200).json({ success: true });
+          } catch (err) {
+            console.error('[Thumbnail] Error copying from Supabase:', err);
+            await fs.rm(filePath);
+            return res.status(500).json({ error: `Failed to copy image: ${err.message}` });
+          }
+        }) catch (err) {
+          console.error('[Thumbnail] Unexpected error creating thumbnail:', err);
+          await fs.rm(filePath);
+        }
+      }
+    } else {
+      // Regular image file
+      const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-images/${filename}`;
+      const response = await fetch(fileUrl, { cache: 'no-store' });
+      if (!response.ok) {
+        console.error(`[Thumbnail] Error: Failed to load image: ${response.statusText}`);
+        return res.status(500).json({ error: `Failed to load image: ${response.statusText}` });
+      }
+      const buffer = await response.arrayBuffer();
+      await fs.writeFile(`/tmp/thumbnail-${filename}.jpg`, buffer);
+      return res.status(200).json({ success: true });
     }
-  } catch (error) {
-    console.error("Error in thumbnail API:", error);
-    return res.status(500).json({ error: "Failed to generate thumbnail" });
+  } catch (error: any) {
+    console.error("[Thumbnail] Error creating thumbnail for ${filename}:", error);
+    return res.status(500).json({ error: error.message });
   }
-}
+};

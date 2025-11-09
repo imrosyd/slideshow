@@ -255,6 +255,30 @@ const handleDeleteRequest = async (
       console.error('Error deleting from database:', dbError);
     }
 
+    // Broadcast image deletion to refresh galleries
+    if (deletedCount > 0 || metadataDeleted) {
+      try {
+        const { createClient } = require('@supabase/supabase-js');
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const channel = supabase.channel('image-metadata-updates');
+        await channel.send({
+          type: 'broadcast',
+          event: 'image-updated',
+          payload: {
+            action: 'deleted',
+            deletedCount: deletedCount,
+            updatedAt: new Date().toISOString()
+          }
+        }, { httpSend: true });
+        console.log(`[Delete] Broadcast: Deleted ${deletedCount} images`);
+      } catch (broadcastError) {
+        console.warn('[Delete] Failed to broadcast image deletion:', broadcastError);
+      }
+    }
+
     // Check if metadata was actually deleted
     let metadataDeleted = false;
     try {

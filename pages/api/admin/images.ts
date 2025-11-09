@@ -163,9 +163,9 @@ export default async function handler(
         const videoName = file.name.replace(/\.[^/.]+$/, '.mp4');
         const videoData = videoMap.get(videoName);
         
-        // Use video from storage if exists, otherwise use metadata
-        const hasVideo = videoData !== undefined || (metadataEntry?.is_video ?? false);
-        const videoUrl = videoData?.url || metadataEntry?.video_url || undefined;
+        // Prioritize video from metadata first (for dashboard.jpg which is a video placeholder)
+        const hasVideo = (metadataEntry?.is_video ?? false) || videoData !== undefined;
+        const videoUrl = metadataEntry?.video_url || videoData?.url || undefined;
         
         return {
           name: file.name,
@@ -177,8 +177,8 @@ export default async function handler(
           hidden: metadataEntry?.hidden ?? false,
           isVideo: hasVideo,
           videoUrl: videoUrl,
-          videoDurationSeconds: metadataEntry?.video_duration_seconds ?? undefined,
-          videoGeneratedAt: (videoData?.createdAt || metadataEntry?.video_generated_at) ?? undefined,
+          videoDurationSeconds: metadataEntry?.video_duration_seconds,
+          videoGeneratedAt: (metadataEntry?.video_generated_at || videoData?.createdAt) ?? undefined,
         };
       });
 
@@ -201,7 +201,7 @@ export default async function handler(
     const videoOnlyEntries: AdminImage[] = [];
     metadataMap.forEach((metadata, filename) => {
       // Check if this is a video with URL but not already in the images list
-      if (metadata.is_video && metadata.video_url && metadata.hidden) {
+      if (metadata.is_video && metadata.video_url && (metadata.hidden || filename === 'dashboard.jpg')) {
         const imageInList = images.find(img => img.name === filename);
         if (!imageInList) {
           console.log(`[Admin Images] Adding video-only entry: ${filename}`);

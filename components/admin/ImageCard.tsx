@@ -90,7 +90,7 @@ export const ImageCard = ({
   onRename,
   isRenaming = false,
 }: Props) => {
-  const durationValue = useMemo(() => image.durationSeconds ?? "", [image.durationSeconds]);
+  const durationValue = useMemo(() => image.durationSeconds ?? 10, [image.durationSeconds]);
 
   const hasChanges = useMemo(() => {
     const currentDuration = image.durationSeconds ?? null;
@@ -144,8 +144,7 @@ export const ImageCard = ({
           aria-label="Preview fullscreen"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h6M4 10h6m-6 4h6m4 2v2m0-2v-2m0 2h-2m2 0h2" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
           <span className="sr-only">Preview fullscreen</span>
         </button>
@@ -156,7 +155,6 @@ export const ImageCard = ({
           <h3 className="truncate text-lg font-semibold text-white/95" title={image.name}>
             {image.name}
           </h3>
-          <p className="text-xs tracking-wide text-white/60">Uploaded {createdLabel}</p>
           {image.updatedAt ? (
             <p className="text-xs text-white/40">Updated {updatedLabel}</p>
           ) : null}
@@ -177,7 +175,7 @@ export const ImageCard = ({
         <label className="flex flex-col gap-2">
           <span className="text-xs font-medium text-white/70">Caption</span>
           <textarea
-            value={image.caption}
+            value={image.caption || ""}
             onChange={handleCaptionChange}
             rows={3}
             className="w-full resize-none rounded-xl border border-white/15 bg-slate-900/60 px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus:border-sky-400/70 focus:outline-none focus:ring-2 focus:ring-sky-500/30"

@@ -21,6 +21,7 @@ const UploadBox = dynamic(async () => (await import("../components/admin/UploadB
 const ImageCard = dynamic(async () => (await import("../components/admin/ImageCard")).ImageCard as any, { ssr: false }) as any;
 const ConfirmModal = dynamic(async () => (await import("../components/admin/ConfirmModal")).ConfirmModal as any, { ssr: false }) as any;
 const MergeVideoDialog = dynamic(async () => (await import("../components/admin/MergeVideoDialog")).MergeVideoDialog as any, { ssr: false }) as any;
+const BulkEditDialog = dynamic(async () => (await import("../components/admin/BulkEditDialog")).BulkEditDialog as any, { ssr: false }) as any;
 import { useImages } from "../hooks/useImages";
 import { useToast } from "../hooks/useToast";
 import { getAdminAuthCookieName, getExpectedAdminToken } from "../lib/auth";
@@ -39,6 +40,8 @@ const AdminContent = () => {
   const [cleanupConfirm, setCleanupConfirm] = useState(false);
   const [deleteVideoConfirm, setDeleteVideoConfirm] = useState<string | null>(null);
   const [mergeVideoDialog, setMergeVideoDialog] = useState(false);
+  const [bulkEditDialog, setBulkEditDialog] = useState(false);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<Set<string>>(new Set());
   const [mergeProgress, setMergeProgress] = useState<string>("");
   const [isMerging, setIsMerging] = useState(false);
   const [isCleaningCorrupt, setIsCleaningCorrupt] = useState(false);
@@ -127,11 +130,15 @@ const AdminContent = () => {
     isLoading,
     isUploading,
     uploadTasks,
+    isSavingMetadata,
     refresh,
     uploadImages,
     deleteImage,
     updateMetadataDraft,
+    updateMultipleMetadataDraft,
     resetMetadataDraft,
+    saveMetadata,
+    saveMultipleMetadata,
     reorderImages,
     generateBatchVideo,
     deleteVideo,
@@ -239,6 +246,30 @@ const AdminContent = () => {
           pushToast({ 
             variant: "error", 
             description: `Failed to delete "${filename}"` 
+          });
+        }
+        return success;
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [deleteImage, pushToast]
+  );
+
+  const handleBulkDelete = useCallback(
+    async (filenames: string[]) => {
+      setIsDeleting(true);
+      try {
+        const success = await deleteImage(filenames);
+        if (success) {
+          pushToast({ 
+            variant: "success", 
+            description: `Successfully deleted ${filenames.length} image${filenames.length > 1 ? "s" : ""}` 
+          });
+        } else {
+          pushToast({ 
+            variant: "error", 
+            description: `Failed to delete images` 
           });
         }
         return success;
@@ -540,7 +571,7 @@ const AdminContent = () => {
 
   
 
-  const handleMergeVideo = useCallback(async (outputFilename: string) => {
+  const handleMergeVideo = useCallback(async () => {
     // Get visible images only
     const visibleImages = images.filter(img => !img.hidden);
     
@@ -564,7 +595,7 @@ const AdminContent = () => {
             filename: img.name,
             durationSeconds: img.durationSeconds || 10,
           })),
-          outputFilename: outputFilename + ".mp4",
+          // No outputFilename needed anymore - always dashboard
         }),
       });
 
@@ -580,7 +611,7 @@ const AdminContent = () => {
       
       pushToast({ 
         variant: "success", 
-        description: `Video merged successfully: ${data.filename}` 
+        description: `Dashboard video created successfully!` 
       });
       
       // Refresh images to show the new merged video
@@ -674,14 +705,16 @@ const AdminContent = () => {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => refresh()}
-                className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/90 transition hover:border-white/30 hover:bg-white/10 active:scale-95"
-                title="Refresh Gallery"
+                onClick={() => setBulkEditDialog(true)}
+                disabled={images.length === 0}
+                className="inline-flex items-center gap-2 rounded-lg border border-sky-400/30 bg-sky-500/10 px-4 py-2.5 text-sm font-medium text-sky-200 transition hover:border-sky-400/50 hover:bg-sky-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
+                title="Bulk edit images"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </button>
+              
               <button
                 type="button"
                 onClick={() => setMergeVideoDialog(true)}
@@ -693,21 +726,7 @@ const AdminContent = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                 </svg>
               </button>
-              <button
-                type="button"
-                onClick={handleCleanupCorruptVideos}
-                disabled={isCleaningCorrupt}
-                className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition hover:border-red-400/50 hover:bg-red-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                title="Remove corrupt or inaccessible videos from database"
-              >
-                {isCleaningCorrupt ? (
-                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-transparent"></span>
-                ) : (
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                )}
-              </button>
+              
               <button
                 type="button"
                 onClick={handleForceRefresh}
@@ -796,13 +815,32 @@ const AdminContent = () => {
             <div className="rounded-2xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-pink-500/10 p-6 shadow-glass backdrop-blur-lg">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-purple-200">Generated Videos</h3>
-                <button
-                  onClick={() => setCleanupConfirm(true)}
-                  className="rounded-lg border border-purple-400/40 bg-purple-500/20 px-3 py-1.5 text-xs font-medium text-purple-200 transition hover:bg-purple-500/30"
-                  title="Remove video files from storage that are not in database"
-                >
-                  Cleanup Storage
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCleanupConfirm(true)}
+                    className="rounded-lg border border-purple-400/40 bg-purple-500/20 px-3 py-1.5 text-xs font-medium text-purple-200 transition hover:bg-purple-500/30"
+                    title="Remove video files from storage that are not in database"
+                  >
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.071 5.414l-15.928 15.929a3 3 0 01-4.243-4.243l15.929-15.928a2 2 0 012.828 2.828L12 15l-3 3a1 1 0 102 2l3-3 9.071-6.586a2 2 0 012.828 2.828z" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCleanupCorruptVideos}
+                    disabled={isCleaningCorrupt}
+                    className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 transition hover:border-red-400/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    title="Remove corrupt or inaccessible videos from database"
+                  >
+                    {isCleaningCorrupt ? (
+                      <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-red-200 border-t-transparent"></span>
+                    ) : (
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="space-y-3">
                 {images.filter((img) => img.isVideo && img.videoUrl).length === 0 ? (
@@ -826,9 +864,11 @@ const AdminContent = () => {
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-medium text-purple-100">{img.name}</p>
+                            <p className="truncate text-xs font-medium text-purple-100">
+                              {img.name.replace('.jpg', '')}.mp4
+                            </p>
                             <p className="mt-1 text-xs text-purple-300/70">
-                              {img.videoDurationSeconds ? `${img.videoDurationSeconds}s` : 'Duration unknown'}
+                              {img.videoDurationSeconds ? `${img.videoDurationSeconds}s` : ''}
                             </p>
                             <p className="mt-0.5 text-xs text-purple-300/50">
                               {img.videoGeneratedAt ? new Date(img.videoGeneratedAt).toLocaleDateString() : ''}
@@ -942,9 +982,7 @@ const AdminContent = () => {
                           transform: draggedIndex === originalIndex ? 'scale(0.95)' : 'scale(1)',
                         }}
                       >
-                        <div className="absolute -left-2 -top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 text-sm font-bold text-white shadow-lg">
-                          {originalIndex + 1}
-                        </div>
+                        
 
                         <ImageCard
                           image={image}
@@ -1068,6 +1106,17 @@ const AdminContent = () => {
         onConfirm={handleMergeVideo}
         isProcessing={isMerging}
         progress={mergeProgress}
+      />
+
+      {/* Bulk edit dialog */}
+      <BulkEditDialog
+        isOpen={bulkEditDialog}
+        onClose={() => !isSavingMetadata && setBulkEditDialog(false)}
+        images={images}
+        onUpdateMultiple={updateMultipleMetadataDraft}
+        onSaveAll={saveMultipleMetadata}
+        onDeleteImages={handleBulkDelete}
+        isSaving={isSavingMetadata}
       />
 
       {/* Fullscreen preview modal */}
