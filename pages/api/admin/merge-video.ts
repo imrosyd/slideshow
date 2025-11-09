@@ -279,7 +279,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ffmpeg.on('error', reject);
     });
 
-    // Skip uploading placeholder image - metadata is sufficient
+    // Upload placeholder image to storage to maintain consistency
+    console.log(`[Merge Video] Uploading placeholder image: ${placeholderImageName}`);
+    
+    // Read the generated placeholder image
+    const placeholderBuffer = await fs.readFile(placeholderPath);
+    
+    // Upload to slideshow-images bucket
+    const { error: placeholderUploadError } = await supabase.storage
+      .from("slideshow-images")
+      .upload(placeholderImageName, placeholderBuffer, {
+        contentType: "image/jpeg",
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (placeholderUploadError) {
+      console.error(`[Merge Video] Failed to upload placeholder image:`, placeholderUploadError);
+      throw new Error(`Failed to upload placeholder image: ${placeholderUploadError.message}`);
+    }
+    
+    // Get public URL for the placeholder
+    const { data: placeholderPublicData } = supabase.storage
+      .from("slideshow-images")
+      .getPublicUrl(placeholderImageName);
+    
+    const placeholderUrl = placeholderPublicData.publicUrl;
+    console.log(`[Merge Video] Placeholder image uploaded: ${placeholderUrl}`);
 
     // Create metadata entry for the merged video
     const { error: metadataError } = await supabase

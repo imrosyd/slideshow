@@ -85,10 +85,25 @@ export default async function handler(
 
     const isMergedPlaceholder = imageData?.hidden ?? false;
 
-    // 5. For merged video placeholders, delete the entire metadata entry
+    // 5. For merged video placeholders, delete the placeholder image from storage too
     // For regular images, just clear video flags
     let dbError;
     if (isMergedPlaceholder) {
+      // Delete the placeholder image from slideshow-images storage
+      try {
+        const { error: imageDeleteError } = await supabase.storage
+          .from('slideshow-images')
+          .remove([filename]);
+
+        if (imageDeleteError) {
+          console.warn(`[Delete Video] Failed to delete placeholder image: ${imageDeleteError.message}`);
+        } else {
+          console.log(`[Delete Video] ✅ Deleted placeholder image: ${filename}`);
+        }
+      } catch (imageError) {
+        console.warn(`[Delete Video] Error deleting placeholder image:`, imageError);
+      }
+
       // Completely delete the metadata entry for merged video placeholders
       const { error: deleteError } = await supabase
         .from('image_durations')
