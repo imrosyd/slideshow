@@ -168,19 +168,22 @@ const handleDeleteRequest = async (
     const sanitizedFilenames = filenames.map(sanitizeFilename);
     const supabaseServiceRole = getSupabaseServiceRoleClient();
     
-    // Step 1: Delete images from storage
-    const { data, error: deleteError } = await supabaseServiceRole.storage
-      .from(SUPABASE_STORAGE_BUCKET)
-      .remove(sanitizedFilenames);
+    // Step 1: Delete images from storage (may not exist for merged video placeholders)
+    let deletedCount = 0;
+    try {
+      const { data, error: deleteError } = await supabaseServiceRole.storage
+        .from(SUPABASE_STORAGE_BUCKET)
+        .remove(sanitizedFilenames);
 
-    if (deleteError) {
-      console.error("Error deleting files from Supabase:", deleteError);
-      return res.status(500).json({ error: "Gagal menghapus file dari Supabase." });
-    }
-
-    const deletedCount = data?.length || 0;
-    if (deletedCount === 0) {
-        return res.status(404).json({ error: "Tidak ada file yang ditemukan atau dihapus di Supabase." });
+      if (deleteError) {
+        console.warn("Warning deleting files from storage (this is OK for merged videos):", deleteError);
+        // Don't fail the request - continue to delete metadata
+      } else {
+        deletedCount = data?.length || 0;
+        console.log(`[Delete] Successfully deleted ${deletedCount} files from storage`);
+      }
+    } catch (storageError) {
+      console.warn("Storage deletion error (continuing with metadata):", storageError);
     }
 
     // Step 2: Delete associated videos from storage
