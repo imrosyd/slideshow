@@ -421,6 +421,7 @@ export default function Home() {
   const {
     videoRef,
     play,
+    seek,
   } = useVideoPlayer({
     videoUrl: currentSlide?.videoUrl || null,
     isPaused,
@@ -1207,7 +1208,6 @@ export default function Home() {
               autoPlay
               muted
               playsInline
-              loop={slides.length <= 1}
               preload="auto"
               style={styles.image}
               onLoadStart={() => {
@@ -1215,6 +1215,11 @@ export default function Home() {
               }}
               onLoadedMetadata={() => {
                 console.log(`📊 Metadata loaded: ${currentSlide.name}`);
+                // Set loop to true for seamless playback between slides
+                const video = videoRef.current;
+                if (video) {
+                  video.loop = true;
+                }
               }}
               onCanPlay={() => {
                 console.log(`✅ Can play: ${currentSlide.name}`);
