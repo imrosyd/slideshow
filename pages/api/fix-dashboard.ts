@@ -27,13 +27,9 @@ export default async function handler(
     }
     
     // Create new record for dashboard.jpg (so it appears in gallery)
-    const { data: videoFile, error: videoError } = await supabase.storage
+    const { data: videoFile } = supabase.storage
       .from('slideshow-videos')
       .getPublicUrl('dashboard.mp4');
-    
-    if (videoError) {
-      return res.status(500).json({ error: 'Failed to get video URL' });
-    }
     
     // Recreate with dashboard.jpg as filename
     const { error: insertError } = await supabase

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
+import { getSupabaseServiceRoleClient } from "../../lib/supabase";
 
 export default async function handler(
   req: NextApiRequest,
@@ -9,11 +9,12 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { filename } = req.query.filename as string;
+  const filename = req.query.filename as string;
   
   try {
+    const supabaseServiceRole = getSupabaseServiceRoleClient();
     // Get metadata for this specific video
-    const { data, error } = await supabaseAdminClient
+    const { data, error } = await (supabaseServiceRole as any)
       .from('image_durations')
       .eq('filename', filename)
       .single();

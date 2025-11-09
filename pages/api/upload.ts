@@ -255,6 +255,19 @@ const handleDeleteRequest = async (
       console.error('Error deleting from database:', dbError);
     }
 
+    // Check if metadata was actually deleted
+    let metadataDeleted = false;
+    try {
+      const { data: checkData } = await supabaseServiceRole
+        .from('image_durations')
+        .select('filename')
+        .in('filename', sanitizedFilenames);
+      
+      metadataDeleted = !checkData || checkData.length === 0;
+    } catch (checkError) {
+      console.warn('Error checking metadata deletion:', checkError);
+    }
+
     // Broadcast image deletion to refresh galleries
     if (deletedCount > 0 || metadataDeleted) {
       try {
@@ -277,19 +290,6 @@ const handleDeleteRequest = async (
       } catch (broadcastError) {
         console.warn('[Delete] Failed to broadcast image deletion:', broadcastError);
       }
-    }
-
-    // Check if metadata was actually deleted
-    let metadataDeleted = false;
-    try {
-      const { data: checkData } = await supabaseServiceRole
-        .from('image_durations')
-        .select('filename')
-        .in('filename', sanitizedFilenames);
-      
-      metadataDeleted = !checkData || checkData.length === 0;
-    } catch (checkError) {
-      console.warn('Error checking metadata deletion:', checkError);
     }
 
     let message = '';

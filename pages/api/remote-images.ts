@@ -63,15 +63,6 @@ export default async function handler(
         if (item.is_video) {
           // Only include videos that have valid URLs
           if (item.video_url && item.video_url.trim() !== '') {
-            // Also skip if the video is more than 30 minutes old (likely deleted from storage)
-            const videoAge = item.video_generated_at ? new Date().getTime() - new Date(item.video_generated_at).getTime() : Infinity;
-            const isVideoTooOld = videoAge > 30 * 60 * 1000; // 30 minutes
-            
-            if (isVideoTooOld) {
-              console.log(`[Remote Images] Excluding old video (likely deleted): ${item.filename} (${Math.round(videoAge / 60000)} min old)`);
-              return false;
-            }
-            
             console.log(`[Remote Images] Including video in slideshow: ${item.filename} (hidden: ${item.hidden || false})`);
             return true;
           } else {

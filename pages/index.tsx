@@ -481,8 +481,10 @@ export default function Home() {
   // Fetch admin images for gallery overlay
   const fetchAdminImages = useCallback(async () => {
     try {
+      console.log('🔄 Fetching gallery images...');
       // Use gallery images API which returns all visible images (excluding dashboard.jpg)
-      const response = await fetch('/api/gallery-images', {
+      const cacheBuster = `?_t=${Date.now()}`;
+      const response = await fetch(`/api/gallery-images${cacheBuster}`, {
         cache: "no-store",
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -490,16 +492,28 @@ export default function Home() {
         },
       });
 
-      if (!response.ok) return;
+      console.log('📡 Gallery images response status:', response.status);
+
+      if (!response.ok) {
+        console.error('❌ Gallery images fetch failed:', response.statusText);
+        return;
+      }
 
       const data = await response.json();
       
-      if (data.images) {
+      if (data && data.images && Array.isArray(data.images)) {
         console.log(`✅ Fetched ${data.images.length} images for gallery overlay`);
+        if (data.images.length > 0) {
+          console.log('🖼️ Sample images:', data.images.slice(0, 3).map((img: any) => img.name).join(', '));
+        }
         setAdminImages(data.images);
+      } else {
+        console.warn('⚠️ No images array in response');
+        setAdminImages([]);
       }
     } catch (err) {
       console.error("❌ Error fetching gallery images:", err);
+      setAdminImages([]);
     }
   }, []);
 
@@ -593,6 +607,15 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array - run only once on mount
 
+  // Monitor adminImages state changes
+  useEffect(() => {
+    if (adminImages.length > 0) {
+      console.log(`🖼️ Gallery state updated: ${adminImages.length} images`, adminImages.slice(0, 2));
+    } else {
+      console.log('🖼️ Gallery state updated: empty');
+    }
+  }, [adminImages]);
+
   // Adjust currentIndex when slides array changes and handle video clearing
   useEffect(() => {
     if (slides.length > 0) {
@@ -611,7 +634,7 @@ export default function Home() {
         video.currentTime = 0;
       }
     }
-  }, [slides.length, currentIndex, goToSlide]); // Include goToSlide dependency
+  }, [slides.length, currentIndex, goToSlide, videoRef]); // Include videoRef dependency
 
   // Auto-refresh slides
   useEffect(() => {
@@ -882,7 +905,7 @@ export default function Home() {
         setFastRefreshTimer(null);
       }
     };
-  }, [fastRefreshTimer]); // Include fastRefreshTimer for cleanup
+  }, [fastRefreshTimer, currentSlide?.name, fetchSlides]); // Include missing dependencies
 
   // Overlay mode state management
   useEffect(() => {
@@ -924,7 +947,7 @@ export default function Home() {
         }
       }
     }
-  }, [currentSlide?.videoUrl]); // Only watch videoUrl changes
+  }, [currentSlide?.videoUrl, videoRef]); // Include videoRef dependency
 
   // Force play when currentIndex changes (critical for webOS)
   useEffect(() => {
@@ -935,7 +958,7 @@ export default function Home() {
         play().catch(e => console.error('Failed to play:', e));
       }
     }
-  }, [currentIndex, currentSlide, isPaused, play, videoRef]);
+  }, [currentIndex, currentSlide, isPaused, play, videoRef]); // Include videoRef dependency
 
   // Additional listener for image metadata updates
   useEffect(() => {

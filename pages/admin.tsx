@@ -813,34 +813,8 @@ const AdminContent = () => {
 
             {/* Generated Videos Section */}
             <div className="rounded-2xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-pink-500/10 p-6 shadow-glass backdrop-blur-lg">
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4">
                 <h3 className="text-sm font-semibold text-purple-200">Generated Videos</h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCleanupConfirm(true)}
-                    className="rounded-lg border border-purple-400/40 bg-purple-500/20 px-3 py-1.5 text-xs font-medium text-purple-200 transition hover:bg-purple-500/30"
-                    title="Remove video files from storage that are not in database"
-                  >
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.071 5.414l-15.928 15.929a3 3 0 01-4.243-4.243l15.929-15.928a2 2 0 012.828 2.828L12 15l-3 3a1 1 0 102 2l3-3 9.071-6.586a2 2 0 012.828 2.828z" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCleanupCorruptVideos}
-                    disabled={isCleaningCorrupt}
-                    className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 transition hover:border-red-400/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                    title="Remove corrupt or inaccessible videos from database"
-                  >
-                    {isCleaningCorrupt ? (
-                      <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-red-200 border-t-transparent"></span>
-                    ) : (
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
               </div>
               <div className="space-y-3">
                 {images.filter((img) => img.isVideo && img.videoUrl).length === 0 ? (

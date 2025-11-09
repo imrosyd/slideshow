@@ -6,6 +6,8 @@ type Data = {
   videoUrl?: string;
   videoGeneratedAt?: string;
   lastChecked?: string;
+  error?: string;
+  cachebuster?: number;
 };
 
 export default async function handler(
@@ -14,7 +16,10 @@ export default async function handler(
 ) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ 
+      exists: false,
+      error: "Method not allowed" 
+    });
   }
 
   try {
@@ -72,7 +77,7 @@ export default async function handler(
     
     // Add cache-busting parameter if video exists to force refresh
     const videoUrlWithCacheBust = fileExists && videoEntry?.video_url 
-      ? `${videoEntry.videoUrl}?_cache=${Date.now()}` 
+      ? `${videoEntry.video_url}?_cache=${Date.now()}` 
       : undefined;
     
     return res.status(200).json({
@@ -84,6 +89,9 @@ export default async function handler(
     });
   } catch (error: any) {
     console.error("[Check Dashboard] Error:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ 
+      exists: false,
+      error: "Internal server error" 
+    });
   }
 }

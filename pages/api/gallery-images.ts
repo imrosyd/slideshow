@@ -17,13 +17,23 @@ export default async function handler(
   try {
     const supabaseServiceRole = getSupabaseServiceRoleClient();
     
-    // Fetch all non-video images for the gallery
+    // First, get all entries to debug
+    const { data: allEntries, error: allError } = await supabaseServiceRole
+      .from("image_durations")
+      .select("filename, hidden, is_video");
+    
+    console.log(`[Gallery Images] Total entries in DB: ${allEntries?.length || 0}`);
+    if (allEntries && allEntries.length > 0) {
+      console.log(`[Gallery Images] Sample entries:`, allEntries.slice(0, 5));
+      console.log(`[Gallery Images] Hidden entries: ${allEntries.filter((e: any) => e.hidden).length}`);
+      console.log(`[Gallery Images] Video entries: ${allEntries.filter((e: any) => e.is_video).length}`);
+    }
+    
+    // Fetch all images for the gallery (including images that have videos)
+    // We want to show images even if they have video versions
     const { data: allDbMetadata, error: dbError } = await supabaseServiceRole
       .from("image_durations")
       .select("*")
-      .eq('is_video', false) // Only get regular images, not videos
-      .eq('hidden', false) // Only get visible images
-      .neq('filename', 'dashboard.jpg') // Exclude dashboard.jpg placeholder
       .order('order_index', { ascending: true });
 
     if (dbError) {
@@ -31,21 +41,92 @@ export default async function handler(
       throw new Error("Failed to load image metadata from database.");
     }
 
-    if (!allDbMetadata) {
+    if (!allDbMetadata || allDbMetadata.length === 0) {
+      console.log("[Gallery Images] No data found in database");
       res.status(200).json({ images: [] });
       return;
     }
 
-    console.log(`[Gallery Images] Loaded ${allDbMetadata.length} images for gallery`);
+    console.log(`[Gallery Images] Loaded ${allDbMetadata.length} total entries from database`);
 
     // Build image data with Supabase public URLs
     const imageData = allDbMetadata
-      .map((item: any) => ({
-        name: item.filename,
-        url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-images/${item.filename}`
-      }));
+      .filter((item: any) => {
+        // Skip hidden images
+        if (item.hidden === true) {
+          console.log(`[Gallery Images] Skipping hidden: ${item.filename}`);
+          return false;
+        }
+        
+        // Skip dashboard files
+        if (item.filename === 'dashboard.jpg' || 
+            item.filename === 'dashboard.png' || 
+            item.filename === 'dashboard.mp4') {
+          console.log(`[Gallery Images] Skipping dashboard: ${item.filename}`);
+          return false;
+        }
+        
+        // Skip video-only entries (is_video true and filename ends with .mp4)
+        if (item.is_video === true && item.filename.endsWith('.mp4')) {
+          console.log(`[Gallery Images] Skipping video-only: ${item.filename}`);
+          return false;
+        }
+        
+        return true;
+      })
+      .map((item: any) => {
+        // For items with .jpg/.png extension, use the image file
+        // Even if they have video versions, we want to show the thumbnail from the image
+        const filename = item.filename;
+        const imageFilename = filename.endsWith('.mp4') 
+          ? filename.replace('.mp4', '.jpg') 
+          : filename;
+        
+        return {
+          name: item.filename,
+          url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-images/${imageFilename}`
+        };
+      });
 
     console.log(`[Gallery Images] ${imageData.length} images returned for gallery`);
+
+    // If no images from database, try to get from storage directly
+    if (imageData.length === 0) {
+      console.log("[Gallery Images] No images from DB, checking storage...");
+      
+      const { data: storageFiles, error: storageError } = await supabaseServiceRole.storage
+        .from("slideshow-images")
+        .list("", { limit: 1000 });
+      
+      if (!storageError && storageFiles && storageFiles.length > 0) {
+        console.log(`[Gallery Images] Found ${storageFiles.length} files in storage`);
+        
+        const storageImageData = storageFiles
+          .filter((file: any) => {
+            // Only include actual image files
+            const filename = file.name || '';
+            const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(filename);
+            const isDashboard = filename.startsWith('dashboard.');
+            
+            if (isDashboard) {
+              console.log(`[Gallery Images] Skipping dashboard file: ${filename}`);
+            }
+            
+            return isImage && !isDashboard;
+          })
+          .map((file: any) => ({
+            name: file.name,
+            url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-images/${file.name}`
+          }));
+        
+        console.log(`[Gallery Images] Returning ${storageImageData.length} images from storage`);
+        
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+        return res.status(200).json({ images: storageImageData });
+      }
+    }
 
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.setHeader("Pragma", "no-cache");

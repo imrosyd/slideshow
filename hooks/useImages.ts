@@ -96,6 +96,28 @@ export const useImages = (authToken: string | null) => {
       const fetched = (payload?.images ?? []).map((item: any) => {
         const durationSeconds = toSeconds(item.durationMs);
         const caption = item.caption ?? null; // Keep as null if empty
+        
+        // Add cache-busting timestamp to preview URL for videos or recently updated files
+        let previewUrl = buildPreviewUrl(item.name);
+        try {
+          if (item.videoGeneratedAt) {
+            // For video files, use video_generated_at as cache buster
+            const timestamp = new Date(item.videoGeneratedAt).getTime();
+            if (!isNaN(timestamp)) {
+              previewUrl = `${previewUrl}?t=${timestamp}`;
+            }
+          } else if (item.updatedAt) {
+            // For regular images, use updated_at as cache buster
+            const timestamp = new Date(item.updatedAt).getTime();
+            if (!isNaN(timestamp)) {
+              previewUrl = `${previewUrl}?t=${timestamp}`;
+            }
+          }
+        } catch (e) {
+          // If timestamp parsing fails, just use URL without cache buster
+          console.warn('Failed to parse timestamp for', item.name, e);
+        }
+        
         return {
           name: item.name,
           size: item.size ?? 0,
@@ -105,7 +127,7 @@ export const useImages = (authToken: string | null) => {
           caption,
           originalDurationSeconds: durationSeconds,
           originalCaption: caption,
-          previewUrl: buildPreviewUrl(item.name),
+          previewUrl,
           isVideo: Boolean(item.isVideo && item.videoUrl),
           videoUrl: item.videoUrl ?? undefined,
           videoGeneratedAt: item.videoGeneratedAt ?? undefined,

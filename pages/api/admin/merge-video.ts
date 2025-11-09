@@ -177,6 +177,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     });
 
+    // Delete old video first to ensure clean overwrite
+    console.log(`[Merge Video] Deleting old video ${videoFilename} if exists...`);
+    try {
+      await supabase.storage
+        .from("slideshow-videos")
+        .remove([videoFilename]);
+      console.log(`[Merge Video] Old video deleted successfully`);
+    } catch (deleteErr) {
+      console.log(`[Merge Video] No old video to delete (this is fine)`);
+    }
+
     // Upload merged video to Supabase (always use dashboard.mp4)
     const videoBuffer = await fs.readFile(outputPath);
 
@@ -285,6 +296,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const storagePlaceholderName = videoFilename.replace('.mp4', '.jpg');
     console.log(`[Merge Video] Uploading placeholder image: ${storagePlaceholderName}`);
     
+    // Delete old placeholder image first to ensure clean overwrite
+    console.log(`[Merge Video] Deleting old placeholder ${storagePlaceholderName} if exists...`);
+    try {
+      await supabase.storage
+        .from("slideshow-images")
+        .remove([storagePlaceholderName]);
+      console.log(`[Merge Video] Old placeholder deleted successfully`);
+    } catch (deleteErr) {
+      console.log(`[Merge Video] No old placeholder to delete (this is fine)`);
+    }
+    
     // Read the generated placeholder image
     const placeholderBuffer = await fs.readFile(placeholderPath);
     
@@ -312,6 +334,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Create metadata entry for the merged video
     // Store as dashboard.mp4 in database to be consistent
+    const generatedAt = new Date().toISOString();
+    const cacheBustTimestamp = Date.now();
+    
     const { error: metadataError } = await supabase
       .from("image_durations")
       .upsert({
@@ -321,8 +346,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         order_index: 999999, // Put at end
         hidden: false, // Show in gallery so admin can see the dashboard
         is_video: true, // Mark as video entry
-        video_url: `${videoUrl}?_cache=${Date.now()}`, // Link to the actual MP4 file with cache busting
-        video_generated_at: new Date().toISOString(),
+        video_url: `${videoUrl}?t=${cacheBustTimestamp}`, // Link to the actual MP4 file with cache busting
+        video_generated_at: generatedAt,
         video_duration_seconds: totalDuration,
       }, {
         onConflict: "filename"
