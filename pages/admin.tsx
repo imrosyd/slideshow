@@ -15,6 +15,7 @@ const SUPABASE_ORIGIN = (() => {
   }
 })();
 import { ToastProvider } from "../components/admin/ToastProvider";
+import { getAdminAuthCookieName } from "../lib/auth";
 
 // Lazy-load komponen berat untuk memperkecil bundle awal halaman admin
 const UploadBox = dynamic(async () => (await import("../components/admin/UploadBox")).UploadBox as any, { ssr: false }) as any;
@@ -48,10 +49,54 @@ const AdminContent = () => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const token = sessionStorage.getItem("admin-auth-token");
-    if (token) {
-      setAuthToken(token);
+    
+    // Also try to get token from sessionStorage for compatibility
+    const sessionToken = sessionStorage.getItem("admin-auth-token");
+    if (sessionToken) {
+      setAuthToken(sessionToken);
     }
+    
+    // But primarily, we need to make a request to get the token from the server
+    // Since server-side auth is handled by getServerSideProps, we assume user is authenticated
+    // and need to fetch a token for client-side operations
+    
+    const fetchAuthToken = async () => {
+      try {
+        // Get the auth cookie name
+        const cookieName = getAdminAuthCookieName();
+        // Check if cookie exists
+        const hasCookie = document.cookie.split(';').some(c => c.trim().startsWith(`${cookieName}=`));
+        
+        if (hasCookie) {
+          // If we have the cookie, make a request to get a token
+          const response = await fetch("/api/verify-auth", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.token) {
+              setAuthToken(data.token);
+              // Also store in sessionStorage for fallback
+              sessionStorage.setItem("admin-auth-token", data.token);
+            }
+          }
+        } else if (sessionToken) {
+          // If we have a session token but no cookie, use it
+          setAuthToken(sessionToken);
+        }
+      } catch (error) {
+        console.error("Error fetching auth token:", error);
+        // Try to use session token as fallback
+        if (sessionToken) {
+          setAuthToken(sessionToken);
+        }
+      }
+    };
+    
+    fetchAuthToken();
+    
     const previousSelect = document.body.style.userSelect;
     const previousTouch = document.body.style.touchAction;
     document.body.style.userSelect = "auto";
