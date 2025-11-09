@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2025-11-09
+
+### 🧹 Maintenance & Polish
+
+#### Fixed
+- **Video Resume Bug**: Fixed video restarting from beginning when closing image overlay
+  - Video now properly resumes from pause position instead of restart
+  - Added smart position tracking using refs
+  - Separated slide change logic from pause/resume logic
+  - Removed redundant effects causing conflicts
+
+#### Changed
+- **Tab Title**: Main page browser tab now displays "Slideshow" consistently
+  - Added missing `<title>` tag to main slideshow content render
+  - Ensures proper title display in all loading/error/empty states
+
+#### Removed
+- **Unused Files**: Cleaned up project directory
+  - Removed debug scripts: `debug-images-remote.bat`, `test-video-debug.sh`
+  - Removed build cache: `tsconfig.tsbuildinfo` (128KB)
+  - Removed development log: `server.log` (400+ lines)
+  - Total cleanup: ~530KB of unnecessary files
+
+---
+
 ## [2.1.0] - 2025-11-09
 
 ### 🎬 Video Processing Enhancement

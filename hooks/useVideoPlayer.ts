@@ -9,7 +9,7 @@ interface UseVideoPlayerProps {
 
 interface UseVideoPlayerReturn {
   videoRef: React.RefObject<HTMLVideoElement>;
-  play: () => Promise<void>;
+  play: (resetPosition?: boolean) => Promise<void>;
   pause: () => void;
   seek: (time: number) => void;
 }
@@ -28,7 +28,7 @@ export function useVideoPlayer({
   const playAttemptsRef = useRef(0);
 
   // Play with retry logic for webOS
-  const play = useCallback(async () => {
+  const play = useCallback(async (resetPosition = true) => {
     const video = videoRef.current;
     if (!video || !videoUrl) return;
 
@@ -36,9 +36,12 @@ export function useVideoPlayer({
     
     const attemptPlay = async (attempt = 1): Promise<void> => {
       try {
-        video.currentTime = 0; // Start from beginning for seamless loop
+        // Only reset to beginning if explicitly requested (new video or slide change)
+        if (resetPosition) {
+          video.currentTime = 0;
+        }
         await video.play();
-        console.log(`✅ Play success (attempt ${attempt})`);
+        console.log(`✅ Play success (attempt ${attempt})${resetPosition ? ' from start' : ' resumed'}`);
         playAttemptsRef.current = 0;
       } catch (error) {
         console.error(`❌ Play failed (attempt ${attempt}):`, error);
@@ -72,12 +75,19 @@ export function useVideoPlayer({
     video.currentTime = time;
   }, []);
 
+  // Track if video URL has changed
+  const previousVideoUrlRef = useRef<string | null>(null);
+
   // Handle pause/play state changes
   useEffect(() => {
     if (isPaused) {
       pause();
     } else if (videoUrl) {
-      play().catch(e => console.error('Failed to play:', e));
+      // Only reset position if video URL changed (new video)
+      const isNewVideo = previousVideoUrlRef.current !== videoUrl;
+      previousVideoUrlRef.current = videoUrl;
+      
+      play(isNewVideo).catch(e => console.error('Failed to play:', e));
     }
   }, [isPaused, videoUrl, play, pause]);
 

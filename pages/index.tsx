@@ -396,6 +396,7 @@ export default function Home() {
   const [fastRefreshTimer, setFastRefreshTimer] = useState<NodeJS.Timeout | null>(null);
   const [videoVersion, setVideoVersion] = useState<number>(0);
   const previousVideoUrlRef = useRef<string | null>(null);
+  const previousIndexRef = useRef<number>(-1); // Initialize with -1 to detect first change
 
   // Main slideshow controller
   const {
@@ -751,12 +752,10 @@ export default function Home() {
       supabase.removeChannel(channel);
     });
     
-    // Resume slideshow almost immediately, with tiny delay for smooth transition
-    setTimeout(() => {
-      if (!wasPaused) {
-        slideshowPlay(); // Resume if it was playing before
-      }
-    }, 50); // Reduced from 300ms to 50ms
+    // Resume slideshow immediately without delay
+    if (!wasPaused) {
+      slideshowPlay(); // Resume if it was playing before - video will continue from where it paused
+    }
   }, [wasPaused, slideshowPlay]);
 
   // Mouse movement handler for gallery show/hide
@@ -914,15 +913,6 @@ export default function Home() {
     }
   }, [isOverlayVisible, isVideoOverlayMode]);
 
-  // Pause slideshow when overlay is visible  
-  useEffect(() => {
-    if (isOverlayVisible) {
-      slideshowPause();
-    } else if (wasPaused && !isVideoOverlayMode) {
-      slideshowPlay(); // Resume slideshow when overlay closed (not video mode)
-    }
-  }, [isOverlayVisible, wasPaused, isVideoOverlayMode, slideshowPause, slideshowPlay]);
-
   // Detect video URL changes and force reload
   useEffect(() => {
     const currentUrl = currentSlide?.videoUrl || null;
@@ -949,16 +939,23 @@ export default function Home() {
     }
   }, [currentSlide?.videoUrl, videoRef]); // Include videoRef dependency
 
-  // Force play when currentIndex changes (critical for webOS)
+  // Force play and reset ONLY when currentIndex actually changes (critical for webOS)
   useEffect(() => {
-    if (currentSlide?.videoUrl && !isPaused) {
+    const indexChanged = previousIndexRef.current !== currentIndex;
+    
+    if (indexChanged && currentSlide?.videoUrl) {
+      console.log(`🔄 Slide changed: ${previousIndexRef.current} → ${currentIndex}`);
+      previousIndexRef.current = currentIndex;
+      
       const video = videoRef.current;
       if (video) {
-        video.currentTime = 0;
-        play().catch(e => console.error('Failed to play:', e));
+        video.currentTime = 0; // Reset to start when slide changes
+        if (!isPaused) {
+          play(true).catch(e => console.error('Failed to play:', e));
+        }
       }
     }
-  }, [currentIndex, currentSlide, isPaused, play, videoRef]); // Include videoRef dependency
+  }, [currentIndex, currentSlide, isPaused, play, videoRef]);
 
   // Additional listener for image metadata updates
   useEffect(() => {
@@ -1123,6 +1120,7 @@ export default function Home() {
   return (
     <>
       <Head>
+        <title>Slideshow</title>
           <style>{`
           /* Landscape orientation styles */
           html, body {
