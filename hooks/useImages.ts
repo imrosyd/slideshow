@@ -215,6 +215,7 @@ export const useImages = (authToken: string | null) => {
   const deleteImage = useCallback(
     async (filenames: string[]) => {
       if (!filenames.length) {
+        console.error("[useImages] No filenames provided for deletion");
         return false;
       }
 
@@ -224,7 +225,12 @@ export const useImages = (authToken: string | null) => {
         };
         if (authToken) {
           headers.Authorization = `Token ${authToken}`;
+        } else {
+          console.error("[useImages] No auth token available for deletion");
+          throw new Error("Authentication required for deletion");
         }
+
+        console.log(`[useImages] Deleting ${filenames.length} file(s): ${filenames.join(", ")}`);
 
         const response = await fetch("/api/upload", {
           method: "DELETE",
@@ -232,16 +238,21 @@ export const useImages = (authToken: string | null) => {
           body: JSON.stringify({ filenames }),
         });
 
+        const responseData = await response.json();
+
         if (!response.ok) {
-          throw new Error(await response.text());
+          console.error("[useImages] Delete request failed:", response.status, responseData);
+          throw new Error(responseData.error || `Server error: ${response.status}`);
         }
 
+        console.log("[useImages] Delete successful:", responseData);
+        
         setImagesState((prev) =>
           prev.filter((image) => !filenames.includes(image.name))
         );
         return true;
       } catch (error) {
-        console.error("Failed to delete image:", error);
+        console.error("[useImages] Failed to delete image:", error);
         return false;
       }
     },
