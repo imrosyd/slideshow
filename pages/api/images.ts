@@ -44,7 +44,7 @@ async function readImageList(): Promise<{
   // Create complete lookup maps for all items in the DB.
   const durationMap: Record<string, number | null> = {};
   const captionMap: Record<string, string | null> = {};
-  const videoMap: Record<string, { isVideo: boolean; videoUrl?: string }> = {};
+  const videoMap: Record<string, { isVideo: boolean; videoUrl?: string; videoDurationSeconds?: number }> = {};
 
   // Cast to any to access dynamic columns like is_video
   (allDbMetadata as any[]).forEach((row) => {
@@ -55,6 +55,7 @@ async function readImageList(): Promise<{
       videoMap[row.filename] = {
         isVideo: true,
         videoUrl: row.video_url,
+        videoDurationSeconds: row.video_duration_seconds,
       };
     }
   });
@@ -87,11 +88,12 @@ async function readImageList(): Promise<{
 
   // Build image data for the client.
   const imageData = visibleItems.map((item) => {
+    const videoData = videoMap[item.filename] || {};
     const result = {
       name: item.filename,
-      isVideo: videoMap[item.filename]?.isVideo || false,
-      videoUrl: videoMap[item.filename]?.videoUrl,
-      videoDurationSeconds: item.video_duration_seconds || undefined,
+      isVideo: videoData.isVideo || false,
+      videoUrl: videoData.videoUrl,
+      videoDurationSeconds: videoData.videoDurationSeconds,
     };
     console.log(`[Images API] Item ${item.filename}:`, result);
     return result;

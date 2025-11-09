@@ -512,7 +512,7 @@ export default function Home() {
       }
 
       const payload: {
-        images: Array<{ name: string; isVideo?: boolean; videoUrl?: string }>;
+        images: Array<{ name: string; isVideo?: boolean; videoUrl?: string; videoDurationSeconds?: number }>;
         durations?: Record<string, number | null>;
       } = await response.json();
 
