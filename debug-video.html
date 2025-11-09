@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Debug</title>
+</head>
+<body>
+    <h1>Video Debug Information</h1>
+    <div id="info"></div>
+    
+    <h2>Video Test</h2>
+    <video id="videoTest" controls style="max-width: 800px;"></video>
+    
+    <script>
+        async function fetchImageData() {
+            try {
+                const response = await fetch('/api/images');
+                const data = await response.json();
+                
+                console.log('API Response:', data);
+                
+                const infoDiv = document.getElementById('info');
+                infoDiv.innerHTML = `
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                // Test with first video if available
+                const videos = data.images.filter(img => img.isVideo);
+                if (videos.length > 0 && videos[0].videoUrl) {
+                    const video = document.getElementById('videoTest');
+                    video.src = videos[0].videoUrl;
+                    video.load();
+                    
+                    console.log('Testing video:', videos[0].name, videos[0].videoUrl);
+                } else {
+                    document.getElementById('videoTest').style.display = 'none';
+                    document.querySelector('h2').textContent = 'No videos found in response';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('info').innerHTML = `
+                    <p style="color: red;">Error: ${error.message}</p>
+                `;
+            }
+        }
+        
+        fetchImageData();
+        
+        // Set up event listener for video
+        const video = document.getElementById('videoTest');
+        video.addEventListener('error', (e) => {
+            console.error('Video error:', e);
+            const error = video.error;
+            console.error('Error details:', {
+                code: error?.code,
+                message: error?.message
+            });
+        });
+        
+        video.addEventListener('loadedmetadata', () => {
+            console.log('Video metadata loaded successfully');
+            console.log('Duration:', video.duration);
+            console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+        });
+    </script>
+</body>
+</html>

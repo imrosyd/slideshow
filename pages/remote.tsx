@@ -273,23 +273,10 @@ export default function RemoteControl() {
               <div className={`h-3 w-3 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-red-500'} ${isConnected ? 'animate-pulse' : ''}`} />
               {isConnected ? (
                 <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               ) : (
                 <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-              )}
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <div className="text-sm font-medium text-white/80">
-                <span className="font-bold text-sky-400">{currentSlide + 1}</span>
-                <span className="text-white/60"> / {slideCount}</span>
-              </div>
-              {currentImageName && (
-                <div className="text-xs text-white/50 truncate max-w-[200px]">
-                  {currentImageName}
-                </div>
               )}
             </div>
           </div>
