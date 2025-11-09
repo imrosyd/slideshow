@@ -575,8 +575,8 @@ const AdminContent = () => {
     // Get gallery-visible images (same as main page gallery)
     const visibleImages = images.filter(img => !img.hidden && !img.isVideo);
     
-    if (visibleImages.length < 2) {
-      pushToast({ variant: "error", description: "Need at least 2 images from gallery section to merge" });
+    if (visibleImages.length < 1) {
+      pushToast({ variant: "error", description: "Need at least 1 image from gallery section to merge" });
       setMergeVideoDialog(false);
       return;
     }
@@ -718,7 +718,7 @@ const AdminContent = () => {
               <button
                 type="button"
                 onClick={() => setMergeVideoDialog(true)}
-                disabled={images.filter(img => !img.hidden).length < 2}
+                disabled={images.filter(img => !img.hidden).length < 1}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-400/30 bg-purple-500/10 px-4 py-2.5 text-sm font-medium text-purple-200 transition hover:border-purple-400/50 hover:bg-purple-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                 title="Merge visible images into one video with individual durations"
               >

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-11-09
+
+### 🎬 Video Processing Enhancement
+
+#### Changed
+- **Merge to Video**: Reduced minimum required images from 2 to 1
+  - Button now activates with just 1 gallery image
+  - Enables single-image video conversion via merge feature
+  - Dynamic dialog text adjusts for singular/plural ("1 image" vs "2 images")
+
+#### Fixed
+- Merge video button disabled state validation
+- Error message now correctly states "Need at least 1 image"
+- Dialog UI text properly handles singular and plural forms
+
+---
+
 ## [2.0.0] - 2025-11-08
 
 ### 🎨 Major UI Overhaul - Glassmorphism Design
@@ -306,7 +323,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Each version represents a stable, working state of the application:
 
-- **v2.0.0** (aa1c3c5): Glassmorphism UI & Gallery - Current
+- **v2.1.0** (current): Video Processing Enhancement - Current
+- **v2.0.0** (aa1c3c5): Glassmorphism UI & Gallery
 - **v1.9.0** (e06c9d3): Image Gallery & Cleanup
 - **v1.8.0** (e9f0975): Auto Cleanup System
 - **v1.7.0** (25f2178): Video Merge Feature

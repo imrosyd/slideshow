@@ -35,10 +35,10 @@ export function MergeVideoDialog({ isOpen, onClose, imageCount, onConfirm, isPro
         ) : (
           <div className="mb-6 space-y-3">
             <p className="text-sm text-slate-300">
-              Merge <strong>{imageCount}</strong> visible images into one video.
+              Merge <strong>{imageCount}</strong> visible {imageCount === 1 ? 'image' : 'images'} into one video.
             </p>
             <p className="text-xs text-slate-400">
-              Each image will appear for its configured duration in sequence.
+              {imageCount === 1 ? 'The image' : 'Each image'} will appear for its configured duration{imageCount === 1 ? '' : ' in sequence'}.
             </p>
             
             <div className="mt-4 rounded-lg bg-slate-800 p-3 border border-slate-700">

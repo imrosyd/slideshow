@@ -1,6 +1,6 @@
 # 📺 Slideshow Display System
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
@@ -11,7 +11,7 @@
 
 🌐 **Language:** 🇺🇸 English · [🇮🇩 Indonesian](README.id.md)
 
-**Last Updated:** November 8, 2025 · **Status:** Production ready
+**Last Updated:** November 9, 2025 · **Status:** Production ready
 
 ---
 
@@ -19,20 +19,137 @@
 Slideshow is a Next.js 14 + TypeScript application for managing always-on TV content. Admins upload images or PDFs, fine-tune durations, captions, and order, then trigger one-click FFmpeg conversion to MP4 so displays can play buttery-smooth loops on LG webOS or any modern screen.
 
 ## Feature Highlights
-- **Admin Console**
-  - Drag-and-drop uploads (images/PDF) directly to Supabase Storage
-  - Edit filename, caption, duration, ordering, visibility, and delete assets safely
-  - Manual per-image MP4 generation with optimized libx264/yuv420p presets
-  - PDF preview & conversion to images before scheduling
-- **Display Player (TV)**
-  - Endless playlist with retry logic, preload buffer, and keep-awake guards (Wake Lock + webOS Power Manager)
-  - Auto refresh every 60s, smooth transitions, fullscreen + keyboard shortcuts
-- **Remote & On-screen Controls**
-  - `/remote` page for play/pause/jump actions with realtime sync
-  - On-screen floating UI (distance triggered, auto-hide, pause/resume/next/previous)
-- **Reliability & Security**
-  - Supabase RLS with tested policies (`test-rls.html`)
-  - Service role used only server-side, automatic cleanup for orphan/corrupt files
+
+### 🎨 Admin Dashboard (`/admin`)
+**Upload & Management**
+- Drag-and-drop uploads (JPG, PNG, GIF, PDF) directly to Supabase Storage
+- PDF-to-images conversion with preview before upload
+- Bulk upload support with progress tracking
+- Search and filter images by filename
+- Real-time upload status with individual task tracking
+
+**Image Organization**
+- Drag-and-drop reordering with visual feedback
+- Hide/show images from slideshow without deletion
+- Rename files with extension preservation
+- Delete single or multiple images (bulk delete)
+- Individual image metadata editing (caption, duration)
+
+**Video Generation**
+- Manual per-image MP4 generation with FFmpeg
+- Merge multiple images (min. 1 image) into single dashboard video
+- Custom duration per image in merged videos
+- Video preview and management
+- Delete generated videos while keeping source images
+- Progress indicator for video processing
+
+**Bulk Operations**
+- Bulk edit dialog for batch metadata updates
+- Bulk delete with confirmation
+- Apply same duration/caption to multiple images
+- Quick visibility toggle for multiple items
+
+**Maintenance Tools**
+- Force refresh slideshow display remotely
+- Cleanup corrupt videos automatically
+- Remove orphaned files from storage
+- Database consistency checks
+- Quick stats dashboard (total images, storage size, video count)
+
+**UI/UX Features**
+- Glassmorphism design with backdrop blur effects
+- Responsive layout for desktop and tablet
+- Fullscreen image preview on click
+- Thumbnail generation for fast loading
+- Dark theme with gradient accents
+- Toast notifications for all actions
+
+### 📺 Display Player (`/`)
+**Playback Features**
+- Fullscreen slideshow optimized for TV displays
+- Smooth transitions between images/videos
+- Auto-advance based on configured durations
+- Preload buffer for seamless playback
+- Retry logic for failed media loads
+- Auto-refresh every 60 seconds for new content
+
+**Display Management**
+- Keep display awake (Wake Lock API + webOS Power Manager)
+- Prevent TV sleep with synthetic movement
+- WebOS-specific optimizations
+- Fullscreen mode with keyboard shortcuts
+- Video format support (MP4, WebM)
+
+**Gallery Features**
+- Auto-hide bottom gallery bar (appears on mouse proximity)
+- 150px trigger zone with smooth animations
+- Grid layout with image thumbnails
+- Premium badge with gradient
+- Click images for fullscreen preview
+- Glassmorphism card design
+
+**Keyboard Controls**
+- `Space` / `P` - Play/Pause
+- `→` / `N` - Next slide
+- `←` / `B` - Previous slide
+- `F` - Toggle fullscreen
+- `Escape` - Exit fullscreen/preview
+
+### 📱 Remote Control (`/remote`)
+**Mobile Interface**
+- Touch-optimized controls for smartphones/tablets
+- Large, easy-to-tap buttons
+- Real-time sync with display via Supabase Realtime
+- QR code access from admin dashboard
+
+**Control Features**
+- Play/Pause toggle
+- Next/Previous navigation
+- Current slide information display
+- Connection status indicator
+- Responsive design for all screen sizes
+
+**Realtime Communication**
+- Bi-directional WebSocket sync
+- Instant command propagation
+- Status updates from display
+- Heartbeat channel for reliable connection
+- Auto-reconnect on disconnect
+
+### 🔒 Security & Reliability
+**Authentication**
+- Password-protected admin access
+- HTTP-only cookie sessions
+- Token-based API authorization
+- Server-side validation
+
+**Database Security**
+- Supabase Row Level Security (RLS) policies
+- Service role for admin operations only
+- Anon key for public read access
+- Tested RLS policies (`test-rls.html`)
+
+**Error Handling**
+- Graceful degradation on failures
+- Automatic retry for transient errors
+- Corrupt video detection and cleanup
+- Orphaned file cleanup
+- Comprehensive error logging
+
+### ⚙️ Technical Features
+**Performance**
+- Optimized FFmpeg encoding (H.264, yuv420p)
+- Sharp for thumbnail generation
+- Image preloading for smooth transitions
+- Lazy loading for admin components
+- Resource hints for faster loading
+
+**Monitoring**
+- Upload task tracking
+- Video generation progress
+- Storage usage statistics
+- Active image count
+- Real-time status updates
 
 ## Architecture & Stack
 - **Frontend:** Next.js 14, React 18, Tailwind CSS, glassmorphism UI
@@ -119,11 +236,16 @@ Configure values in `slideshow_settings` to tweak FFmpeg without redeploying:
 | Policies not applied | Re-run `004_enable_row_level_security.sql`, confirm RLS toggled on, use `test-rls.html` |
 | Service role upload error | Double-check `SUPABASE_SERVICE_ROLE_KEY`; never expose it to client code |
 
-## Recent Updates
+## Recent Updates (v2.1.0)
+- **Merge to Video Enhancement**: Reduced minimum images from 2 to 1 for single-image video conversion
+- Glassmorphism UI design with auto-hide gallery and fullscreen preview
 - Individual MP4 per image with manual trigger (no more batch generation)
+- Enhanced bulk operations with bulk edit dialog and search/filter
+- PDF-to-images conversion support
+- Force refresh and cleanup tools for maintenance
 - Double-transition bug fixed with preload timeout fallback
 - Enhanced keep-awake + smooth transitions for webOS TVs
-- Updated troubleshooting and documentation structure
+- Comprehensive security with tested RLS policies
 
 ## Changelog, License, Author
 - Full history: [CHANGELOG.md](CHANGELOG.md)
