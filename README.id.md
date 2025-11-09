@@ -1,6 +1,6 @@
 # 📺 Sistem Display Slideshow
 
-[![Versi](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
+[![Versi](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
@@ -236,7 +236,13 @@ Atur nilai di tabel `slideshow_settings` untuk mengubah parameter FFmpeg tanpa b
 | Policy tidak berjalan | Jalankan ulang `004_enable_row_level_security.sql`, pastikan RLS aktif, gunakan `test-rls.html` |
 | Service role upload error | Cek kembali `SUPABASE_SERVICE_ROLE_KEY`; jangan pernah diekspos ke client |
 
-## Pembaruan Terbaru (v2.1.0)
+## Pembaruan Terbaru (v2.2.0)
+- **Bug Resume Video Diperbaiki**: Video sekarang melanjutkan dari posisi pause saat menutup overlay gambar, bukan restart dari awal
+- **Judul Tab Browser Konsisten**: Halaman utama sekarang menampilkan "Slideshow" di tab browser di semua kondisi
+- **Pembersihan Proyek**: Menghapus skrip debug dan file cache yang tidak digunakan (pembersihan ~530KB) untuk codebase yang lebih bersih
+- **Pelacakan Posisi Video Cerdas**: Menambahkan pelacakan posisi tingkat lanjut menggunakan refs untuk pause/resume yang mulus
+
+## Pembaruan Sebelumnya (v2.1.0)
 - **Peningkatan Merge to Video**: Dikurangi minimum gambar dari 2 menjadi 1 untuk konversi video gambar tunggal
 - Desain UI glassmorphism dengan gallery auto-hide dan preview fullscreen
 - MP4 individual per gambar dengan trigger manual (tanpa generasi batch)

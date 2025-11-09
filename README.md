@@ -1,6 +1,6 @@
 # 📺 Slideshow Display System
 
-[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
+[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
@@ -236,7 +236,13 @@ Configure values in `slideshow_settings` to tweak FFmpeg without redeploying:
 | Policies not applied | Re-run `004_enable_row_level_security.sql`, confirm RLS toggled on, use `test-rls.html` |
 | Service role upload error | Double-check `SUPABASE_SERVICE_ROLE_KEY`; never expose it to client code |
 
-## Recent Updates (v2.1.0)
+## Recent Updates (v2.2.0)
+- **Video Resume Bug Fixed**: Videos now properly resume from pause position when closing image overlay instead of restarting
+- **Consistent Browser Tab Title**: Main page now displays "Slideshow" in browser tab across all states
+- **Project Cleanup**: Removed unused debug scripts and cache files (~530KB cleanup) for cleaner codebase
+- **Smart Video Position Tracking**: Added advanced position tracking using refs for smooth pause/resume functionality
+
+## Previous Updates (v2.1.0)
 - **Merge to Video Enhancement**: Reduced minimum images from 2 to 1 for single-image video conversion
 - Glassmorphism UI design with auto-hide gallery and fullscreen preview
 - Individual MP4 per image with manual trigger (no more batch generation)
