@@ -321,7 +321,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         order_index: 999999, // Put at end
         hidden: false, // Show in gallery so admin can see the dashboard
         is_video: true, // Mark as video entry
-        video_url: videoUrl, // Link to the actual MP4 file
+        video_url: `${videoUrl}?_cache=${Date.now()}`, // Link to the actual MP4 file with cache busting
         video_generated_at: new Date().toISOString(),
         video_duration_seconds: totalDuration,
       }, {

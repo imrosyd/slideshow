@@ -572,11 +572,11 @@ const AdminContent = () => {
   
 
   const handleMergeVideo = useCallback(async () => {
-    // Get visible images only
-    const visibleImages = images.filter(img => !img.hidden);
+    // Get gallery-visible images (same as main page gallery)
+    const visibleImages = images.filter(img => !img.hidden && !img.isVideo);
     
     if (visibleImages.length < 2) {
-      pushToast({ variant: "error", description: "Need at least 2 visible images to merge" });
+      pushToast({ variant: "error", description: "Need at least 2 images from gallery section to merge" });
       setMergeVideoDialog(false);
       return;
     }
@@ -1102,7 +1102,7 @@ const AdminContent = () => {
       <MergeVideoDialog
         isOpen={mergeVideoDialog}
         onClose={() => !isMerging && setMergeVideoDialog(false)}
-        imageCount={images.filter(img => !img.hidden).length}
+        imageCount={images.filter(img => !img.hidden && !img.isVideo).length}
         onConfirm={handleMergeVideo}
         isProcessing={isMerging}
         progress={mergeProgress}

@@ -70,11 +70,17 @@ export default async function handler(
 
     console.log(`[Check Dashboard] Dashboard.mp4 status: exists=${videoEntry?.is_video || false}, hasUrl=${videoEntry?.video_url || null}, fileExists=${fileExists}`);
     
+    // Add cache-busting parameter if video exists to force refresh
+    const videoUrlWithCacheBust = fileExists && videoEntry?.video_url 
+      ? `${videoEntry.videoUrl}?_cache=${Date.now()}` 
+      : undefined;
+    
     return res.status(200).json({
       exists: fileExists && (!!(videoEntry?.is_video)),
-      videoUrl: fileExists ? videoEntry?.video_url : undefined,
+      videoUrl: videoUrlWithCacheBust,
       videoGeneratedAt: videoEntry?.video_generated_at,
-      lastChecked: new Date().toISOString()
+      lastChecked: new Date().toISOString(),
+      cachebuster: Date.now() // Include timestamp for tracking
     });
   } catch (error: any) {
     console.error("[Check Dashboard] Error:", error);
