@@ -1211,7 +1211,7 @@ export default function Home() {
               autoPlay
               muted
               playsInline
-              loop={slides.length <= 1}
+              loop={slides.length <= 1 || currentSlide?.videoDurationSeconds !== null}
               preload="auto"
               style={styles.image}
               onLoadStart={() => {
