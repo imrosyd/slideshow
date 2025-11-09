@@ -219,7 +219,31 @@ const handleDeleteRequest = async (
       console.error('Error deleting from database:', dbError);
     }
 
-    res.status(200).json({ message: `${deletedCount} file berhasil dihapus dari Supabase.`, filenames: sanitizedFilenames });
+    // Check if metadata was actually deleted
+    let metadataDeleted = false;
+    try {
+      const { data: checkData } = await supabaseServiceRole
+        .from('image_durations')
+        .select('filename')
+        .in('filename', sanitizedFilenames);
+      
+      metadataDeleted = !checkData || checkData.length === 0;
+    } catch (checkError) {
+      console.warn('Error checking metadata deletion:', checkError);
+    }
+
+    let message = '';
+    if (deletedCount > 0 && metadataDeleted) {
+      message = `${deletedCount} file berhasil dihapus dari Supabase dan metadata.`;
+    } else if (deletedCount > 0) {
+      message = `${deletedCount} file berhasil dihapus dari Supabase.`;
+    } else if (metadataDeleted) {
+      message = `Metadata berhasil dihapus untuk ${sanitizedFilenames.length} item tanpa file.`;
+    } else {
+      message = `File atau metadata tidak ditemukan.`;
+    }
+
+    res.status(200).json({ message, filenames: sanitizedFilenames });
   } catch (err: any) {
     console.error("Error in handleDeleteRequest:", err);
     res.status(500).json({ error: "Gagal menghapus file." });
