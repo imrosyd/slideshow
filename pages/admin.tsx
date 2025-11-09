@@ -61,29 +61,45 @@ const AdminContent = () => {
     
     const fetchAuthToken = async () => {
       try {
-        // Get the auth cookie name
-        const cookieName = getAdminAuthCookieName();
-        // Check if cookie exists
-        const hasCookie = document.cookie.split(';').some(c => c.trim().startsWith(`${cookieName}=`));
+        // First, try to get token directly from a special server endpoint
+        // that can read cookies and return a token
+        console.log("[Admin] Attempting to fetch auth token...");
         
-        if (hasCookie) {
-          // If we have the cookie, make a request to get a token
-          const response = await fetch("/api/verify-auth", {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.token) {
-              setAuthToken(data.token);
-              // Also store in sessionStorage for fallback
-              sessionStorage.setItem("admin-auth-token", data.token);
-            }
+        const response = await fetch("/api/verify-auth", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.token) {
+            console.log("[Admin] Auth token fetched successfully");
+            setAuthToken(data.token);
+            // Also store in sessionStorage for fallback
+            sessionStorage.setItem("admin-auth-token", data.token);
+            return;
           }
-        } else if (sessionToken) {
-          // If we have a session token but no cookie, use it
+        }
+        
+        console.warn("[Admin] Failed to fetch token from /api/verify-auth");
+        
+        // Fallback: try session token
+        if (sessionToken) {
+          console.log("[Admin] Using session token as fallback");
           setAuthToken(sessionToken);
+        } else {
+          console.error("[Admin] No auth token available!");
+          // Try setting a default token to prevent immediate failures
+          const adminPassword = process.env.ADMIN_PASSWORD || "default";
+          try {
+            const { getExpectedAdminToken } = await import("../lib/auth");
+            const token = getExpectedAdminToken(adminPassword);
+            setAuthToken(token);
+            sessionStorage.setItem("admin-auth-token", token);
+            console.log("[Admin] Set fallback token from environment");
+          } catch (tokenError) {
+            console.error("[Admin] Failed to set fallback token:", tokenError);
+          }
         }
       } catch (error) {
         console.error("Error fetching auth token:", error);

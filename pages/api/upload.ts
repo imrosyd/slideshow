@@ -204,7 +204,43 @@ const handleDeleteRequest = async (
       console.log('No videos to delete or error deleting videos:', videoError);
     }
 
-    // Step 3: Delete metadata from database
+    // Step 3: Check if any of these items have associated videos and delete them too
+    try {
+      const { data: videoList } = await supabaseServiceRole.storage
+        .from('slideshow-videos')
+        .list('', { limit: 1000 });
+
+      if (videoList) {
+        const associatedVideosToDelete: string[] = [];
+        
+        sanitizedFilenames.forEach(filename => {
+          // Convert image name to expected video name
+          const videoName = filename.replace(/\.[^/.]+$/, '.mp4');
+          
+          if (videoList.some(v => v.name === videoName)) {
+            associatedVideosToDelete.push(videoName);
+          }
+        });
+
+        if (associatedVideosToDelete.length > 0) {
+          console.log(`[Delete] Found ${associatedVideosToDelete.length} associated videos to delete`);
+          
+          const { error: videoDeleteError } = await supabaseServiceRole.storage
+            .from('slideshow-videos')
+            .remove(associatedVideosToDelete);
+
+          if (videoDeleteError) {
+            console.warn('Warning deleting associated videos:', videoDeleteError);
+          } else {
+            console.log(`[Delete] ✅ Deleted ${associatedVideosToDelete.length} associated videos`);
+          }
+        }
+      }
+    } catch (videoCheckError) {
+      console.warn('Error checking for associated videos:', videoCheckError);
+    }
+
+    // Step 4: Delete metadata from database
     try {
       const { error: dbError } = await supabaseServiceRole
         .from('image_durations')
