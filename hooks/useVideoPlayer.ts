@@ -36,6 +36,7 @@ export function useVideoPlayer({
     
     const attemptPlay = async (attempt = 1): Promise<void> => {
       try {
+        video.currentTime = 0; // Start from beginning for seamless loop
         await video.play();
         console.log(`✅ Play success (attempt ${attempt})`);
         playAttemptsRef.current = 0;

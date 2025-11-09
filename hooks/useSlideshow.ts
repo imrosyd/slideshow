@@ -91,10 +91,11 @@ export function useSlideshow({
   const handleVideoEnded = useCallback(() => {
     if (isPaused) return;
     
-    // For single slide, ensure it loops seamlessly
+    // For single slide, let the video loop naturally
     if (slides.length <= 1) {
-      console.log('🔁 Single slide - ensuring continuous loop');
-      return; // Video element should loop automatically
+      console.log('🔁 Single slide - native HTML5 loop');
+      // Video's loop attribute will handle seamless playback
+      return;
     }
 
     goToNext();

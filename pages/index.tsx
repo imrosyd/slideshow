@@ -6,6 +6,7 @@ import { useVideoPlayer } from "../hooks/useVideoPlayer";
 import { useVideoPreload } from "../hooks/useVideoPreload";
 import { useKeepAwake } from "../hooks/useKeepAwake";
 import { useRemoteControl } from "../hooks/useRemoteControl";
+import useSingleVideoLoop from "../hooks/useSingleVideoLoop";
 
 const DEFAULT_SLIDE_DURATION_SECONDS = 20;
 const LANGUAGE_SWAP_INTERVAL_MS = 4_000;
@@ -421,13 +422,15 @@ export default function Home() {
   const {
     videoRef,
     play,
-    seek,
   } = useVideoPlayer({
     videoUrl: currentSlide?.videoUrl || null,
     isPaused,
     onEnded: onSlideshowEnded,
     onTimeUpdate: onPreloadTimeUpdate,
   });
+
+  // Ensure single video loops seamlessly
+  useSingleVideoLoop(videoRef);
 
   // Keep webOS TV awake
   useKeepAwake(!isPaused);
