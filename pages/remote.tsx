@@ -217,6 +217,7 @@ export default function RemoteControl() {
   const handleLast = useCallback(() => sendCommand('goto', { index: slideCount - 1 }), [sendCommand, slideCount]);
   const handleRestart = useCallback(() => sendCommand('restart'), [sendCommand]);
   const handleRefresh = useCallback(() => sendCommand('refresh'), [sendCommand]);
+  const handleCloseOverlay = useCallback(() => sendCommand('close-overlay'), [sendCommand]);
   const handleJumpTo = useCallback(() => {
     const slideNumber = parseInt(jumpToSlide);
     if (!isNaN(slideNumber) && slideNumber >= 1 && slideNumber <= slideCount) {
@@ -330,22 +331,26 @@ export default function RemoteControl() {
         {/* Playback Controls */}
         <div className="mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-8 shadow-2xl backdrop-blur-xl">
           <h2 className="mb-6 text-xs font-bold uppercase tracking-widest text-white/70">Playback Control</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={handlePlayPause}
-              disabled={!isConnected}
-              className="col-span-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-6 py-5 text-lg font-bold text-white shadow-lg transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-sky-500/50 hover:shadow-2xl"
-            >
-              {isPaused ? (
-                <svg className="h-6 w-6 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              ) : (
-                <svg className="h-6 w-6 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                </svg>
-              )}
-            </button>
+          <div className="grid gap-3">
+            {/* Close Overlay Button - Only show when an image is live */}
+            {liveImage ? (
+              <button
+                onClick={handleCloseOverlay}
+                disabled={!isConnected}
+                className="rounded-xl bg-gradient-to-r from-red-500 to-red-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-red-500/50 hover:shadow-2xl"
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span>Close Image Overlay</span>
+                </div>
+              </button>
+            ) : (
+              <div className="text-center text-sm text-white/50 italic">
+                Select a dashboard to display
+              </div>
+            )}
           </div>
         </div>
 
@@ -354,9 +359,6 @@ export default function RemoteControl() {
           <div className="mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-8 shadow-2xl backdrop-blur-xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-widest text-white/70">Image Gallery</h2>
-              <div className="text-xs text-white/50">
-                Showing {images.length} regular images (available for video generation)
-              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {images.map((image, index) => (
@@ -380,10 +382,6 @@ export default function RemoteControl() {
                 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                   <div className="absolute bottom-2 left-2 right-2">
-                    <p className="text-xs text-white truncate">
-                      {image.name.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '')}
-                    </p>
-                    <p className="text-xs text-sky-400">#{index + 1}</p>
                   </div>
                 </div>
               </div>

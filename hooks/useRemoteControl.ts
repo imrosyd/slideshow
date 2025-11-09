@@ -77,6 +77,12 @@ export function useRemoteControl({
               }
             }
             break;
+          case 'close-overlay':
+            // Close the image overlay on main page
+            console.log('🖼️ Remote close-overlay command received');
+            const event = new KeyboardEvent('keydown', { key: 'Escape' });
+            window.dispatchEvent(event);
+            break;
         }
       })
       .on('broadcast', { event: 'request-status' }, () => {
