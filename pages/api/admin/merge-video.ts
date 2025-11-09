@@ -331,6 +331,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log(`[Merge Video] Metadata created for ${placeholderImageName}`);
     }
 
+    // Broadcast video update to all main page viewers
+    try {
+      const { data } = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      const channel = data.channel('video-updates');
+      await channel.send({
+        type: 'broadcast',
+        event: 'video-updated',
+        payload: {
+          slideName: placeholderImageName, // Send placeholder name for identification
+          videoUrl: videoUrl,
+          videoDurationSeconds: totalDuration,
+          action: 'created'
+        }
+      }, { httpSend: true });
+      
+      console.log(`[Merge Video] Broadcast: Created merged video to main pages - ${videoFilename}`);
+    } catch (broadcastError) {
+      console.warn('[Merge Video] Failed to broadcast video update:', broadcastError);
+    }
+
     // Clean up temp files
     await fs.rm(tempDir, { recursive: true, force: true });
 
@@ -338,6 +362,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success: true,
       filename: videoFilename,
       imageCount: images.length,
+      mainPage: true, // Indicate this will display on main page
       totalDuration,
       deletedVideos: images.length,
     };

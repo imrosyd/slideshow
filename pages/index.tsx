@@ -782,7 +782,27 @@ export default function Home() {
       supabase.removeChannel(channel);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Stabilize dependency to prevent infinite loops
+  }, []);
+
+  // Additional listener specifically for video updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("video-updates")
+      .on("broadcast", (payload) => {
+        console.log("📹 Video update received:", payload);
+        
+        // If this matches the current video, refresh immediately
+        if (payload.slideName === currentSlide?.name) {
+          console.log("📹 Current video updated, refreshing...");
+          fetchSlides(true);
+        }
+      })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentSlide?.name]); // Stabilize dependency to prevent infinite loops
 
   // Overlay mode state management
   useEffect(() => {

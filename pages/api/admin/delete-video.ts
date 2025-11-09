@@ -137,6 +137,31 @@ export default async function handler(
 
     console.log(`[Delete Video] ✅ Database updated for: ${filename}`);
 
+    // Broadcast video deletion to all main page viewers
+    try {
+      const { data } = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      const channel = data.channel('video-updates');
+      await channel.send({
+        type: 'broadcast',
+        event: 'video-updated',
+        payload: {
+          slideName: filename,
+          action: 'deleted',
+          videoUrl: null,
+          videoDurationSeconds: null,
+          isVideo: false,
+        }
+      }, { httpSend: true });
+      
+      console.log(`[Delete Video] Broadcast: Deleted video from main pages - ${filename}`);
+    } catch (broadcastError) {
+      console.warn('[Delete Video] Failed to broadcast video deletion:', broadcastError);
+    }
+
     return res.status(200).json({
       success: true,
       message: `Video deleted successfully for ${filename}`,
