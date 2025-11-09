@@ -202,6 +202,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const videoUrl = videoPublicData.publicUrl;
     console.log(`[Merge Video] Video URL: ${videoUrl}`);
 
+    // DELETE individual videos before merge
+    console.log(`[Merge Video] Deleting ${images.length} individual videos before merge...`);
+    for (const image of images) {
+      try {
+        // Find database entry for this image
+        const { data: existingData } = await supabase
+          .from("image_durations")
+          .select('filename, video_url')
+          .eq('filename', image.filename)
+          .single();
+
+        if (existingData?.video_url) {
+          // Delete video from storage
+          const videoStoragePath = existingData.video_url.replace(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-videos/`, '');
+          const { error: deleteError } = await supabase.storage
+            .from('slideshow-videos')
+            .remove([videoStoragePath]);
+
+          if (deleteError) {
+            console.warn(`[Merge Video] Failed to delete video for ${image.filename}:`, deleteError.message);
+          } else {
+            console.log(`[Merge Video] Deleted individual video: ${image.filename}`);
+          }
+
+          // Update database to remove video metadata
+          const { error: updateError } = await supabase
+            .from('image_durations')
+            .update({ 
+              filename: image.filename,
+              video_url: null,
+              video_generated_at: null,
+              video_duration_seconds: null
+            })
+            .eq('filename', image.filename);
+
+          if (updateError) {
+            console.warn(`[Merge Video] Failed to update database for ${image.filename}:`, updateError.message);
+          } else {
+            console.log(`[Merge Video] Removed video metadata for ${image.filename}`);
+          }
+        }
+      } catch (error) {
+        console.error(`[Merge Video] Error deleting video for ${image.filename}:`, error);
+        continue; // Continue with next image
+      }
+    }
+
     // Calculate total duration
     const totalDuration = images.reduce((sum, img) => sum + img.durationSeconds, 0);
 
@@ -232,20 +279,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ffmpeg.on('error', reject);
     });
 
-    // Upload placeholder image
-    const placeholderBuffer = await fs.readFile(placeholderPath);
-    const { error: imageUploadError } = await supabase.storage
-      .from("slideshow-images")
-      .upload(placeholderImageName, placeholderBuffer, {
-        contentType: "image/jpeg",
-        upsert: true,
-      });
-
-    if (imageUploadError) {
-      console.error(`[Merge Video] Failed to upload placeholder:`, imageUploadError);
-    } else {
-      console.log(`[Merge Video] Placeholder image uploaded: ${placeholderImageName}`);
-    }
+    // Skip uploading placeholder image - metadata is sufficient
 
     // Create metadata entry for the merged video
     const { error: metadataError } = await supabase
@@ -274,12 +308,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Clean up temp files
     await fs.rm(tempDir, { recursive: true, force: true });
 
-    return res.status(200).json({
+    const result = {
       success: true,
       filename: videoFilename,
       imageCount: images.length,
       totalDuration,
-    });
+      deletedVideos: images.length,
+    };
+
+    return res.status(200).json(result);
 
   } catch (error) {
     console.error("[Merge Video] Error:", error);

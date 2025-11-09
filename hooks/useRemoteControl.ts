@@ -10,6 +10,8 @@ interface UseRemoteControlProps {
   goToSlide: (index: number) => void;
   togglePause: () => void;
   fetchSlides: (isAutoRefresh?: boolean) => Promise<any>;
+  adminImages?: Array<{name: string; url: string}>;
+  handleImageClick?: (image: {name: string; url: string}) => void;
 }
 
 /**
@@ -25,6 +27,8 @@ export function useRemoteControl({
   goToSlide,
   togglePause,
   fetchSlides,
+  adminImages,
+  handleImageClick,
 }: UseRemoteControlProps) {
   
   // Listen for remote control commands
@@ -57,6 +61,21 @@ export function useRemoteControl({
             break;
           case 'refresh':
             fetchSlides(true);
+            break;
+          case 'show-image':
+            if (data?.name && data?.url && adminImages && handleImageClick) {
+              // Find the image in adminImages to ensure it exists
+              const image = adminImages.find(img => img.name === data.name);
+              console.log('🔍 Remote show-image command received:', { name: data.name });
+              console.log('📋 Available adminImages:', adminImages.map(img => ({ name: img.name, url: img.url })));
+              console.log('🔍 Looking for image:', data.name);
+              if (image) {
+                console.log('✅ Found match! Calling handleImageClick for:', image.name);
+                handleImageClick(image);
+              } else {
+                console.warn('❌ Image not found in adminImages for:', data.name);
+              }
+            }
             break;
         }
       })

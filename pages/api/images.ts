@@ -59,14 +59,28 @@ async function readImageList(): Promise<{
     }
   });
 
-  // Filter the metadata list based on visibility rules for the slideshow.
+  // Filter the metadata list based on NEW slideshow logic.
   const visibleItems = (allDbMetadata as any[]).filter(item => {
-    // An item is visible if it's NOT hidden, OR if it IS a video.
-    const shouldKeep = !item.hidden || item.is_video;
-    if (!shouldKeep) {
-      console.log(`[Images API] Filtering out hidden non-video item: ${item.filename}`);
+    // NEW LOGIC: 
+    // 1. If ANY video exists -> show ONLY videos (no regular images)
+    // 2. If NO videos exist -> show NOTHING (blank)
+    const hasAnyVideos = (allDbMetadata as any[]).some(i => i.is_video);
+    
+    if (!hasAnyVideos) {
+      console.log(`[Images API] No videos found - blank slideshow`);
+      return false; // Exclude everything for blank slideshow
     }
-    return shouldKeep;
+    
+    // Only show videos when videos exist
+    if (!item.is_video) {
+      console.log(`[Images API] Filtering out regular image (videos exist): ${item.filename}`);
+      return false;
+    }
+    
+    // Show ALL videos (including hidden ones from batch merge)
+    // Previously we were excluding hidden videos, but we want to show them
+    console.log(`[Images API] Including video in slideshow: ${item.filename} (hidden: ${item.hidden || false})`);
+    return true;
   });
 
   console.log(`[Images API] ${visibleItems.length} items are visible for the slideshow.`);
@@ -77,6 +91,7 @@ async function readImageList(): Promise<{
       name: item.filename,
       isVideo: videoMap[item.filename]?.isVideo || false,
       videoUrl: videoMap[item.filename]?.videoUrl,
+      videoDurationSeconds: item.video_duration_seconds || undefined,
     };
     console.log(`[Images API] Item ${item.filename}:`, result);
     return result;

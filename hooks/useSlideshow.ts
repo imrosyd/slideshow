@@ -3,7 +3,6 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 interface Slide {
   name: string;
   videoUrl?: string;
-  url: string;
   durationSeconds: number;
   isVideo?: boolean;
 }
@@ -20,6 +19,8 @@ interface UseSlideshowReturn {
   goToPrevious: () => void;
   goToSlide: (index: number) => void;
   togglePause: () => void;
+  pause: () => void;
+  play: () => void;
   handleVideoEnded: () => void;
   currentSlide: Slide | null;
 }
@@ -71,6 +72,21 @@ export function useSlideshow({
     });
   }, []);
 
+  // Explicit pause/play helpers (avoid relying on toggle flips)
+  const pause = useCallback(() => {
+    setIsPaused(() => {
+      console.log('⏸️ Pausing (explicit)');
+      return true;
+    });
+  }, []);
+
+  const play = useCallback(() => {
+    setIsPaused(() => {
+      console.log('▶️ Playing (explicit)');
+      return false;
+    });
+  }, []);
+
   // Handle video ended - go to next automatically
   const handleVideoEnded = useCallback(() => {
     if (isPaused) return;
@@ -96,6 +112,8 @@ export function useSlideshow({
     goToPrevious,
     goToSlide,
     togglePause,
+    pause,
+    play,
     handleVideoEnded,
     currentSlide,
   };

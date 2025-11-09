@@ -14,6 +14,8 @@ type AdminImage = {
   videoUrl?: string;
   videoDurationSeconds?: number;
   videoGeneratedAt?: string;
+  // Additional field for video-only entries
+  previewUrl?: string;
 };
 
 type Data =
@@ -181,6 +183,50 @@ export default async function handler(
       });
 
     // Sort images based on order_index from database
+    images.sort((a, b) => {
+      const metaA = metadataMap.get(a.name);
+      const metaB = metadataMap.get(b.name);
+      const orderA = metaA?.order ?? 999999;
+      const orderB = metaB?.order ?? 999999;
+      
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      
+      // Same order, sort alphabetically
+      return a.name.localeCompare(b.name);
+    });
+
+    // Add videos that exist only in database (like merge videos without placeholder images)
+    const videoOnlyEntries: AdminImage[] = [];
+    metadataMap.forEach((metadata, filename) => {
+      // Check if this is a video with URL but not already in the images list
+      if (metadata.is_video && metadata.video_url && metadata.hidden) {
+        const imageInList = images.find(img => img.name === filename);
+        if (!imageInList) {
+          console.log(`[Admin Images] Adding video-only entry: ${filename}`);
+          videoOnlyEntries.push({
+            name: filename,
+            size: 0, // No image file
+            createdAt: null, // No image file
+            updatedAt: metadata.video_generated_at || null,
+            durationMs: metadata.duration_ms,
+            caption: metadata.caption,
+            hidden: metadata.hidden,
+            isVideo: true,
+            videoUrl: metadata.video_url,
+            videoDurationSeconds: metadata.video_duration_seconds,
+            videoGeneratedAt: metadata.video_generated_at,
+            previewUrl: `/api/admin/thumbnail/${filename}?video=true`, // Special URL for video thumbnail
+          });
+        }
+      }
+    });
+
+    // Add video-only entries to the images list
+    images.push(...videoOnlyEntries);
+
+    // Sort again to include new entries
     images.sort((a, b) => {
       const metaA = metadataMap.get(a.name);
       const metaB = metadataMap.get(b.name);

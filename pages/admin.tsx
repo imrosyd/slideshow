@@ -73,7 +73,6 @@ const AdminContent = () => {
     updateMetadataDraft,
     resetMetadataDraft,
     reorderImages,
-    generateVideo,
     generateBatchVideo,
     deleteVideo,
     renameImage,
@@ -84,7 +83,7 @@ const AdminContent = () => {
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [isForceRefreshing, setIsForceRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [generatingVideoFor, setGeneratingVideoFor] = useState<string | null>(null);
+  
   const [savingImageFor, setSavingImageFor] = useState<string | null>(null);
   const [renamingImage, setRenamingImage] = useState<string | null>(null);
 
@@ -216,40 +215,7 @@ const AdminContent = () => {
     }
   }, [isLoggingOut, pushToast, router]);
 
-  const handleGenerateVideo = useCallback(
-    async (filename: string, durationSeconds: number) => {
-      // Prevent duplicate requests
-      if (generatingVideoFor === filename) {
-        console.log(`[Admin] Already generating video for ${filename}, ignoring duplicate request`);
-        return;
-      }
-      
-      try {
-        setGeneratingVideoFor(filename);
-        console.log(`[Admin] Generating video for ${filename}`);
-        
-        await generateVideo(filename, durationSeconds);
-        
-        console.log(`✅ Video generated successfully`);
-        pushToast({
-          variant: "success",
-          description: `Successfully generated video for "${filename}"`,
-        });
-        
-        // Refresh data to show updated video info
-        await refresh();
-      } catch (error) {
-        console.error("Video generation error:", error);
-        pushToast({
-          variant: "error",
-          description: `Failed to generate video: ${error}`,
-        });
-      } finally {
-        setGeneratingVideoFor(null);
-      }
-    },
-    [generateVideo, pushToast, refresh, generatingVideoFor]
-  );
+  
 
   const handleSaveIndividual = useCallback(
     async (filename: string) => {
@@ -648,11 +614,11 @@ const AdminContent = () => {
                 type="button"
                 onClick={() => refresh()}
                 className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/90 transition hover:border-white/30 hover:bg-white/10 active:scale-95"
+                title="Refresh Gallery"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                Refresh Gallery
               </button>
               <button
                 type="button"
@@ -664,7 +630,6 @@ const AdminContent = () => {
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                 </svg>
-                Merge to Video ({images.filter(img => !img.hidden).length})
               </button>
               <button
                 type="button"
@@ -674,17 +639,11 @@ const AdminContent = () => {
                 title="Remove corrupt or inaccessible videos from database"
               >
                 {isCleaningCorrupt ? (
-                  <>
-                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-transparent"></span>
-                    Cleaning...
-                  </>
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-transparent"></span>
                 ) : (
-                  <>
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Cleanup Corrupt
-                  </>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
                 )}
               </button>
               <button
@@ -695,17 +654,11 @@ const AdminContent = () => {
                 title="Force update main slideshow display"
               >
                 {isForceRefreshing ? (
-                  <>
-                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-emerald-200 border-t-transparent"></span>
-                    Updating...
-                  </>
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-emerald-200 border-t-transparent"></span>
                 ) : (
-                  <>
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    Force Update Slideshow
-                  </>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
                 )}
               </button>
               <button
@@ -713,8 +666,15 @@ const AdminContent = () => {
                 onClick={handleLogout}
                 disabled={isLoggingOut}
                 className="inline-flex items-center gap-2 rounded-lg border border-rose-400/30 bg-rose-500/10 px-4 py-2.5 text-sm font-medium text-rose-200 transition hover:border-rose-400/50 hover:bg-rose-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Logout"
               >
-                {isLoggingOut ? "Logging out..." : "Logout"}
+                {isLoggingOut ? (
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-rose-200 border-t-transparent"></span>
+                ) : (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                )}
               </button>
             </div>
           </div>
@@ -819,7 +779,9 @@ const AdminContent = () => {
                               className="rounded px-2 py-1 text-xs text-purple-200 transition hover:bg-purple-400/20"
                               title="Preview video"
                             >
-                              Preview
+                              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
                             </button>
                             <button
                               onClick={() => setDeleteVideoConfirm(img.name)}
@@ -929,9 +891,9 @@ const AdminContent = () => {
                           onSave={handleSaveIndividual}
                           onDelete={(filename: string) => setConfirmTarget(filename)}
                           onPreview={openFullscreen}
-                          onGenerateVideo={handleGenerateVideo}
+                          
                           onDeleteVideo={(filename: string) => setDeleteVideoConfirm(filename)}
-                          isGeneratingVideo={generatingVideoFor === image.name}
+                          
                           isSaving={savingImageFor === image.name}
                           onRename={handleRenameImage}
                           isRenaming={renamingImage === image.name}

@@ -85,6 +85,7 @@ type Slide = {
   durationSeconds: number;
   isVideo?: boolean;
   videoUrl?: string;
+  videoDurationSeconds?: number;
 };
 
 const styles: Record<string, CSSProperties> = {
@@ -174,19 +175,18 @@ const styles: Record<string, CSSProperties> = {
     color: "rgba(148, 163, 184, 0.7)",
   },
   imageGalleryBottomBar: {
-    position: "fixed" as const,
-    left: 0,
-    bottom: 0,
-    width: "100vw",
-    background: "linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.97) 20%, rgba(15, 23, 42, 0.99) 100%)",
-    backdropFilter: "blur(24px)",
-    borderTop: "1px solid rgba(148, 163, 184, 0.12)",
-    padding: "32px 56px 32px",
-    zIndex: 50,
-    boxShadow: "0 -12px 48px rgba(0, 0, 0, 0.5), 0 -4px 16px rgba(0, 0, 0, 0.3)",
-    transition: "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-    transform: "translateY(0)",
-    opacity: 1,
+  position: "fixed" as const,
+  left: 0,
+  bottom: 0,
+  width: "100vw",
+  background: "linear-gradient(180deg, rgba(0, 7, 28, 0.88) 0%, rgba(7, 14, 39, 0.94) 60%,rgba(12, 18, 44, 0.97) 100%);",
+  backdropFilter: "blur(18px)",
+  borderTop: "1px solid rgba(148, 163, 184, 0.12)",
+  padding: "clamp(4px, 0.5vw, 8px) clamp(8px, 1vw, 16px)",
+  zIndex: 50,
+  boxShadow: "0 -8px 32px rgba(0, 0, 0, 0.4), 0 -2px 8px rgba(0, 0, 0, 0.2)",
+  transform: "translateY(0)",
+  opacity: 1,
   },
   imageGalleryBottomBarHidden: {
     transform: "translateY(calc(100% + 10px))",
@@ -197,7 +197,7 @@ const styles: Record<string, CSSProperties> = {
     color: "rgba(248, 250, 252, 1)",
     fontSize: "0.875rem",
     fontWeight: 700,
-    marginBottom: "20px",
+    marginBottom: "5px",
     letterSpacing: "0.08em",
     textTransform: "uppercase" as const,
     display: "flex",
@@ -205,37 +205,23 @@ const styles: Record<string, CSSProperties> = {
     gap: "12px",
     textShadow: "0 2px 8px rgba(0, 0, 0, 0.4)",
   },
-  galleryBadge: {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "6px 14px",
-    background: "linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(14, 165, 233, 0.15) 100%)",
-    borderRadius: "8px",
-    fontSize: "0.75rem",
-    fontWeight: 700,
-    color: "rgba(186, 230, 253, 1)",
-    letterSpacing: "0.03em",
-    boxShadow: "0 2px 8px rgba(56, 189, 248, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.1)",
-    border: "1px solid rgba(56, 189, 248, 0.3)",
-  },
   galleryGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-    gap: "24px",
-    maxHeight: "240px",
+    gridTemplateColumns: "repeat(10, 1fr)",
+    gap: "clamp(8px, 1.5vw, 16px)",
+    maxHeight: "clamp(180px, 25vh, 280px)",
     overflowY: "auto" as const,
     overflowX: "hidden" as const,
     paddingRight: "12px",
     paddingBottom: "4px",
+    minWidth: "100%",
   },
   galleryImageCard: {
     position: "relative" as const,
-    aspectRatio: "1",
-    borderRadius: "16px",
+    aspectRatio: "16/9",
     overflow: "hidden",
     cursor: "pointer",
     border: "2px solid rgba(148, 163, 184, 0.25)",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
     backgroundColor: "rgba(30, 41, 59, 0.5)",
     boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.05)",
   },
@@ -243,7 +229,6 @@ const styles: Record<string, CSSProperties> = {
     width: "100%",
     height: "100%",
     objectFit: "cover" as const,
-    transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
   },
   galleryImageName: {
     position: "absolute" as const,
@@ -260,7 +245,6 @@ const styles: Record<string, CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     opacity: 0,
-    transition: "opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
     textShadow: "0 1px 3px rgba(0, 0, 0, 0.5)",
   },
   imagePreviewOverlay: {
@@ -269,34 +253,130 @@ const styles: Record<string, CSSProperties> = {
     left: 0,
     width: "100vw",
     height: "100vh",
-    background: "linear-gradient(to bottom right, rgba(2, 6, 23, 0.95), rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.95))",
-    backdropFilter: "blur(24px)",
+    background: "#000",
+    backdropFilter: "blur(12px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 200,
-    animation: "fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    padding: "32px",
+    padding: 0,
+    opacity: 0,
+    transform: "scale(0.9)",
+    transition: "opacity 0.15s ease, transform 0.15s ease",
+  },
+  imagePreviewOverlayVisible: {
+    opacity: 1,
+    transform: "scale(1)",
   },
   previewImageContainer: {
     position: "relative" as const,
-    maxWidth: "95vw",
-    maxHeight: "95vh",
-    borderRadius: "24px",
+    width: "min(95vw, 1400px)",
+    height: "min(95vh, 800px)",
     overflow: "hidden",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    background: "rgba(255, 255, 255, 0.03)",
-    boxShadow: "0 24px 80px -32px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05)",
+    borderRadius: "16px",
+    border: "1px solid rgba(94, 234, 212, 0.3)",
+    background: "linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9))",
+    boxShadow: "0 24px 80px -32px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(94, 234, 212, 0.1), inset 0 0 40px rgba(94, 234, 212, 0.1)",
     backdropFilter: "blur(12px)",
+    animation: "pulse 2s infinite",
   },
   previewImage: {
     display: "block",
-    maxWidth: "100%",
-    maxHeight: "95vh",
-    width: "auto",
-    height: "auto",
+    width: "100%",
+    height: "100%",
     objectFit: "contain" as const,
-    borderRadius: "24px",
+    borderRadius: "8px",
+  },
+  previewHeader: {
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    padding: "20px 24px",
+    background: "linear-gradient(to bottom, rgba(15, 23, 42, 0.8) 0%, rgba(15, 23, 42, 0.4) 70%, transparent 100%)",
+    zIndex: 10,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  previewTitle: {
+    color: "rgba(248, 250, 252, 0.95)",
+    fontSize: "1.2rem",
+    fontWeight: 600,
+    textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)",
+    maxWidth: "80%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap" as const,
+  },
+  previewCloseButton: {
+    background: "rgba(239, 68, 68, 0.2)",
+    color: "rgba(254, 202, 202, 1)",
+    border: "1px solid rgba(239, 68, 68, 0.3)",
+    borderRadius: "50%",
+    width: "40px",
+    height: "40px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    fontSize: "1.2rem",
+    fontWeight: "bold",
+    transition: "all 0.2s ease",
+    backdropFilter: "blur(4px)",
+  },
+  previewCloseButtonHover: {
+    background: "rgba(239, 68, 68, 0.3)",
+    transform: "scale(1.1)",
+  },
+  previewNavigation: {
+    position: "absolute" as const,
+    top: "50%",
+    left: "20px",
+    right: "20px",
+    display: "flex",
+    justifyContent: "space-between",
+    transform: "translateY(-50%)",
+    zIndex: 10,
+  },
+  previewNavButton: {
+    background: "rgba(15, 23, 42, 0.5)",
+    color: "rgba(248, 250, 252, 0.9)",
+    border: "1px solid rgba(94, 234, 212, 0.3)",
+    borderRadius: "50%",
+    width: "50px",
+    height: "50px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    fontSize: "1.5rem",
+    fontWeight: "bold",
+    transition: "all 0.2s ease",
+    backdropFilter: "blur(8px)",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+  },
+  previewNavButtonHover: {
+    background: "rgba(94, 234, 212, 0.2)",
+    transform: "scale(1.1)",
+    border: "1px solid rgba(94, 234, 212, 0.6)",
+  },
+  previewFooter: {
+    position: "absolute" as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: "20px 24px",
+    background: "linear-gradient(to top, rgba(15, 23, 42, 0.8) 0%, rgba(15, 23, 42, 0.4) 70%, transparent 100%)",
+    zIndex: 10,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  previewInfo: {
+    color: "rgba(203, 213, 225, 0.9)",
+    fontSize: "0.9rem",
+    textShadow: "0 1px 2px rgba(0, 0, 0, 0.5)",
   },
 
 };
@@ -309,6 +389,8 @@ export default function Home() {
   const [selectedImage, setSelectedImage] = useState<{name: string; url: string} | null>(null);
   const [wasPaused, setWasPaused] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
+  const [isVideoOverlayMode, setIsVideoOverlayMode] = useState(false); // NEW: Track if overlay is for video
 
   // Main slideshow controller
   const {
@@ -318,6 +400,8 @@ export default function Home() {
     goToPrevious,
     goToSlide,
     togglePause,
+    pause: slideshowPause,
+    play: slideshowPlay,
     handleVideoEnded: onSlideshowEnded,
     currentSlide,
   } = useSlideshow({ slides });
@@ -362,8 +446,8 @@ export default function Home() {
   // Fetch admin images (exclude placeholders from merge-video)
   const fetchAdminImages = useCallback(async () => {
     try {
-      const cacheBuster = `?t=${Date.now()}`;
-      const response = await fetch(`/api/images${cacheBuster}`, {
+      // Use remote images API which includes all images with metadata
+      const response = await fetch('/api/remote-images', {
         cache: "no-store",
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -373,20 +457,37 @@ export default function Home() {
 
       if (!response.ok) return;
 
-      const payload: {
-        images: Array<{ name: string; isVideo?: boolean; videoUrl?: string; hidden?: boolean }>;
-      } = await response.json();
+      const data = await response.json();
+      
+      if (data.images) {
+        const availableImages = data.images
+          .filter((item: any) => {
+            // Show all images except:
+            // - Regular hidden items
+            // - Merge video placeholder images (isVideo=true AND hidden=true, AND caption contains "Merged:")
+            if (item.hidden && !item.isVideo) return false; // Exclude hidden regular items
+            
+            // Exclude merge video placeholders (they have both isVideo=true and hidden=true)
+            if (item.isVideo && item.hidden) {
+              // Additional check: if caption mentions "Merged:", it's definitely a placeholder
+              if (item.caption && item.caption.includes('Merged:')) {
+                console.log(`[Image Gallery] Excluding merge placeholder: ${item.name}`);
+                return false;
+              }
+              // For safety, exclude any item that's both a video AND hidden
+              return false;
+            }
+            
+            return true; // Show everything else (regular images and video sources)
+          })
+          .map((item: any) => ({
+            name: item.name,
+            url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-images/${item.name}`
+          }));
 
-      // Filter: only actual images (not videos, not hidden placeholders)
-      const images = payload.images
-        .filter((item) => !item.isVideo && !item.hidden)
-        .map((item) => ({
-          name: item.name,
-          url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-images/${item.name}`,
-        }));
-
-      console.log(`✅ Fetched ${images.length} admin images`);
-      setAdminImages(images);
+        console.log(`✅ Fetched ${availableImages.length} admin images (including video sources)`);
+        setAdminImages(availableImages);
+      }
     } catch (err) {
       console.error("❌ Error fetching admin images:", err);
     }
@@ -427,16 +528,20 @@ export default function Home() {
       const fetchedSlides = payload.images
         .filter((item) => item.isVideo && item.videoUrl) // Only include videos
         .map((item) => {
-          const durationMs = imageDurations[item.name];
-          const durationSeconds =
+          // For videos, the duration should come from the video_duration_seconds field
+          // not from the regular durationMs field which is for the source image
+          const durationSeconds = item.videoDurationSeconds ?? (
             typeof durationMs === "number" && durationMs > 0
               ? Math.max(1, Math.round(durationMs / 1000))
-              : DEFAULT_SLIDE_DURATION_SECONDS;
+              : DEFAULT_SLIDE_DURATION_SECONDS
+          );
 
           console.log(`[Slide Debug] ${item.name}:`, {
             isVideo: item.isVideo,
             videoUrl: item.videoUrl,
-            durationSeconds
+            videoDurationSeconds: item.videoDurationSeconds,
+            durationMs: imageDurations[item.name],
+            finalDurationSeconds: durationSeconds
           });
 
           return {
@@ -445,6 +550,7 @@ export default function Home() {
             durationSeconds,
             isVideo: item.isVideo,
             videoUrl: item.videoUrl,
+            videoDurationSeconds: item.videoDurationSeconds,
           };
         });
 
@@ -469,7 +575,8 @@ export default function Home() {
   useEffect(() => {
     fetchSlides();
     fetchAdminImages();
-  }, [fetchSlides, fetchAdminImages]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - run only once on mount
 
   // Auto-refresh slides
   useEffect(() => {
@@ -479,7 +586,8 @@ export default function Home() {
     }, AUTO_REFRESH_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [fetchSlides]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Use ref-based fetch to prevent dependency issues
 
   // Language rotation
   useEffect(() => {
@@ -492,6 +600,13 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  const handleImageClick = useCallback((image: {name: string; url: string}) => {
+    setSelectedImage(image);
+    setIsOverlayVisible(true);
+    setWasPaused(isPaused); // Remember current pause state
+    slideshowPause(); // Pause slideshow when preview opens
+  }, [isPaused, slideshowPause]);
+
   // Remote control integration
   useRemoteControl({
     slides,
@@ -502,6 +617,8 @@ export default function Home() {
     goToSlide,
     togglePause,
     fetchSlides,
+    adminImages,
+    handleImageClick,
   });
 
   // Send initial status when slides are loaded
@@ -532,7 +649,8 @@ export default function Home() {
   // Reset preload flag when slide changes
   useEffect(() => {
     resetPreloadFlag();
-  }, [currentIndex, resetPreloadFlag]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex]); // Remove resetPreloadFlag from deps to prevent infinite loop
 
   // Keyboard controls
   useEffect(() => {
@@ -549,12 +667,8 @@ export default function Home() {
           togglePause();
           break;
         case "Escape":
-          // Close selected image preview
           if (selectedImage) {
-            setSelectedImage(null);
-            if (!wasPaused) {
-              togglePause(); // Resume if it was playing before
-            }
+            handleClosePreview();
           }
           break;
       }
@@ -562,23 +676,30 @@ export default function Home() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [goToNext, goToPrevious, togglePause, selectedImage, wasPaused]);
-
-  // Handle image selection
-  const handleImageClick = useCallback((image: {name: string; url: string}) => {
-    setWasPaused(isPaused);
-    if (!isPaused) {
-      togglePause(); // Pause video slideshow
-    }
-    setSelectedImage(image);
-  }, [isPaused, togglePause]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPaused, slideshowPause]);
 
   const handleClosePreview = useCallback(() => {
-    setSelectedImage(null);
-    if (!wasPaused) {
-      togglePause(); // Resume if it was playing before
-    }
-  }, [wasPaused, togglePause]);
+    setIsOverlayVisible(false);
+    setSelectedImage(null); // Remove immediately for faster response
+    
+    // Notify remote that image overlay is closed
+    const channel = supabase.channel('remote-control-notifications');
+    channel.send({
+      type: 'broadcast',
+      event: 'image-closed',
+      payload: { timestamp: Date.now() }
+    }, { httpSend: true }).then(() => {
+      supabase.removeChannel(channel);
+    });
+    
+    // Resume slideshow almost immediately, with tiny delay for smooth transition
+    setTimeout(() => {
+      if (!wasPaused) {
+        slideshowPlay(); // Resume if it was playing before
+      }
+    }, 50); // Reduced from 300ms to 50ms
+  }, [wasPaused, slideshowPlay]);
 
   // Mouse movement handler for gallery show/hide
   useEffect(() => {
@@ -647,6 +768,7 @@ export default function Home() {
         () => {
           console.log("📡 Metadata change detected");
           fetchSlides(true);
+          fetchAdminImages(); // Also refresh admin images to stay in sync with remote page
         }
       )
       .subscribe();
@@ -654,7 +776,24 @@ export default function Home() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchSlides]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Stabilize dependency to prevent infinite loops
+
+  // Overlay mode state management
+  useEffect(() => {
+    if (!isOverlayVisible && !isVideoOverlayMode) {
+      setIsVideoOverlayMode(false); // Reset overlay mode when closed
+    }
+  }, [isOverlayVisible, isVideoOverlayMode]);
+
+  // Pause slideshow when overlay is visible  
+  useEffect(() => {
+    if (isOverlayVisible) {
+      slideshowPause();
+    } else if (wasPaused && !isVideoOverlayMode) {
+      slideshowPlay(); // Resume slideshow when overlay closed (not video mode)
+    }
+  }, [isOverlayVisible, wasPaused, isVideoOverlayMode, slideshowPause, slideshowPlay]);
 
   // Force play when currentIndex changes (critical for webOS)
   useEffect(() => {
@@ -752,7 +891,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <style>{`
+          <style>{`
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -775,25 +914,67 @@ export default function Home() {
               opacity: 1;
             }
           }
-          .gallery-image-card {
-          .gallery-image-card {
-            position: relative;
+          @keyframes pulse {
+            0% {
+              box-shadow: 0 0 0 0 rgba(94, 234, 212, 0.4);
+            }
+            70% {
+              box-shadow: 0 0 0 12px rgba(94, 234, 212, 0);
+            }
+            100% {
+              box-shadow: 0 0 0 0 rgba(94, 234, 212, 0);
+            }
           }
+          @keyframes zoomIn {
+            from {
+              opacity: 0;
+              transform: scale(0.9);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+          @keyframes zoomOut {
+            from {
+              opacity: 1;
+              transform: scale(1);
+            }
+            to {
+              opacity: 0;
+              transform: scale(0.9);
+            }
+          }
+          .preview-image-overlay {
+            animation: zoomIn 0.15s ease-out forwards;
+          }
+          
+          .preview-image-overlay.zoom-out {
+            animation: zoomOut 0.15s ease-in forwards;
+          }
+          
+          .preview-image-container {
+            transition: all 0.3s ease;
+          }
+          
+          .gallery-image-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+          }
+          
           .gallery-image-card:hover {
-            border-color: rgba(56, 189, 248, 0.9) !important;
-            transform: translateY(-6px) scale(1.03) !important;
-            box-shadow: 0 12px 32px rgba(56, 189, 248, 0.3), 0 0 0 2px rgba(56, 189, 248, 0.4), 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+            transform: scale(1.03);
+            box-shadow: 0 0 20px rgba(94, 234, 212, 0.3);
           }
-          .gallery-image-card:hover img {
-            transform: scale(1.08);
+          
+          .gallery-image-name {
+            transition: opacity 0.3s ease;
           }
+          
           .gallery-image-card:hover .gallery-image-name {
             opacity: 1;
           }
-          .gallery-image-card:active {
-            transform: translateY(-3px) scale(1.02) !important;
-          }
-            transform: scale(1.05);
+          .gallery-image-card {
+            position: relative;
           }
           .gallery-grid::-webkit-scrollbar {
             width: 10px;
@@ -805,11 +986,9 @@ export default function Home() {
           }
           .gallery-grid::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
           }
           .gallery-grid::-webkit-scrollbar-thumb {
             background: linear-gradient(180deg, rgba(148, 163, 184, 0.5) 0%, rgba(148, 163, 184, 0.7) 100%);
-            border-radius: 4px;
             border: 2px solid rgba(15, 23, 42, 0.3);
           }
           .gallery-grid::-webkit-scrollbar-thumb:hover {
@@ -817,6 +996,203 @@ export default function Home() {
           }
           .gallery-grid::-webkit-scrollbar-corner {
             background: transparent;
+          }
+          
+          /* Responsive image preview overlay */
+          .preview-image-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          
+          .preview-image-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            object-position: center;
+          }
+          
+          /* Ensure images maintain aspect ratio */
+          @media (max-aspect-ratio: 4/3) {
+            .preview-image-container img {
+              height: 100%;
+              width: auto;
+            }
+          }
+          
+          @media (min-aspect-ratio: 3/4) {
+            .preview-image-container img {
+              width: 100%;
+              height: auto;
+            }
+          }
+          
+          @media (max-width: 768px) {
+            .preview-image-overlay {
+              padding: 8px !important;
+            }
+            .preview-image-container {
+              width: 98vw !important;
+              height: 85vh !important;
+            }
+          }
+          
+          @media (max-width: 480px) {
+            .preview-image-overlay {
+              padding: 4px !important;
+            }
+            .preview-image-container {
+              width: 100vw !important;
+              height: 100vh !important;
+              border: none !important;
+              background: rgba(0, 0, 0, 0.95) !important;
+            }
+          }
+          
+          @media (max-width: 360px) {
+            .preview-image-overlay {
+              padding: 2px !important;
+            }
+            .preview-image-container {
+              width: 100vw !important;
+              height: 100vh !important;
+            }
+          }
+          
+          @media (orientation: landscape) and (max-height: 500px) {
+            .preview-image-container {
+              height: 95vh !important;
+              width: auto !important;
+              max-width: 90vw !important;
+            }
+          }
+          
+          @media (orientation: landscape) and (max-height: 400px) {
+            .preview-image-container {
+              height: 98vh !important;
+            }
+          }
+          
+          /* Responsive Gallery Grid for 16:9 Images */
+          .gallery-grid {
+            min-width: 100%;
+            width: 100%;
+          }
+          
+          @media (max-width: 1400px) {
+            .gallery-grid {
+              grid-template-columns: repeat(8, 1fr);
+            }
+          }
+          
+          @media (max-width: 1200px) {
+            .gallery-grid {
+              grid-template-columns: repeat(7, 1fr);
+            }
+          }
+          
+          @media (max-width: 1024px) {
+            .gallery-grid {
+              grid-template-columns: repeat(6, 1fr);
+              gap: clamp(6px, 1.2vw, 12px);
+            }
+          }
+          
+          @media (max-width: 900px) {
+            .gallery-grid {
+              grid-template-columns: repeat(5, 1fr);
+              gap: clamp(6px, 1vw, 10px);
+            }
+          }
+          
+          @media (max-width: 768px) {
+            .gallery-grid {
+              grid-template-columns: repeat(4, 1fr);
+              gap: clamp(4px, 0.8vw, 8px);
+            }
+          }
+          
+          @media (max-width: 600px) {
+            .gallery-grid {
+              grid-template-columns: repeat(3, 1fr);
+              gap: clamp(4px, 0.6vw, 6px);
+            }
+          }
+          
+          @media (max-width: 480px) {
+            .gallery-grid {
+              grid-template-columns: repeat(2, 1fr);
+              gap: clamp(3px, 0.5vw, 4px);
+            }
+          }
+          
+          @media (max-width: 360px) {
+            .gallery-grid {
+              grid-template-columns: repeat(2, 1fr);
+              gap: 2px;
+            }
+          }
+          
+          /* Ensure 16:9 aspect ratio is maintained */
+          .gallery-image-card {
+            aspect-ratio: 16/9;
+            width: 100%;
+            min-width: 0;
+          }
+          
+          .gallery-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+          }
+          
+          /* Hide scrollbar for cleaner look */
+          .gallery-grid::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+          }
+          
+          .gallery-grid::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+          }
+          
+          .gallery-grid::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.5);
+          }
+          
+          .gallery-grid::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.7);
+          }
+          
+          /* Force 16:9 aspect ratio */
+          [style*="aspect-ratio: 16/9"] {
+            aspect-ratio: 16/9 !important;
+          }
+          
+          /* Better touch targets on mobile */
+          @media (max-width: 768px) {
+            .gallery-grid {
+              max-height: 35vh !important;
+              padding-bottom: 8px !important;
+            }
+          }
+          
+          @media (max-width: 480px) {
+            .gallery-grid {
+              max-height: 40vh !important;
+              padding: 8px 4px 12px 8px !important;
+            }
+          }
+          
+          /* Ensure images load smoothly */
+          .gallery-image {
+            opacity: 1;
+          }
+          
+          /* Smooth transitions for all interactive elements */
+          * {
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
           }
         `}</style>
       </Head>
@@ -852,7 +1228,11 @@ export default function Home() {
                 console.error(`   Error code: ${error?.code}, message: ${error?.message}`);
               }}
             />
-          ) : null}
+          ) : (
+            <div style={{ color: 'white', fontSize: '24px', textAlign: 'center', paddingTop: '50vh' }}>
+              No video available. Please upload or generate a video in the admin panel.
+            </div>
+          )}
         </div>
 
         {/* Image Gallery Bottom Bar */}
@@ -865,7 +1245,6 @@ export default function Home() {
         >
           <div style={styles.galleryTitle}>
             <span>📁 Image Gallery</span>
-            <span style={styles.galleryBadge}>{adminImages.length} {adminImages.length === 1 ? 'Image' : 'Images'}</span>
           </div>
           <div style={styles.galleryGrid} className="gallery-grid">
             {adminImages.map((image) => (
@@ -903,15 +1282,30 @@ export default function Home() {
 
         {/* Image Preview Overlay */}
         {selectedImage && (
-          <div style={styles.imagePreviewOverlay} onClick={handleClosePreview}>
-            <div style={styles.previewImageContainer}>
-              <img
-                src={selectedImage.url}
-                alt={selectedImage.name}
-                style={styles.previewImage}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
+          <div 
+            className="preview-image-overlay"
+            style={{
+              ...styles.imagePreviewOverlay,
+              ...(isOverlayVisible ? styles.imagePreviewOverlayVisible : {})
+            }}
+            onClick={handleClosePreview}
+            onAnimationEnd={(e) => {
+              // Reset animation state when animation completes
+              if (!isOverlayVisible) {
+                e.currentTarget.style.animation = 'none';
+              }
+            }}
+          >
+            <img
+              src={selectedImage.url}
+              alt={selectedImage.name}
+              style={{
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         )}
       </main>

@@ -8,9 +8,7 @@ type Props = {
   onSave: (filename: string) => Promise<void>;
   onDelete: (filename: string) => void;
   onPreview: (filename: string) => void;
-  onGenerateVideo?: (filename: string, durationSeconds: number) => void;
   onDeleteVideo?: (filename: string) => void;
-  isGeneratingVideo?: boolean;
   isSaving?: boolean;
   onRename?: (filename: string) => void;
   isRenaming?: boolean;
@@ -85,9 +83,7 @@ export const ImageCard = ({
   onSave,
   onDelete,
   onPreview,
-  onGenerateVideo,
   onDeleteVideo,
-  isGeneratingVideo = false,
   isSaving = false,
   onRename,
   isRenaming = false,
@@ -189,8 +185,8 @@ export const ImageCard = ({
       </div>
 
       <div className="mt-auto flex flex-col gap-3 pt-2">
-        {/* Action Buttons - Always show all 5 buttons for consistent layout */}
-        <div className="grid grid-cols-5 gap-2">
+        {/* Action Buttons - 4 buttons grid */}
+        <div className="grid grid-cols-4 gap-2">
           {/* Button 1: Rename */}
           <button
             type="button"
@@ -214,34 +210,7 @@ export const ImageCard = ({
             )}
           </button>
 
-          {/* Button 2: Generate Video */}
-          <button
-            type="button"
-            onClick={() => {
-              void onGenerateVideo?.(image.name, image.durationSeconds || 20);
-            }}
-            disabled={!onGenerateVideo || isGeneratingVideo || image.isVideo}
-            className="inline-flex h-10 items-center justify-center rounded-xl border border-purple-400/40 bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-100 transition hover:border-purple-300/60 hover:from-purple-500/30 hover:to-pink-500/30 disabled:cursor-not-allowed disabled:opacity-30"
-            title={image.isVideo ? "Video already generated" : "Generate video"}
-            aria-label={image.isVideo ? "Video already generated" : "Generate video"}
-          >
-            {isGeneratingVideo ? (
-              <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-200 border-t-transparent" />
-                <span className="sr-only">Generating</span>
-              </>
-            ) : image.isVideo ? (
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            ) : (
-              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            )}
-          </button>
-
-          {/* Button 3: Reset */}
+          {/* Button 2: Reset */}
           <button
             type="button"
             onClick={() => onReset(image.name)}
@@ -255,7 +224,7 @@ export const ImageCard = ({
             </svg>
           </button>
 
-          {/* Button 4: Save */}
+          {/* Button 3: Save */}
           <button
             type="button"
             onClick={() => {
@@ -278,7 +247,7 @@ export const ImageCard = ({
             )}
           </button>
 
-          {/* Button 5: Delete */}
+          {/* Button 4: Delete */}
           <button
             type="button"
             onClick={() => onDelete(image.name)}
