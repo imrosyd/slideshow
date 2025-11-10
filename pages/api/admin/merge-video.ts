@@ -62,18 +62,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Create FFmpeg concat file
     const concatFilePath = path.join(tempDir, "concat.txt");
-    const concatContent = images
-      .map((img, i) => {
-        const tempImagePath = path.join(tempDir, `image_${i}.jpg`);
-        // Each image repeated for its duration at 1fps
-        return `file '${tempImagePath}'\nduration ${img.durationSeconds}`;
-      })
-      .join("\n");
     
-    // Add last image one more time without duration (FFmpeg concat requirement)
-    const lastImagePath = path.join(tempDir, `image_${images.length - 1}.jpg`);
-    const finalConcatContent = concatContent + `\nfile '${lastImagePath}'`;
+    // Build concat content properly for FFmpeg
+    // For FFmpeg concat demuxer, each file (except the last) needs a duration
+    // The last file should not have a duration to prevent extra time
+    const concatLines: string[] = [];
     
+    for (let i = 0; i < images.length; i++) {
+      const tempImagePath = path.join(tempDir, `image_${i}.jpg`);
+      
+      // Add file entry
+      concatLines.push(`file '${tempImagePath}'`);
+      
+      // Add duration for all images except the last one
+      if (i < images.length - 1) {
+        concatLines.push(`duration ${images[i].durationSeconds}`);
+      }
+    }
+    
+    const finalConcatContent = concatLines.join("\n");
     await fs.writeFile(concatFilePath, finalConcatContent);
     console.log(`[Merge Video] Concat file created with ${images.length} images`);
 
