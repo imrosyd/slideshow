@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getSupabaseServiceRoleClient } from "../../../../lib/supabase";
+import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
+import { requireAuth } from "../../../lib/simple-auth";
 
 export default async function handler(
   req: NextApiRequest,
@@ -11,61 +12,24 @@ export default async function handler(
     return res.status(400).json({ error: "Invalid video name" });
   }
 
-  // Check authentication - only for private videos
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
+  // Simple auth check - just verify user is logged in
+  const auth = await requireAuth(req, res);
+  if (!auth) return; // Already sent 401 response
 
   try {
     const supabase = getSupabaseServiceRoleClient();
     
-    // Verify the token and check if user has video access
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-
-    if (authError || !user) {
-      return res.status(401).json({ error: "Invalid authentication" });
-    }
-
-    // Check if user is admin or has specific video permissions
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('role, permissions')
-      .eq('id', user.id)
-      .single();
-
-    const isAdmin = userData?.role === 'admin';
-    const hasVideoAccess = userData?.permissions?.includes('video_access');
-
-    if (!isAdmin && !hasVideoAccess) {
-      return res.status(403).json({ error: "Insufficient permissions" });
-    }
-
-    // Create signed URL for private video (shorter expiry for security)
+    // Create signed URL for video
     const { data, error } = await supabase.storage
       .from('slideshow-videos')
-      .createSignedUrl(name, 1800); // 30 minutes only
+      .createSignedUrl(name, 3600); // 1 hour
 
     if (error || !data?.signedUrl) {
       return res.status(404).json({ error: "Video not found" });
     }
 
-    // Log access for security monitoring
-    await supabase
-      .from('access_logs')
-      .insert({
-        user_id: user.id,
-        resource_type: 'video',
-        resource_path: name,
-        ip_address: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress,
-        success: true
-      });
-
-    // Secure cache headers
-    res.setHeader('Cache-Control', 'private, max-age=1800'); // 30 minutes
-    res.setHeader('Authorization', 'Bearer'); // Remove auth header from response
+    // Cache headers for authenticated users
+    res.setHeader('Cache-Control', 'private, max-age=3600'); // 1 hour
     res.redirect(307, data.signedUrl);
 
   } catch (error) {
