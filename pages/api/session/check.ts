@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { requireAuth } from "../../../lib/simple-auth";
-import { createOrUpdateSession, updateLastSeen } from "../../../lib/session-manager";
+import { getActiveSession, createOrUpdateSession, updateLastSeen } from "../../../lib/session-manager";
 
 /**
  * Check and create session for authenticated user
- * Allows multiple concurrent sessions across different devices
+ * Enforces strict single session - only 1 device/browser allowed
  */
 export default async function handler(
   req: NextApiRequest,
@@ -33,12 +33,35 @@ export default async function handler(
       return res.status(400).json({ error: "Missing sessionId parameter" });
     }
     
-    // Create or update session for this user with sessionId (allow multiple concurrent sessions)
+    // Check for existing sessions first
+    const activeSession = await getActiveSession();
+    
+    if (activeSession) {
+      // Check if this is the same session
+      const isSameSession = 
+        activeSession.user_id === auth.userId && 
+        activeSession.page === page &&
+        (activeSession as any).session_id === sessionId;
+      
+      if (!isSameSession) {
+        // Different session detected - this user/device has been logged out
+        console.log(`[Session Check] Different session detected. Active: ${activeSession.email} on ${activeSession.page}, Current: ${auth.email} on ${page}`);
+        return res.status(403).json({
+          error: "concurrent_session",
+          message: "Another device has logged in. You have been logged out.",
+          activeUser: activeSession.email,
+          activePage: activeSession.page,
+        });
+      }
+    }
+    
+    // Create or update session for this user with sessionId
     const result = await createOrUpdateSession(
       auth.userId,
       auth.email || "unknown",
       page,
-      sessionId
+      sessionId,
+      false // Don't force new (just update if exists)
     );
     
     if (!result.success) {

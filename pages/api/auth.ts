@@ -104,13 +104,14 @@ export default async function handler(
     // Generate unique session ID for this login
     const sessionId = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
-    // Create session in session manager (allow multiple concurrent sessions)
-    console.log(`[Auth] Creating new session for ${user.email || adminEmail}`);
+    // Force create new session (this will clear ALL other sessions first)
+    console.log(`[Auth] Creating new session for ${user.email || adminEmail}, clearing all other sessions`);
     const sessionResult = await createOrUpdateSession(
       user.id,
       user.email || adminEmail,
       "admin",
-      sessionId
+      sessionId,
+      true // Force new session (clear all others)
     );
     
     if (!sessionResult.success) {

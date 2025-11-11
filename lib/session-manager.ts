@@ -1,8 +1,9 @@
 import { getSupabaseServiceRoleClient } from "./supabase";
 
 /**
- * Multi-device session management
- * Allows multiple devices to be logged in simultaneously
+ * Strict single-device session management
+ * Only 1 device/browser can be logged in at a time
+ * New logins automatically logout all other sessions
  */
 
 const SESSION_TABLE = "active_sessions";
@@ -69,38 +70,52 @@ export async function getActiveSession(): Promise<ActiveSession | null> {
 
 /**
  * Create or update session for a user
- * Allows multiple concurrent sessions across different devices
+ * Enforces strict single session - clears ALL other sessions first
  */
 export async function createOrUpdateSession(
   userId: string,
   email: string,
   page: "admin" | "remote",
-  sessionId: string
+  sessionId: string,
+  forceNew: boolean = false
 ): Promise<{ success: boolean; message?: string }> {
   try {
     const supabase = getSupabaseServiceRoleClient();
     
-    // Check if this exact session already exists (same user, page, and sessionId)
-    const { data: existingSession, error: queryError } = await supabase
-      .from(SESSION_TABLE as any)
-      .select("*")
-      .eq("user_id", userId)
-      .eq("page", page)
-      .eq("session_id", sessionId)
-      .single();
-    
-    if (!queryError && existingSession) {
-      // Session already exists, just update last_seen
-      await supabase
+    // If NOT forcing new, check if this exact session already exists
+    if (!forceNew) {
+      const { data: existingSession, error: queryError } = await supabase
         .from(SESSION_TABLE as any)
-        .update({ last_seen: new Date().toISOString() })
-        .eq("id", (existingSession as any).id);
+        .select("*")
+        .eq("user_id", userId)
+        .eq("page", page)
+        .eq("session_id", sessionId)
+        .single();
       
-      console.log(`[Session] Updated existing session for ${email} on ${page}`);
-      return { success: true };
+      if (!queryError && existingSession) {
+        // Session already exists, just update last_seen
+        await supabase
+          .from(SESSION_TABLE as any)
+          .update({ last_seen: new Date().toISOString() })
+          .eq("id", (existingSession as any).id);
+        
+        console.log(`[Session] Updated existing session for ${email} on ${page}`);
+        return { success: true };
+      }
     }
     
-    // Create new session with sessionId (allow multiple concurrent sessions)
+    // Clear ALL existing sessions first (strict single session enforcement)
+    console.log(`[Session] Clearing all sessions before creating new one for ${email} on ${page}`);
+    const { error: deleteError } = await supabase
+      .from(SESSION_TABLE as any)
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all
+    
+    if (deleteError) {
+      console.error("[Session] Error clearing sessions:", deleteError);
+    }
+    
+    // Create new session with sessionId
     const { error } = await supabase.from(SESSION_TABLE as any).insert({
       user_id: userId,
       email: email,
