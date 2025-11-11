@@ -107,11 +107,15 @@ export default async function handler(
 
     const { session, user } = authResult.data;
     
+    // Generate unique session ID for this login
+    const sessionId = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
     // Create session in session manager (no need to check concurrent - already cleared above)
     const sessionResult = await createOrUpdateSession(
       user.id,
       user.email || adminEmail,
-      "admin"
+      "admin",
+      sessionId
     );
     
     if (!sessionResult.success) {
@@ -126,7 +130,8 @@ export default async function handler(
     return res.status(200).json({ 
       success: true, 
       token: cookieToken,
-      supabaseToken: session.access_token
+      supabaseToken: session.access_token,
+      sessionId: sessionId
     });
     
   } catch (error) {

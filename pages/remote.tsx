@@ -43,6 +43,7 @@ export default function RemoteControl() {
           } else {
             console.log("[Remote] Token from sessionStorage is invalid");
             sessionStorage.removeItem("supabase-token");
+            sessionStorage.removeItem("session-id");
           }
         }
 
@@ -63,6 +64,14 @@ export default function RemoteControl() {
           return;
         }
 
+        // Get or generate sessionId for remote page
+        let sessionId = sessionStorage.getItem("session-id");
+        if (!sessionId) {
+          // Generate new sessionId for remote if not exists
+          sessionId = `remote-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+          sessionStorage.setItem("session-id", sessionId);
+        }
+        
         // User is logged in, check concurrent session
         const response = await fetch("/api/session/check", {
           method: "POST",
@@ -70,7 +79,7 @@ export default function RemoteControl() {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({ page: "remote" }),
+          body: JSON.stringify({ page: "remote", sessionId }),
         });
 
         if (!response.ok) {
@@ -86,6 +95,7 @@ export default function RemoteControl() {
           // Other error, redirect to login
           console.error("[Remote] Session check failed:", error);
           sessionStorage.removeItem("supabase-token");
+          sessionStorage.removeItem("session-id");
           router.push("/admin?redirect=remote");
           return;
         }
@@ -119,7 +129,8 @@ export default function RemoteControl() {
         sessionCheckInterval = setInterval(async () => {
           try {
             const currentToken = sessionStorage.getItem("supabase-token");
-            if (!currentToken) return;
+            const currentSessionId = sessionStorage.getItem("session-id");
+            if (!currentToken || !currentSessionId) return;
 
             const checkResponse = await fetch("/api/session/check", {
               method: "POST",
@@ -127,7 +138,7 @@ export default function RemoteControl() {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${currentToken}`,
               },
-              body: JSON.stringify({ page: "remote" }),
+              body: JSON.stringify({ page: "remote", sessionId: currentSessionId }),
             });
 
             if (!checkResponse.ok) {
@@ -136,6 +147,7 @@ export default function RemoteControl() {
                 // Another user is logged in - logout this session
                 console.warn("[Remote] Concurrent session detected, logging out");
                 sessionStorage.removeItem("supabase-token");
+                sessionStorage.removeItem("session-id");
                 setSessionError(`Another user (${error.activeUser}) is logged in. You have been logged out.`);
                 setIsAuthenticated(false);
               }
@@ -149,6 +161,7 @@ export default function RemoteControl() {
         console.error("[Remote] Auth check error:", error);
         if (mounted) {
           sessionStorage.removeItem("supabase-token");
+          sessionStorage.removeItem("session-id");
           router.push("/admin?redirect=remote");
         }
       }

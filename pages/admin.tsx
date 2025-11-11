@@ -67,6 +67,14 @@ const AdminContent = () => {
         return false;
       }
       
+      // Get or generate sessionId
+      let sessionId = sessionStorage.getItem("session-id");
+      if (!sessionId) {
+        // Generate new sessionId if not exists (shouldn't happen normally)
+        sessionId = `admin-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+        sessionStorage.setItem("session-id", sessionId);
+      }
+      
       try {
         console.log("[Admin] Checking session...");
         const response = await fetch("/api/session/check", {
@@ -75,7 +83,7 @@ const AdminContent = () => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${supabaseToken}`,
           },
-          body: JSON.stringify({ page: "admin" }),
+          body: JSON.stringify({ page: "admin", sessionId }),
         });
         
         if (!response.ok) {
@@ -307,9 +315,10 @@ const AdminContent = () => {
         }
       }
       
-      // Clear all tokens
+      // Clear all tokens and session ID
       sessionStorage.removeItem("admin-auth-token");
       sessionStorage.removeItem("supabase-token");
+      sessionStorage.removeItem("session-id");
       setAuthToken(null);
       
       pushToast({ 

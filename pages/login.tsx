@@ -28,15 +28,19 @@ export default function LoginPage() {
       const payload = await response.json();
       const token = payload?.token as string | undefined;
       const supabaseToken = payload?.supabaseToken as string | undefined;
+      const sessionId = payload?.sessionId as string | undefined;
       
       if (!token) {
         throw new Error("Invalid authentication token.");
       }
 
-      // Store both tokens
+      // Store tokens and sessionId
       sessionStorage.setItem("admin-auth-token", token);
       if (supabaseToken) {
         sessionStorage.setItem("supabase-token", supabaseToken);
+      }
+      if (sessionId) {
+        sessionStorage.setItem("session-id", sessionId);
       }
       
       setPassword("");

@@ -15,6 +15,7 @@ export interface ActiveSession {
   created_at: string;
   last_seen: string;
   page: "admin" | "remote";
+  session_id: string; // Unique ID for each browser/tab
 }
 
 /**
@@ -73,22 +74,44 @@ export async function getActiveSession(): Promise<ActiveSession | null> {
 export async function createOrUpdateSession(
   userId: string,
   email: string,
-  page: "admin" | "remote"
+  page: "admin" | "remote",
+  sessionId: string
 ): Promise<{ success: boolean; message?: string }> {
   try {
     const supabase = getSupabaseServiceRoleClient();
     
-    // Always clear ALL sessions first (enforce single concurrent session)
+    // Check if this exact session already exists (same user, page, and sessionId)
+    const { data: existingSession } = await supabase
+      .from(SESSION_TABLE as any)
+      .select("*")
+      .eq("user_id", userId)
+      .eq("page", page)
+      .eq("session_id", sessionId)
+      .single();
+    
+    if (existingSession) {
+      // Session already exists, just update last_seen
+      await supabase
+        .from(SESSION_TABLE as any)
+        .update({ last_seen: new Date().toISOString() })
+        .eq("id", existingSession.id);
+      
+      console.log(`[Session] Updated existing session for ${email} on ${page}`);
+      return { success: true };
+    }
+    
+    // Clear ALL other sessions (enforce single concurrent session)
     console.log(`[Session] Clearing all existing sessions before creating new one for ${email} on ${page}`);
     await supabase.from(SESSION_TABLE as any).delete().neq("id", "dummy");
     
-    // Create new session
+    // Create new session with sessionId
     const { error } = await supabase.from(SESSION_TABLE as any).insert({
       user_id: userId,
       email: email,
       created_at: new Date().toISOString(),
       last_seen: new Date().toISOString(),
       page: page,
+      session_id: sessionId,
     });
     
     if (error) {
@@ -96,7 +119,7 @@ export async function createOrUpdateSession(
       return { success: false, message: "Failed to create session" };
     }
     
-    console.log(`[Session] Created new session for ${email} on ${page}`);
+    console.log(`[Session] Created new session for ${email} on ${page} with sessionId ${sessionId}`);
     return { success: true };
   } catch (error) {
     console.error("[Session] Error in createOrUpdateSession:", error);
