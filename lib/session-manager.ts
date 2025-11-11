@@ -17,6 +17,7 @@ export interface ActiveSession {
   last_seen: string;
   page: "admin" | "remote";
   session_id: string; // Unique ID for each browser/tab
+  browser_id?: string; // Browser fingerprint to identify same browser
 }
 
 /**
@@ -70,19 +71,21 @@ export async function getActiveSession(): Promise<ActiveSession | null> {
 
 /**
  * Create or update session for a user
- * Enforces strict single session - clears ALL other sessions first
+ * Allows same browser to have both admin and remote sessions
+ * Different browsers trigger conflict resolution
  */
 export async function createOrUpdateSession(
   userId: string,
   email: string,
   page: "admin" | "remote",
   sessionId: string,
+  browserId: string,
   forceNew: boolean = false
-): Promise<{ success: boolean; message?: string }> {
+): Promise<{ success: boolean; message?: string; conflict?: boolean; existingSession?: any }> {
   try {
     const supabase = getSupabaseServiceRoleClient();
     
-    // If NOT forcing new, check if this exact session already exists
+    // Check if this exact session already exists
     if (!forceNew) {
       const { data: existingSession, error: queryError } = await supabase
         .from(SESSION_TABLE as any)
@@ -104,18 +107,47 @@ export async function createOrUpdateSession(
       }
     }
     
-    // Clear ALL existing sessions first (strict single session enforcement)
-    console.log(`[Session] Clearing all sessions before creating new one for ${email} on ${page}`);
-    const { error: deleteError } = await supabase
+    // Check for existing sessions from different browsers
+    const { data: existingSessions } = await supabase
       .from(SESSION_TABLE as any)
-      .delete()
-      .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all
+      .select("*")
+      .eq("user_id", userId);
     
-    if (deleteError) {
-      console.error("[Session] Error clearing sessions:", deleteError);
+    // Check if there's a session from a different browser
+    const differentBrowserSession = existingSessions?.find(
+      (s: any) => s.browser_id && s.browser_id !== browserId
+    );
+    
+    if (differentBrowserSession && !forceNew) {
+      // Session conflict - another browser is active
+      console.log(`[Session] Conflict detected: ${email} is logged in from another browser`);
+      return { 
+        success: false, 
+        conflict: true,
+        message: "Another browser is currently active",
+        existingSession: differentBrowserSession
+      };
     }
     
-    // Create new session with sessionId
+    // If forcing new or no conflict, clear sessions from OTHER browsers only
+    if (forceNew) {
+      console.log(`[Session] Clearing sessions from other browsers for ${email}`);
+      await supabase
+        .from(SESSION_TABLE as any)
+        .delete()
+        .eq("user_id", userId)
+        .neq("browser_id", browserId);
+    } else {
+      // Clear only sessions for the same page from other browsers
+      await supabase
+        .from(SESSION_TABLE as any)
+        .delete()
+        .eq("user_id", userId)
+        .eq("page", page)
+        .neq("browser_id", browserId);
+    }
+    
+    // Create new session with sessionId and browserId
     const { error } = await supabase.from(SESSION_TABLE as any).insert({
       user_id: userId,
       email: email,
@@ -123,6 +155,7 @@ export async function createOrUpdateSession(
       last_seen: new Date().toISOString(),
       page: page,
       session_id: sessionId,
+      browser_id: browserId,
     });
     
     if (error) {

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import Head from "next/head";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "next/router";
+import { getBrowserId } from "../lib/browser-utils";
 
 export default function RemoteControl() {
   const router = useRouter();
@@ -72,6 +73,9 @@ export default function RemoteControl() {
           sessionStorage.setItem("remote-session-id", sessionId);
         }
         
+        // Get browser ID
+        const browserId = getBrowserId();
+        
         // User is logged in, check concurrent session
         const response = await fetch("/api/session/check", {
           method: "POST",
@@ -79,7 +83,7 @@ export default function RemoteControl() {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({ page: "remote", sessionId }),
+          body: JSON.stringify({ page: "remote", sessionId, browserId }),
         });
 
         if (!response.ok) {

@@ -1,24 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
+import { getBrowserId } from "../lib/browser-utils";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionConflict, setSessionConflict] = useState<any>(null);
+  const [browserId, setBrowserId] = useState<string>("");
   const router = useRouter();
+  
+  useEffect(() => {
+    // Get browser ID on mount
+    setBrowserId(getBrowserId());
+  }, []);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>, forceLogin = false) => {
     event.preventDefault();
     setError(null);
     setIsLoading(true);
+    setSessionConflict(null);
 
     try {
       const response = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, browserId, forceLogin }),
       });
+
+      if (response.status === 409) {
+        // Session conflict detected
+        const payload = await response.json();
+        setSessionConflict(payload);
+        setIsLoading(false);
+        return;
+      }
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
@@ -108,6 +125,36 @@ export default function LoginPage() {
               {error && (
                 <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-[0.9rem] text-rose-100/90">
                   {error}
+                </div>
+              )}
+              
+              {sessionConflict && (
+                <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-white">
+                  <p className="text-[0.9rem] mb-3">
+                    Another browser is currently logged in. Do you want to take over the session?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSessionConflict(null);
+                        handleSubmit(new Event('submit') as any, true);
+                      }}
+                      className="px-3 py-1 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium"
+                    >
+                      Yes, take over
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSessionConflict(null);
+                        setPassword("");
+                      }}
+                      className="px-3 py-1 text-sm rounded-lg bg-white/10 hover:bg-white/20 text-white"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               )}
               <button

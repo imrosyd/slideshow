@@ -19,50 +19,44 @@ export default async function handler(
   const auth = await requireAuth(req, res);
   if (!auth) return; // Already sent 401
 
-  const { page } = req.body as { page?: "admin" | "remote" };
+  const { page, sessionId, browserId } = req.body as { 
+    page?: "admin" | "remote"; 
+    sessionId?: string;
+    browserId?: string;
+  };
   
   if (!page || !["admin", "remote"].includes(page)) {
     return res.status(400).json({ error: "Invalid page parameter" });
   }
 
   try {
-    // Get session ID from request body (to identify specific browser/tab)
-    const { sessionId } = req.body as { page?: "admin" | "remote"; sessionId?: string };
-    
     if (!sessionId) {
       return res.status(400).json({ error: "Missing sessionId parameter" });
     }
     
-    // Check for existing sessions first
-    const activeSession = await getActiveSession();
+    // Use browser ID or generate fallback
+    const browserIdToUse = browserId || `unknown-${Date.now()}`;
     
-    if (activeSession) {
-      // Check if this is the same session
-      const isSameSession = 
-        activeSession.user_id === auth.userId && 
-        activeSession.page === page &&
-        (activeSession as any).session_id === sessionId;
-      
-      if (!isSameSession) {
-        // Different session detected - this user/device has been logged out
-        console.log(`[Session Check] Different session detected. Active: ${activeSession.email} on ${activeSession.page}, Current: ${auth.email} on ${page}`);
-        return res.status(403).json({
-          error: "concurrent_session",
-          message: "Another device has logged in. You have been logged out.",
-          activeUser: activeSession.email,
-          activePage: activeSession.page,
-        });
-      }
-    }
-    
-    // Create or update session for this user with sessionId
+    // Create or update session with browser ID
     const result = await createOrUpdateSession(
       auth.userId,
       auth.email || "unknown",
       page,
       sessionId,
+      browserIdToUse,
       false // Don't force new (just update if exists)
     );
+    
+    // Check if there's a session conflict with another browser
+    if (result.conflict) {
+      console.log(`[Session Check] Conflict: Another browser is active for ${auth.email}`);
+      return res.status(403).json({
+        error: "concurrent_session",
+        message: "Another browser has logged in. You have been logged out.",
+        activeUser: result.existingSession?.email || auth.email,
+        activePage: result.existingSession?.page,
+      });
+    }
     
     if (!result.success) {
       return res.status(403).json({

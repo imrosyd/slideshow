@@ -24,6 +24,7 @@ const MergeVideoDialog = dynamic(async () => (await import("../components/admin/
 const BulkEditDialog = dynamic(async () => (await import("../components/admin/BulkEditDialog")).BulkEditDialog as any, { ssr: false }) as any;
 import { useImages } from "../hooks/useImages";
 import { useToast } from "../hooks/useToast";
+import { getBrowserId } from "../lib/browser-utils";
 import { getAdminAuthCookieName, getExpectedAdminToken } from "../lib/auth";
 
 const AdminContent = () => {
@@ -83,6 +84,9 @@ const AdminContent = () => {
         sessionStorage.setItem("admin-session-id", sessionId);
       }
       
+      // Get browser ID
+      const browserId = getBrowserId();
+      
       try {
         console.log("[Admin] Checking session...");
         const response = await fetch("/api/session/check", {
@@ -91,7 +95,7 @@ const AdminContent = () => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${supabaseToken}`,
           },
-          body: JSON.stringify({ page: "admin", sessionId }),
+          body: JSON.stringify({ page: "admin", sessionId, browserId }),
         });
         
         if (!response.ok) {

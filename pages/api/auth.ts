@@ -13,6 +13,7 @@ type SuccessResponse = {
 type ErrorResponse = {
   error: string;
   details?: string;
+  existingSession?: any;
 };
 
 const buildCookieHeader = (token: string) => {
@@ -42,7 +43,7 @@ export default async function handler(
     return res.status(405).json({ error: `Metode ${req.method} tidak diizinkan.` });
   }
 
-  const { password } = req.body;
+  const { password, browserId, forceLogin } = req.body;
   const adminPassword = process.env.ADMIN_PASSWORD;
 
   if (!adminPassword) {
@@ -104,15 +105,28 @@ export default async function handler(
     // Generate unique session ID for this login
     const sessionId = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
-    // Force create new session (this will clear ALL other sessions first)
-    console.log(`[Auth] Creating new session for ${user.email || adminEmail}, clearing all other sessions`);
+    // Use browser ID or generate a fallback
+    const browserIdToUse = browserId || `server-${Date.now()}`;
+    
+    // Create session (with conflict detection if not forcing)
+    console.log(`[Auth] Creating session for ${user.email || adminEmail}`);
     const sessionResult = await createOrUpdateSession(
       user.id,
       user.email || adminEmail,
       "admin",
       sessionId,
-      true // Force new session (clear all others)
+      browserIdToUse,
+      forceLogin === true // Only force if explicitly requested
     );
+    
+    // Check for session conflict
+    if (sessionResult.conflict) {
+      return res.status(409).json({ 
+        error: "session_conflict",
+        details: "Another browser is currently logged in. Do you want to take over the session?",
+        existingSession: sessionResult.existingSession
+      });
+    }
     
     if (!sessionResult.success) {
       console.error("[Auth] Session creation failed:", sessionResult.message);
