@@ -1145,8 +1145,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   try {
     const adminPassword = process.env.ADMIN_PASSWORD;
     if (!adminPassword) {
+      const redirect = context.query.redirect as string | undefined;
+      const destination = redirect ? `/login?redirect=${redirect}` : "/login";
       return {
-        redirect: { destination: "/login", permanent: false },
+        redirect: { destination, permanent: false },
       };
     }
 
@@ -1155,9 +1157,11 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     const cookieToken = context.req.cookies?.[cookieName];
 
     if (!cookieToken || cookieToken !== expectedToken) {
+      const redirect = context.query.redirect as string | undefined;
+      const destination = redirect ? `/login?redirect=${redirect}` : "/login";
       return {
         redirect: {
-          destination: "/login",
+          destination,
           permanent: false,
         },
       };
@@ -1166,9 +1170,11 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return { props: {} };
   } catch (error) {
     console.error("Error checking admin auth:", error);
+    const redirect = context.query.redirect as string | undefined;
+    const destination = redirect ? `/login?redirect=${redirect}` : "/login";
     return {
       redirect: {
-        destination: "/login",
+        destination,
         permanent: false,
       },
     };

@@ -33,7 +33,14 @@ export default function LoginPage() {
 
       sessionStorage.setItem("admin-auth-token", token);
       setPassword("");
-      await router.push("/admin");
+      
+      // Check for redirect parameter
+      const redirect = router.query.redirect as string | undefined;
+      if (redirect) {
+        await router.push(`/${redirect}`);
+      } else {
+        await router.push("/admin");
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Authentication failed.";
       setError(message);

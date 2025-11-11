@@ -329,21 +329,27 @@ export default function RemoteControl() {
         <Head>
           <title>Remote Control - Loading</title>
         </Head>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white',
-          fontSize: '1.5rem',
-          fontFamily: 'system-ui, sans-serif'
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔐</div>
-            <div>Checking authentication...</div>
+        <main className="min-h-screen w-full bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4 py-12">
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-glass backdrop-blur-lg">
+            <div className="absolute -top-32 -right-24 h-64 w-64 rounded-full bg-sky-500/30 blur-3xl"></div>
+            <div className="absolute -bottom-36 -left-20 h-72 w-72 rounded-full bg-violet-500/20 blur-3xl"></div>
+            <div className="relative z-10 px-8 py-10 flex flex-col gap-6 text-white">
+              <div className="flex flex-col gap-2 text-center">
+                <span className="text-xs uppercase tracking-[0.35em] text-white/60">
+                  Remote Control
+                </span>
+                <h1 className="text-3xl font-semibold tracking-tight">Authentication</h1>
+                <p className="text-sm text-white/60">
+                  Checking your credentials...
+                </p>
+              </div>
+              <div className="flex flex-col items-center gap-4 py-6">
+                <div className="h-16 w-16 animate-spin rounded-full border-4 border-sky-500/30 border-t-sky-500"></div>
+                <p className="text-sm text-white/70">Please wait</p>
+              </div>
+            </div>
           </div>
-        </div>
+        </main>
       </>
     );
   }
@@ -355,51 +361,32 @@ export default function RemoteControl() {
         <Head>
           <title>Remote Control - Session Error</title>
         </Head>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-          color: 'white',
-          fontFamily: 'system-ui, sans-serif',
-          padding: '2rem'
-        }}>
-          <div style={{ 
-            textAlign: 'center',
-            maxWidth: '500px',
-            background: 'rgba(0,0,0,0.2)',
-            padding: '2rem',
-            borderRadius: '1rem',
-            backdropFilter: 'blur(10px)'
-          }}>
-            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⛔</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>
-              Session Already Active
+        <main className="min-h-screen w-full bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4 py-12">
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-rose-400/20 bg-white/5 shadow-glass backdrop-blur-lg">
+            <div className="absolute -top-32 -right-24 h-64 w-64 rounded-full bg-rose-500/30 blur-3xl"></div>
+            <div className="absolute -bottom-36 -left-20 h-72 w-72 rounded-full bg-red-500/20 blur-3xl"></div>
+            <div className="relative z-10 px-8 py-10 flex flex-col gap-6 text-white">
+              <div className="flex flex-col gap-2 text-center">
+                <div className="mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full bg-rose-500/20 text-5xl">
+                  ⛔
+                </div>
+                <h1 className="text-3xl font-semibold tracking-tight">Session Already Active</h1>
+                <p className="text-sm text-white/70 leading-relaxed">
+                  {sessionError}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  supabase.auth.signOut();
+                  router.push('/admin');
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 via-rose-400 to-red-500 px-5 py-3 text-base font-semibold text-white transition hover:shadow-lg hover:shadow-rose-500/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 focus:ring-rose-400 active:scale-95"
+              >
+                Back to Login
+              </button>
             </div>
-            <div style={{ fontSize: '1rem', marginBottom: '2rem', opacity: 0.9 }}>
-              {sessionError}
-            </div>
-            <button
-              onClick={() => {
-                supabase.auth.signOut();
-                router.push('/admin');
-              }}
-              style={{
-                background: 'white',
-                color: '#f5576c',
-                border: 'none',
-                padding: '1rem 2rem',
-                borderRadius: '0.5rem',
-                fontSize: '1rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-              }}
-            >
-              Back to Login
-            </button>
           </div>
-        </div>
+        </main>
       </>
     );
   }
