@@ -60,11 +60,10 @@ export default async function handler(
     // Create/login Supabase user for admin
     const supabase = getSupabaseServiceRoleClient();
     
-    // Check if there's an active session for another user
+    // Always clear ALL sessions on new login (single concurrent user enforcement)
     const activeSession = await getActiveSession();
-    if (activeSession && activeSession.email !== adminEmail) {
-      // Force clear the other session (admin takes priority)
-      console.log(`[Auth] Clearing session for ${activeSession.email} - admin login`);
+    if (activeSession) {
+      console.log(`[Auth] Clearing existing session for ${activeSession.email} on ${activeSession.page} - new login`);
       await clearAllSessions();
     }
     

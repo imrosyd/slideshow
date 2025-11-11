@@ -26,6 +26,7 @@ export default function RemoteControl() {
   useEffect(() => {
     let mounted = true;
     let heartbeatInterval: NodeJS.Timeout;
+    let sessionCheckInterval: NodeJS.Timeout;
 
     const checkAuthAndSession = async () => {
       try {
@@ -96,7 +97,7 @@ export default function RemoteControl() {
           setSessionError(null);
         }
 
-        // Setup heartbeat to keep session alive
+        // Setup heartbeat to keep session alive (every 60 seconds)
         heartbeatInterval = setInterval(async () => {
           try {
             const currentToken = sessionStorage.getItem("supabase-token");
@@ -112,7 +113,37 @@ export default function RemoteControl() {
           } catch (err) {
             console.error("[Remote] Heartbeat failed:", err);
           }
-        }, 60000); // Every 60 seconds
+        }, 60000);
+
+        // Setup periodic session check to detect concurrent logins (every 15 seconds)
+        sessionCheckInterval = setInterval(async () => {
+          try {
+            const currentToken = sessionStorage.getItem("supabase-token");
+            if (!currentToken) return;
+
+            const checkResponse = await fetch("/api/session/check", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${currentToken}`,
+              },
+              body: JSON.stringify({ page: "remote" }),
+            });
+
+            if (!checkResponse.ok) {
+              const error = await checkResponse.json();
+              if (error.error === "concurrent_session") {
+                // Another user is logged in - logout this session
+                console.warn("[Remote] Concurrent session detected, logging out");
+                sessionStorage.removeItem("supabase-token");
+                setSessionError(`Another user (${error.activeUser}) is logged in. You have been logged out.`);
+                setIsAuthenticated(false);
+              }
+            }
+          } catch (err) {
+            console.error("[Remote] Session check failed:", err);
+          }
+        }, 15000);
 
       } catch (error) {
         console.error("[Remote] Auth check error:", error);
@@ -129,6 +160,9 @@ export default function RemoteControl() {
       mounted = false;
       if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
+      }
+      if (sessionCheckInterval) {
+        clearInterval(sessionCheckInterval);
       }
     };
   }, [router]);

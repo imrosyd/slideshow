@@ -68,6 +68,7 @@ export async function getActiveSession(): Promise<ActiveSession | null> {
 
 /**
  * Create or update session for a user
+ * Enforces single concurrent session - always clears existing sessions
  */
 export async function createOrUpdateSession(
   userId: string,
@@ -77,18 +78,8 @@ export async function createOrUpdateSession(
   try {
     const supabase = getSupabaseServiceRoleClient();
     
-    // First, check if there's an existing session
-    const existingSession = await getActiveSession();
-    
-    if (existingSession && existingSession.user_id !== userId) {
-      // Different user is logged in
-      return {
-        success: false,
-        message: `Another user (${existingSession.email}) is currently logged in. Please wait or contact admin.`,
-      };
-    }
-    
-    // Clear all sessions first (enforce single session)
+    // Always clear ALL sessions first (enforce single concurrent session)
+    console.log(`[Session] Clearing all existing sessions before creating new one for ${email} on ${page}`);
     await supabase.from(SESSION_TABLE as any).delete().neq("id", "dummy");
     
     // Create new session
@@ -105,6 +96,7 @@ export async function createOrUpdateSession(
       return { success: false, message: "Failed to create session" };
     }
     
+    console.log(`[Session] Created new session for ${email} on ${page}`);
     return { success: true };
   } catch (error) {
     console.error("[Session] Error in createOrUpdateSession:", error);

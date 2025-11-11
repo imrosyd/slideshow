@@ -64,7 +64,7 @@ const AdminContent = () => {
     const checkSession = async () => {
       if (!supabaseToken) {
         console.warn("[Admin] No Supabase token - session check skipped");
-        return;
+        return false;
       }
       
       try {
@@ -89,25 +89,36 @@ const AdminContent = () => {
             sessionStorage.removeItem("supabase-token");
             pushToast({ 
               variant: "error", 
-              description: `Another user (${error.activeUser}) is logged in. Please try again.` 
+              description: `Another user (${error.activeUser}) is logged in. You have been logged out.` 
             });
             router.push("/login");
+            return false;
           }
         } else {
           console.log("[Admin] Session check successful");
+          return true;
         }
       } catch (error) {
         console.error("[Admin] Session check error:", error);
+        return false;
       }
     };
     
+    // Initial check
     checkSession();
+    
+    // Periodic session check every 15 seconds to detect concurrent logins
+    const sessionCheckInterval = setInterval(() => {
+      checkSession();
+    }, 15000);
     
     const previousSelect = document.body.style.userSelect;
     const previousTouch = document.body.style.touchAction;
     document.body.style.userSelect = "auto";
     document.body.style.touchAction = "auto";
+    
     return () => {
+      clearInterval(sessionCheckInterval);
       document.body.style.userSelect = previousSelect;
       document.body.style.touchAction = previousTouch;
     };
