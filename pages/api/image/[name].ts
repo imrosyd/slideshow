@@ -30,11 +30,12 @@ export default async function handler(
       return res.status(404).json({ error: "Image not found in Supabase Storage." });
     }
 
-    // Set headers to prevent compression and enable caching
-    res.setHeader('Cache-Control', 'public, max-age=3600, immutable');
+    // Set headers to enable longer caching and optimize delivery
+    res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800, immutable'); // 1 day browser, 1 week CDN
     res.setHeader('Content-Type', 'image/*');
+    res.setHeader('Vary', 'Accept-Encoding');
     
-    // Redirect to the signed URL (original quality, no compression)
+    // Redirect to the signed URL (original quality, but cached)
     res.redirect(307, data.signedUrl);
   } catch (error) {
     console.error("Error fetching image from Supabase:", error);

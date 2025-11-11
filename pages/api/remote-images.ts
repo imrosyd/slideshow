@@ -17,10 +17,10 @@ export default async function handler(
   try {
     const supabaseServiceRole = getSupabaseServiceRoleClient();
     
-    // Fetch complete metadata including hidden flags
+    // Fetch metadata with specific fields only to reduce data transfer
     const { data: allDbMetadata, error: dbError } = await supabaseServiceRole
       .from("image_durations")
-      .select("*")
+      .select("filename, hidden, is_video, caption, video_url, video_duration_seconds, order_index")
       .order('order_index', { ascending: true });
 
     if (dbError) {
@@ -88,9 +88,8 @@ export default async function handler(
     console.log(`[Remote Images] Video items: ${imageData.filter(item => item.isVideo).length}`);
     console.log(`[Remote Images] Video URL list:`, imageData.filter(item => item.isVideo).map(item => ({name: item.name, url: item.videoUrl})));
 
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
+    res.setHeader("Cache-Control", "public, max-age=180, s-maxage=300"); // 3min browser, 5min CDN
+    res.setHeader("ETag", JSON.stringify(imageData.map(i => i.name)).slice(0, 32)); // Simple ETag
     res.status(200).json({ images: imageData });
     
   } catch (error: any) {

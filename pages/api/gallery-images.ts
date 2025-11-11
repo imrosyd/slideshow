@@ -29,11 +29,10 @@ export default async function handler(
       console.log(`[Gallery Images] Video entries: ${allEntries.filter((e: any) => e.is_video).length}`);
     }
     
-    // Fetch all images for the gallery (including images that have videos)
-    // We want to show images even if they have video versions
+    // Fetch metadata with specific fields only to reduce data transfer
     const { data: allDbMetadata, error: dbError } = await supabaseServiceRole
       .from("image_durations")
-      .select("*")
+      .select("filename, hidden, is_video, order_index")
       .order('order_index', { ascending: true });
 
     if (dbError) {
@@ -121,16 +120,14 @@ export default async function handler(
         
         console.log(`[Gallery Images] Returning ${storageImageData.length} images from storage`);
         
-        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
+        res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600"); // 5min browser, 10min CDN
+        res.setHeader("ETag", JSON.stringify(storageImageData.map(i => i.name)).slice(0, 32)); // Simple ETag
         return res.status(200).json({ images: storageImageData });
       }
     }
 
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
+    res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600"); // 5min browser, 10min CDN
+    res.setHeader("ETag", JSON.stringify(imageData.map(i => i.name)).slice(0, 32)); // Simple ETag
     res.status(200).json({ images: imageData });
     
   } catch (error: any) {

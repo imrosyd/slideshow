@@ -73,8 +73,8 @@ const handlePostRequest = async (
 ) => {
   const form = formidable({
     multiples: true,
-    maxFileSize: 25 * 1024 * 1024, // 25 MB per file
-    maxTotalFileSize: 100 * 1024 * 1024, // 100 MB total per request
+    maxFileSize: 10 * 1024 * 1024, // 10 MB per file (reduced from 25MB)
+    maxTotalFileSize: 50 * 1024 * 1024, // 50 MB total per request (reduced from 100MB)
   });
 
   try {
