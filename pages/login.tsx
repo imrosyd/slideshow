@@ -67,23 +67,13 @@ export default function LoginPage() {
         body: JSON.stringify({ password, browserId, forceLogin }),
       });
 
-      if (response.status === 409) {
-        // Login needs approval
-        const payload = await response.json();
-        
-        if (payload.error === "pending_approval") {
-          // Need to wait for approval from active session
-          setAttemptId(payload.attemptId);
-          setWaitingForApproval(true);
-          setIsLoading(false);
-          return;
-        } else {
-          // Old session conflict (shouldn't happen now)
-          setSessionConflict(payload);
-          setIsLoading(false);
-          return;
-        }
-      }
+      // DISABLED: Approval dialog feature (not working properly)
+      // if (response.status === 409) {
+      //   const payload = await response.json();
+      //   setSessionConflict(payload);
+      //   setIsLoading(false);
+      //   return;
+      // }
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);

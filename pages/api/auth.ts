@@ -109,37 +109,9 @@ export default async function handler(
     // Use browser ID or generate a fallback
     const browserIdToUse = browserId || `server-${Date.now()}`;
     
-    // Check if there's an active session from different browser FIRST
-    if (!forceLogin) {
-      const activeSession = await getActiveSession();
-      
-      if (activeSession && (activeSession as any).browser_id !== browserIdToUse) {
-        // Different browser detected - create login attempt
-        console.log(`[Auth] Different browser detected, creating login attempt`);
-        
-        const supabase = getSupabaseServiceRoleClient();
-        const { data: attempt, error: attemptError } = await supabase
-          .from("login_attempts" as any)
-          .insert({
-            user_id: user.id,
-            email: user.email || adminEmail,
-            browser_id: browserIdToUse,
-            browser_info: req.headers['user-agent'] || 'Unknown browser',
-            status: "pending",
-            expires_at: new Date(Date.now() + 2 * 60 * 1000).toISOString()
-          })
-          .select()
-          .single();
-        
-        if (!attemptError && attempt) {
-          return res.status(409).json({ 
-            error: "pending_approval",
-            attemptId: (attempt as any).id,
-            details: "Waiting for approval from the active session"
-          });
-        }
-      }
-    }
+    // DISABLED: Approval dialog feature (BUG - not working properly)
+    // For now, just force new login and clear old sessions
+    // TODO: Fix approval dialog in future version
     
     // No conflict or forced login - create/update session
     console.log(`[Auth] Creating session for ${user.email || adminEmail}, forceLogin: ${forceLogin}`);

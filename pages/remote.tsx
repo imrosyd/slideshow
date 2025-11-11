@@ -159,7 +159,7 @@ export default function RemoteControl() {
                 console.warn("[Remote] Concurrent session detected, logging out");
                 sessionStorage.removeItem("supabase-token");
                 sessionStorage.removeItem("remote-session-id");
-                setSessionError(`Another user (${error.activeUser}) is logged in. You have been logged out.`);
+                setSessionError("Another user is logged in. You have been logged out.");
                 setIsAuthenticated(false);
               }
             }
