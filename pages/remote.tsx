@@ -1,8 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import Head from "next/head";
 import { supabase } from "../lib/supabase";
+import { useRouter } from "next/router";
 
 export default function RemoteControl() {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [slideCount, setSlideCount] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -17,7 +22,92 @@ export default function RemoteControl() {
   const [isMainPageLoading, setIsMainPageLoading] = useState(true); // Track main page loading state
   const [isMainPageReady, setIsMainPageReady] = useState(false); // Track when main page has content
 
+  // Authentication check
   useEffect(() => {
+    let mounted = true;
+    let heartbeatInterval: NodeJS.Timeout;
+
+    const checkAuthAndSession = async () => {
+      try {
+        // Check if user is logged in
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          // Not logged in, redirect to admin login
+          console.log("[Remote] No session, redirecting to login");
+          router.push("/admin?redirect=remote");
+          return;
+        }
+
+        // User is logged in, check concurrent session
+        const response = await fetch("/api/session/check", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ page: "remote" }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          
+          if (error.error === "concurrent_session") {
+            // Another user is logged in
+            setSessionError(error.message);
+            setIsCheckingAuth(false);
+            return;
+          }
+          
+          // Other error, redirect to login
+          console.error("[Remote] Session check failed:", error);
+          router.push("/admin?redirect=remote");
+          return;
+        }
+
+        // Success - authenticated and session created
+        if (mounted) {
+          setIsAuthenticated(true);
+          setIsCheckingAuth(false);
+          setSessionError(null);
+        }
+
+        // Setup heartbeat to keep session alive
+        heartbeatInterval = setInterval(async () => {
+          try {
+            await fetch("/api/session/heartbeat", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${session.access_token}`,
+              },
+            });
+          } catch (err) {
+            console.error("[Remote] Heartbeat failed:", err);
+          }
+        }, 60000); // Every 60 seconds
+
+      } catch (error) {
+        console.error("[Remote] Auth check error:", error);
+        if (mounted) {
+          router.push("/admin?redirect=remote");
+        }
+      }
+    };
+
+    checkAuthAndSession();
+
+    return () => {
+      mounted = false;
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+      }
+    };
+  }, [router]);
+
+  // Remote control logic (only runs if authenticated)
+  useEffect(() => {
+    if (!isAuthenticated) return;
     console.log('📱 Setting up remote control channels');
     
     // Subscribe to slideshow status on ALL channels
@@ -112,10 +202,11 @@ export default function RemoteControl() {
       supabase.removeChannel(heartbeatChannel);
       supabase.removeChannel(notificationChannel);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   // Fetch images for gallery with proper metadata including hidden flags
   useEffect(() => {
+    if (!isAuthenticated) return;
     const fetchImages = async () => {
       try {
         // Use gallery images API which shows all visible images (excluding dashboard.jpg)
@@ -231,6 +322,89 @@ export default function RemoteControl() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isConnected, handlePrevious, handleNext, handlePlayPause, handleFirst, handleLast, handleRestart]);
 
+  // Show loading while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <>
+        <Head>
+          <title>Remote Control - Loading</title>
+        </Head>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          fontSize: '1.5rem',
+          fontFamily: 'system-ui, sans-serif'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔐</div>
+            <div>Checking authentication...</div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Show error if concurrent session detected
+  if (sessionError) {
+    return (
+      <>
+        <Head>
+          <title>Remote Control - Session Error</title>
+        </Head>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+          color: 'white',
+          fontFamily: 'system-ui, sans-serif',
+          padding: '2rem'
+        }}>
+          <div style={{ 
+            textAlign: 'center',
+            maxWidth: '500px',
+            background: 'rgba(0,0,0,0.2)',
+            padding: '2rem',
+            borderRadius: '1rem',
+            backdropFilter: 'blur(10px)'
+          }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⛔</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+              Session Already Active
+            </div>
+            <div style={{ fontSize: '1rem', marginBottom: '2rem', opacity: 0.9 }}>
+              {sessionError}
+            </div>
+            <button
+              onClick={() => {
+                supabase.auth.signOut();
+                router.push('/admin');
+              }}
+              style={{
+                background: 'white',
+                color: '#f5576c',
+                border: 'none',
+                padding: '1rem 2rem',
+                borderRadius: '0.5rem',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+              }}
+            >
+              Back to Login
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Authenticated - show remote control
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
       <Head>
