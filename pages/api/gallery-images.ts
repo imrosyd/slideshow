@@ -5,6 +5,28 @@ type Data =
   | { images: Array<{name: string; url: string}> }
   | { error: string };
 
+// Rate limiting for public gallery
+const ipCache = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW = 60_000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 30; // 30 requests per minute per IP
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const cached = ipCache.get(ip);
+  
+  if (!cached || now > cached.resetTime) {
+    ipCache.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+  
+  if (cached.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return false;
+  }
+  
+  cached.count++;
+  return true;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<Data>
@@ -12,6 +34,16 @@ export default async function handler(
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Rate limiting for public access
+  const clientIP = req.headers['x-forwarded-for'] as string || 
+                   req.headers['x-real-ip'] as string || 
+                   req.socket.remoteAddress || 'unknown';
+  
+  if (!checkRateLimit(clientIP)) {
+    res.setHeader('Retry-After', '60');
+    return res.status(429).json({ error: "Too many requests. Please try again in 1 minute." });
   }
 
   try {

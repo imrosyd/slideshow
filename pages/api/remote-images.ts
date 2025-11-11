@@ -79,8 +79,11 @@ export default async function handler(
         name: item.filename,
         isVideo: item.is_video || false,
         hidden: item.hidden || false, // Preserve original hidden status
-        videoUrl: item.video_url,
+        videoUrl: item.is_video 
+          ? `/api/public-video/${encodeURIComponent(item.filename)}` // Public video with aggressive caching
+          : item.video_url,
         videoDurationSeconds: item.video_duration_seconds,
+        requiresAuth: false, // Videos are now public for TV playback
       }));
 
     console.log(`[Remote Images] ${imageData.length} total entries returned`);

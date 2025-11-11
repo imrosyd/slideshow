@@ -1516,6 +1516,7 @@ export default function Home() {
         `}</style>
       </Head>
       {ResourceHints}
+
       <main style={styles.container}>
         <div style={styles.imageWrapper}>
           {slides.length > 0 && currentSlide && currentSlide.videoUrl ? (
