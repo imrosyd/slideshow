@@ -107,38 +107,37 @@ export async function createOrUpdateSession(
       }
     }
     
-    // Check for existing sessions from different browsers
-    const { data: existingSessions } = await supabase
-      .from(SESSION_TABLE as any)
-      .select("*")
-      .eq("user_id", userId);
-    
-    // Check if there's a session from a different browser
-    const differentBrowserSession = existingSessions?.find(
-      (s: any) => s.browser_id && s.browser_id !== browserId
-    );
-    
-    if (differentBrowserSession && !forceNew) {
-      // Session conflict - another browser is active
-      console.log(`[Session] Conflict detected: ${email} is logged in from another browser`);
-      return { 
-        success: false, 
-        conflict: true,
-        message: "Another browser is currently active",
-        existingSession: differentBrowserSession
-      };
-    }
-    
-    // If forcing new or no conflict, clear sessions from OTHER browsers only
+    // If forcing new, clear ALL other sessions (strict single device)
     if (forceNew) {
-      console.log(`[Session] Clearing sessions from other browsers for ${email}`);
+      console.log(`[Session] Force new: Clearing ALL sessions for ${email}`);
       await supabase
         .from(SESSION_TABLE as any)
         .delete()
-        .eq("user_id", userId)
-        .neq("browser_id", browserId);
+        .eq("user_id", userId);
     } else {
-      // Clear only sessions for the same page from other browsers
+      // Not forcing - check for conflicts
+      const { data: existingSessions } = await supabase
+        .from(SESSION_TABLE as any)
+        .select("*")
+        .eq("user_id", userId);
+      
+      // Check if there's a session from a different browser
+      const differentBrowserSession = existingSessions?.find(
+        (s: any) => s.browser_id && s.browser_id !== browserId
+      );
+      
+      if (differentBrowserSession) {
+        // Session conflict - another browser is active
+        console.log(`[Session] Conflict detected: ${email} is logged in from another browser`);
+        return { 
+          success: false, 
+          conflict: true,
+          message: "Another browser is currently active",
+          existingSession: differentBrowserSession
+        };
+      }
+      
+      // Same browser - clear sessions for same page from OTHER browsers
       await supabase
         .from(SESSION_TABLE as any)
         .delete()

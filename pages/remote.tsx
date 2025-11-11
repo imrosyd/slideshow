@@ -90,9 +90,13 @@ export default function RemoteControl() {
           const error = await response.json();
           
           if (error.error === "concurrent_session") {
-            // Another user is logged in
+            // Another browser is logged in
+            console.warn("[Remote] Concurrent session detected");
             setSessionError(error.message);
             setIsCheckingAuth(false);
+            sessionStorage.removeItem("supabase-token");
+            sessionStorage.removeItem("remote-session-id");
+            // Don't redirect, just show error
             return;
           }
           
@@ -106,6 +110,7 @@ export default function RemoteControl() {
 
         // Success - authenticated and session created
         if (mounted) {
+          console.log("[Remote] Authentication successful");
           setIsAuthenticated(true);
           setIsCheckingAuth(false);
           setSessionError(null);
@@ -133,8 +138,10 @@ export default function RemoteControl() {
         sessionCheckInterval = setInterval(async () => {
           try {
             const currentToken = sessionStorage.getItem("supabase-token");
-            const currentSessionId = sessionStorage.getItem("session-id");
+            const currentSessionId = sessionStorage.getItem("remote-session-id");
             if (!currentToken || !currentSessionId) return;
+            
+            const currentBrowserId = getBrowserId();
 
             const checkResponse = await fetch("/api/session/check", {
               method: "POST",
@@ -142,7 +149,7 @@ export default function RemoteControl() {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${currentToken}`,
               },
-              body: JSON.stringify({ page: "remote", sessionId: currentSessionId }),
+              body: JSON.stringify({ page: "remote", sessionId: currentSessionId, browserId: currentBrowserId }),
             });
 
             if (!checkResponse.ok) {

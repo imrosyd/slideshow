@@ -60,10 +60,15 @@ export default function LoginPage() {
       // Store sessionId based on redirect target
       const redirect = router.query.redirect as string | undefined;
       if (sessionId) {
+        // Always store both session IDs for seamless navigation
+        const sessionIdForPage = redirect === "remote" ? 
+          `remote-${sessionId}` : 
+          `admin-${sessionId}`;
+        
         if (redirect === "remote") {
-          sessionStorage.setItem("remote-session-id", sessionId);
+          sessionStorage.setItem("remote-session-id", sessionIdForPage);
         } else {
-          sessionStorage.setItem("admin-session-id", sessionId);
+          sessionStorage.setItem("admin-session-id", sessionIdForPage);
         }
       }
       
@@ -136,9 +141,16 @@ export default function LoginPage() {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
                         setSessionConflict(null);
-                        handleSubmit(new Event('submit') as any, true);
+                        // Create a proper form event
+                        const form = e.currentTarget.closest('form');
+                        if (form) {
+                          const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                          Object.defineProperty(submitEvent, 'preventDefault', { value: () => {} });
+                          handleSubmit(submitEvent as any, true);
+                        }
                       }}
                       className="px-3 py-1 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium"
                     >

@@ -108,15 +108,17 @@ export default async function handler(
     // Use browser ID or generate a fallback
     const browserIdToUse = browserId || `server-${Date.now()}`;
     
-    // Create session (with conflict detection if not forcing)
-    console.log(`[Auth] Creating session for ${user.email || adminEmail}`);
+    // Create session (force new on initial login OR when explicitly requested)
+    // First login attempt should always clear other sessions (single device enforcement)
+    const isFirstAttempt = forceLogin !== true;
+    console.log(`[Auth] Creating session for ${user.email || adminEmail}, forceLogin: ${forceLogin}, isFirstAttempt: ${isFirstAttempt}`);
     const sessionResult = await createOrUpdateSession(
       user.id,
       user.email || adminEmail,
       "admin",
       sessionId,
       browserIdToUse,
-      forceLogin === true // Only force if explicitly requested
+      isFirstAttempt || forceLogin === true // Always force on first attempt to ensure single device
     );
     
     // Check for session conflict
