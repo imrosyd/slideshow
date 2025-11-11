@@ -131,6 +131,31 @@ const handlePostRequest = async (
       return res.status(500).json({ error: combinedError });
     }
 
+    // Broadcast image upload to refresh galleries
+    if (successfulUploads.length > 0) {
+      try {
+        const { createClient } = require('@supabase/supabase-js');
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const channel = supabase.channel('image-metadata-updates');
+        await channel.send({
+          type: 'broadcast',
+          event: 'image-updated',
+          payload: {
+            action: 'uploaded',
+            uploadedCount: successfulUploads.length,
+            filenames: successfulUploads,
+            updatedAt: new Date().toISOString()
+          }
+        }, { httpSend: true });
+        console.log(`[Upload] Broadcast: Uploaded ${successfulUploads.length} images`);
+      } catch (broadcastError) {
+        console.warn('[Upload] Failed to broadcast image upload:', broadcastError);
+      }
+    }
+
     if (uploadErrors.length > 0) {
       return res.status(207).json({
         message: `${successfulUploads.length} file berhasil diunggah, tetapi ${uploadErrors.length} gagal.`,

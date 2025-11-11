@@ -110,6 +110,29 @@ export default async function handler(
       return res.status(500).json({ error: "Gagal menghapus file lama setelah rename." });
     }
 
+    // Broadcast image rename to refresh galleries
+    try {
+      const { createClient } = require('@supabase/supabase-js');
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      const channel = supabase.channel('image-metadata-updates');
+      await channel.send({
+        type: 'broadcast',
+        event: 'image-updated',
+        payload: {
+          action: 'renamed',
+          oldName: trimmedOldName,
+          newName: trimmedNewName,
+          updatedAt: new Date().toISOString()
+        }
+      }, { httpSend: true });
+      console.log(`[Rename] Broadcast: Renamed ${trimmedOldName} to ${trimmedNewName}`);
+    } catch (broadcastError) {
+      console.warn('[Rename] Failed to broadcast image rename:', broadcastError);
+    }
+
     return res.status(200).json({ success: true, filename: trimmedNewName, previousName: trimmedOldName });
   } catch (error) {
     console.error("Unexpected error in rename-image API:", error);
