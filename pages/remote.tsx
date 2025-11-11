@@ -29,12 +29,35 @@ export default function RemoteControl() {
 
     const checkAuthAndSession = async () => {
       try {
-        // Check if user is logged in
-        const { data: { session } } = await supabase.auth.getSession();
+        // Try to get Supabase token from sessionStorage first
+        const supabaseToken = sessionStorage.getItem("supabase-token");
+        let accessToken: string | null = null;
+
+        if (supabaseToken) {
+          // Verify token is still valid
+          const { data: { user }, error } = await supabase.auth.getUser(supabaseToken);
+          if (!error && user) {
+            accessToken = supabaseToken;
+            console.log("[Remote] Using token from sessionStorage");
+          } else {
+            console.log("[Remote] Token from sessionStorage is invalid");
+            sessionStorage.removeItem("supabase-token");
+          }
+        }
+
+        // If no valid token from sessionStorage, check Supabase session
+        if (!accessToken) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            accessToken = session.access_token;
+            sessionStorage.setItem("supabase-token", accessToken);
+            console.log("[Remote] Using token from Supabase session");
+          }
+        }
         
-        if (!session) {
+        if (!accessToken) {
           // Not logged in, redirect to admin login
-          console.log("[Remote] No session, redirecting to login");
+          console.log("[Remote] No valid token, redirecting to login");
           router.push("/admin?redirect=remote");
           return;
         }
@@ -44,7 +67,7 @@ export default function RemoteControl() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${session.access_token}`,
+            "Authorization": `Bearer ${accessToken}`,
           },
           body: JSON.stringify({ page: "remote" }),
         });
@@ -61,6 +84,7 @@ export default function RemoteControl() {
           
           // Other error, redirect to login
           console.error("[Remote] Session check failed:", error);
+          sessionStorage.removeItem("supabase-token");
           router.push("/admin?redirect=remote");
           return;
         }
@@ -75,13 +99,16 @@ export default function RemoteControl() {
         // Setup heartbeat to keep session alive
         heartbeatInterval = setInterval(async () => {
           try {
-            await fetch("/api/session/heartbeat", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${session.access_token}`,
-              },
-            });
+            const currentToken = sessionStorage.getItem("supabase-token");
+            if (currentToken) {
+              await fetch("/api/session/heartbeat", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${currentToken}`,
+                },
+              });
+            }
           } catch (err) {
             console.error("[Remote] Heartbeat failed:", err);
           }
@@ -90,6 +117,7 @@ export default function RemoteControl() {
       } catch (error) {
         console.error("[Remote] Auth check error:", error);
         if (mounted) {
+          sessionStorage.removeItem("supabase-token");
           router.push("/admin?redirect=remote");
         }
       }

@@ -52,68 +52,56 @@ const AdminContent = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     
-    // Also try to get token from sessionStorage for compatibility
+    // Get tokens from sessionStorage
     const sessionToken = sessionStorage.getItem("admin-auth-token");
+    const supabaseToken = sessionStorage.getItem("supabase-token");
+    
     if (sessionToken) {
       setAuthToken(sessionToken);
     }
     
-    // But primarily, we need to make a request to get the token from the server
-    // Since server-side auth is handled by getServerSideProps, we assume user is authenticated
-    // and need to fetch a token for client-side operations
-    
-    const fetchAuthToken = async () => {
+    // Check session with session manager
+    const checkSession = async () => {
+      if (!supabaseToken) {
+        console.warn("[Admin] No Supabase token - session check skipped");
+        return;
+      }
+      
       try {
-        // First, try to get token directly from a special server endpoint
-        // that can read cookies and return a token
-        console.log("[Admin] Attempting to fetch auth token...");
-        
-        const response = await fetch("/api/verify-auth", {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
+        console.log("[Admin] Checking session...");
+        const response = await fetch("/api/session/check", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${supabaseToken}`,
+          },
+          body: JSON.stringify({ page: "admin" }),
         });
         
-        if (response.ok) {
-          const data = await response.json();
-          if (data.token) {
-            console.log("[Admin] Auth token fetched successfully");
-            setAuthToken(data.token);
-            // Also store in sessionStorage for fallback
-            sessionStorage.setItem("admin-auth-token", data.token);
-            return;
+        if (!response.ok) {
+          const error = await response.json();
+          console.error("[Admin] Session check failed:", error);
+          
+          if (error.error === "concurrent_session") {
+            // Another user is logged in - logout this session
+            console.warn("[Admin] Concurrent session detected, logging out");
+            sessionStorage.removeItem("admin-auth-token");
+            sessionStorage.removeItem("supabase-token");
+            pushToast({ 
+              variant: "error", 
+              description: `Another user (${error.activeUser}) is logged in. Please try again.` 
+            });
+            router.push("/login");
           }
-        }
-        
-        console.warn("[Admin] Failed to fetch token from /api/verify-auth");
-        
-        // Fallback: try session token
-        if (sessionToken) {
-          console.log("[Admin] Using session token as fallback");
-          setAuthToken(sessionToken);
         } else {
-          console.error("[Admin] No auth token available!");
-          // Try setting a default token to prevent immediate failures
-          const adminPassword = process.env.ADMIN_PASSWORD || "default";
-          try {
-            const { getExpectedAdminToken } = await import("../lib/auth");
-            const token = getExpectedAdminToken(adminPassword);
-            setAuthToken(token);
-            sessionStorage.setItem("admin-auth-token", token);
-            console.log("[Admin] Set fallback token from environment");
-          } catch (tokenError) {
-            console.error("[Admin] Failed to set fallback token:", tokenError);
-          }
+          console.log("[Admin] Session check successful");
         }
       } catch (error) {
-        console.error("Error fetching auth token:", error);
-        // Try to use session token as fallback
-        if (sessionToken) {
-          setAuthToken(sessionToken);
-        }
+        console.error("[Admin] Session check error:", error);
       }
     };
     
-    fetchAuthToken();
+    checkSession();
     
     const previousSelect = document.body.style.userSelect;
     const previousTouch = document.body.style.touchAction;
@@ -123,7 +111,7 @@ const AdminContent = () => {
       document.body.style.userSelect = previousSelect;
       document.body.style.touchAction = previousTouch;
     };
-  }, []);
+  }, [pushToast, router]);
 
   const {
     images,
@@ -284,12 +272,35 @@ const AdminContent = () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
+      // Get Supabase token for session logout
+      const supabaseToken = sessionStorage.getItem("supabase-token");
+      
+      // Call cookie-based logout
       const response = await fetch("/api/logout", { method: "POST" });
       if (!response.ok) {
         throw new Error(await response.text());
       }
+      
+      // Call session-based logout if we have a token
+      if (supabaseToken) {
+        try {
+          await fetch("/api/session/logout", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseToken}`,
+            },
+          });
+        } catch (sessionError) {
+          console.error("Failed to clear session:", sessionError);
+        }
+      }
+      
+      // Clear all tokens
       sessionStorage.removeItem("admin-auth-token");
+      sessionStorage.removeItem("supabase-token");
       setAuthToken(null);
+      
       pushToast({ 
         variant: "success", 
         description: "Successfully signed out" 

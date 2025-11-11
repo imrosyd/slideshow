@@ -27,11 +27,18 @@ export default function LoginPage() {
 
       const payload = await response.json();
       const token = payload?.token as string | undefined;
+      const supabaseToken = payload?.supabaseToken as string | undefined;
+      
       if (!token) {
         throw new Error("Invalid authentication token.");
       }
 
+      // Store both tokens
       sessionStorage.setItem("admin-auth-token", token);
+      if (supabaseToken) {
+        sessionStorage.setItem("supabase-token", supabaseToken);
+      }
+      
       setPassword("");
       
       // Check for redirect parameter

@@ -1,13 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAdminAuthCookieName, getExpectedAdminToken } from "../../lib/auth";
+import { getSupabaseServiceRoleClient } from "../../lib/supabase";
+import { getActiveSession, createOrUpdateSession, clearAllSessions } from "../../lib/session-manager";
 
 type SuccessResponse = {
   success: true;
   token: string;
+  supabaseToken: string;
 };
 
 type ErrorResponse = {
   error: string;
+  details?: string;
 };
 
 const buildCookieHeader = (token: string) => {
@@ -28,7 +32,7 @@ const buildCookieHeader = (token: string) => {
   return parts.join("; ");
 };
 
-export default function handler(
+export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<SuccessResponse | ErrorResponse>
 ) {
@@ -49,7 +53,88 @@ export default function handler(
     return res.status(401).json({ error: "Kata sandi salah." });
   }
 
-  const token = getExpectedAdminToken(adminPassword);
-  res.setHeader("Set-Cookie", buildCookieHeader(token));
-  return res.status(200).json({ success: true, token });
+  try {
+    // Get default admin email from env or use default
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@slideshow.local";
+    
+    // Create/login Supabase user for admin
+    const supabase = getSupabaseServiceRoleClient();
+    
+    // Check if there's an active session for another user
+    const activeSession = await getActiveSession();
+    if (activeSession && activeSession.email !== adminEmail) {
+      // Force clear the other session (admin takes priority)
+      console.log(`[Auth] Clearing session for ${activeSession.email} - admin login`);
+      await clearAllSessions();
+    }
+    
+    // Try to sign in or create user
+    let authResult = await supabase.auth.signInWithPassword({
+      email: adminEmail,
+      password: adminPassword,
+    });
+
+    // If user doesn't exist, create it
+    if (authResult.error && authResult.error.message.includes("Invalid login")) {
+      console.log("[Auth] Admin user not found, creating...");
+      const signUpResult = await supabase.auth.admin.createUser({
+        email: adminEmail,
+        password: adminPassword,
+        email_confirm: true,
+      });
+
+      if (signUpResult.error) {
+        console.error("[Auth] Failed to create admin user:", signUpResult.error);
+        return res.status(500).json({ 
+          error: "Gagal membuat user admin.", 
+          details: signUpResult.error.message 
+        });
+      }
+
+      // Sign in with newly created user
+      authResult = await supabase.auth.signInWithPassword({
+        email: adminEmail,
+        password: adminPassword,
+      });
+    }
+
+    if (authResult.error || !authResult.data.session) {
+      console.error("[Auth] Supabase auth error:", authResult.error);
+      return res.status(500).json({ 
+        error: "Gagal autentikasi dengan Supabase.", 
+        details: authResult.error?.message 
+      });
+    }
+
+    const { session, user } = authResult.data;
+    
+    // Create session in session manager (no need to check concurrent - already cleared above)
+    const sessionResult = await createOrUpdateSession(
+      user.id,
+      user.email || adminEmail,
+      "admin"
+    );
+    
+    if (!sessionResult.success) {
+      console.error("[Auth] Session creation failed:", sessionResult.message);
+      // Continue anyway - cookie auth will work
+    }
+
+    // Set cookie for backward compatibility
+    const cookieToken = getExpectedAdminToken(adminPassword);
+    res.setHeader("Set-Cookie", buildCookieHeader(cookieToken));
+    
+    return res.status(200).json({ 
+      success: true, 
+      token: cookieToken,
+      supabaseToken: session.access_token
+    });
+    
+  } catch (error) {
+    console.error("[Auth] Unexpected error:", error);
+    return res.status(500).json({ 
+      error: "Terjadi kesalahan saat login.",
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
 }
