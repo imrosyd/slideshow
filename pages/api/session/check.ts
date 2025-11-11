@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { requireAuth } from "../../../lib/simple-auth";
-import { getActiveSession, createOrUpdateSession, updateLastSeen } from "../../../lib/session-manager";
+import { createOrUpdateSession, updateLastSeen } from "../../../lib/session-manager";
 
 /**
  * Check and create session for authenticated user
- * Returns active session info and validates single concurrent access
+ * Allows multiple concurrent sessions across different devices
  */
 export default async function handler(
   req: NextApiRequest,
@@ -33,41 +33,7 @@ export default async function handler(
       return res.status(400).json({ error: "Missing sessionId parameter" });
     }
     
-    // Check if there's an active session
-    const activeSession = await getActiveSession();
-    
-    if (activeSession) {
-      // Check if this is a different session (different sessionId or page)
-      // We only allow ONE active session at a time
-      const isSameSession = activeSession.user_id === auth.userId && 
-                            activeSession.page === page &&
-                            (activeSession as any).session_id === sessionId;
-      
-      if (!isSameSession) {
-        // Different session detected - reject this request
-        const isDifferentUser = activeSession.user_id !== auth.userId;
-        const isDifferentPage = activeSession.page !== page;
-        const isDifferentDevice = (activeSession as any).session_id !== sessionId;
-        
-        let message = "";
-        if (isDifferentUser) {
-          message = `Another user (${activeSession.email}) is currently logged in on ${activeSession.page} page.`;
-        } else if (isDifferentPage) {
-          message = `You are already logged in on ${activeSession.page} page in another browser/tab.`;
-        } else if (isDifferentDevice) {
-          message = `You are already logged in on ${activeSession.page} page in another browser/device.`;
-        }
-        
-        return res.status(403).json({
-          error: "concurrent_session",
-          message: message,
-          activeUser: activeSession.email,
-          activePage: activeSession.page,
-        });
-      }
-    }
-    
-    // Create or update session for this user with sessionId
+    // Create or update session for this user with sessionId (allow multiple concurrent sessions)
     const result = await createOrUpdateSession(
       auth.userId,
       auth.email || "unknown",

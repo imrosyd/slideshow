@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAdminAuthCookieName, getExpectedAdminToken } from "../../lib/auth";
 import { getSupabaseServiceRoleClient } from "../../lib/supabase";
-import { getActiveSession, createOrUpdateSession, clearAllSessions } from "../../lib/session-manager";
+import { createOrUpdateSession } from "../../lib/session-manager";
 
 type SuccessResponse = {
   success: true;
@@ -61,13 +61,6 @@ export default async function handler(
     // Create/login Supabase user for admin
     const supabase = getSupabaseServiceRoleClient();
     
-    // Always clear ALL sessions on new login (single concurrent user enforcement)
-    const activeSession = await getActiveSession();
-    if (activeSession) {
-      console.log(`[Auth] Clearing existing session for ${activeSession.email} on ${activeSession.page} - new login`);
-      await clearAllSessions();
-    }
-    
     // Try to sign in or create user
     let authResult = await supabase.auth.signInWithPassword({
       email: adminEmail,
@@ -111,7 +104,8 @@ export default async function handler(
     // Generate unique session ID for this login
     const sessionId = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
-    // Create session in session manager (no need to check concurrent - already cleared above)
+    // Create session in session manager (allow multiple concurrent sessions)
+    console.log(`[Auth] Creating new session for ${user.email || adminEmail}`);
     const sessionResult = await createOrUpdateSession(
       user.id,
       user.email || adminEmail,

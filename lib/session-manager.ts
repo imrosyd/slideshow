@@ -1,8 +1,8 @@
 import { getSupabaseServiceRoleClient } from "./supabase";
 
 /**
- * Simple single-user session management
- * Ensures only 1 user can be logged in at a time across admin & remote pages
+ * Multi-device session management
+ * Allows multiple devices to be logged in simultaneously
  */
 
 const SESSION_TABLE = "active_sessions";
@@ -69,7 +69,7 @@ export async function getActiveSession(): Promise<ActiveSession | null> {
 
 /**
  * Create or update session for a user
- * Enforces single concurrent session - always clears existing sessions
+ * Allows multiple concurrent sessions across different devices
  */
 export async function createOrUpdateSession(
   userId: string,
@@ -100,11 +100,7 @@ export async function createOrUpdateSession(
       return { success: true };
     }
     
-    // Clear ALL other sessions (enforce single concurrent session)
-    console.log(`[Session] Clearing all existing sessions before creating new one for ${email} on ${page}`);
-    await supabase.from(SESSION_TABLE as any).delete().neq("id", "dummy");
-    
-    // Create new session with sessionId
+    // Create new session with sessionId (allow multiple concurrent sessions)
     const { error } = await supabase.from(SESSION_TABLE as any).insert({
       user_id: userId,
       email: email,
