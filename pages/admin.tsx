@@ -56,6 +56,13 @@ const AdminContent = () => {
     const sessionToken = sessionStorage.getItem("admin-auth-token");
     const supabaseToken = sessionStorage.getItem("supabase-token");
     
+    // Check if we have valid auth tokens
+    if (!sessionToken || !supabaseToken) {
+      console.log("[Admin] No auth tokens found, redirecting to login");
+      router.push("/login");
+      return;
+    }
+    
     if (sessionToken) {
       setAuthToken(sessionToken);
     }
@@ -63,16 +70,17 @@ const AdminContent = () => {
     // Check session with session manager
     const checkSession = async () => {
       if (!supabaseToken) {
-        console.warn("[Admin] No Supabase token - session check skipped");
+        console.warn("[Admin] No Supabase token - redirecting to login");
+        router.push("/login");
         return false;
       }
       
-      // Get or generate sessionId
-      let sessionId = sessionStorage.getItem("session-id");
+      // Get or generate sessionId for admin page
+      let sessionId = sessionStorage.getItem("admin-session-id");
       if (!sessionId) {
         // Generate new sessionId if not exists (shouldn't happen normally)
         sessionId = `admin-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-        sessionStorage.setItem("session-id", sessionId);
+        sessionStorage.setItem("admin-session-id", sessionId);
       }
       
       try {

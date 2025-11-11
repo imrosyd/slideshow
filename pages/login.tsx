@@ -39,14 +39,20 @@ export default function LoginPage() {
       if (supabaseToken) {
         sessionStorage.setItem("supabase-token", supabaseToken);
       }
+      
+      // Store sessionId based on redirect target
+      const redirect = router.query.redirect as string | undefined;
       if (sessionId) {
-        sessionStorage.setItem("session-id", sessionId);
+        if (redirect === "remote") {
+          sessionStorage.setItem("remote-session-id", sessionId);
+        } else {
+          sessionStorage.setItem("admin-session-id", sessionId);
+        }
       }
       
       setPassword("");
       
-      // Check for redirect parameter
-      const redirect = router.query.redirect as string | undefined;
+      // Navigate to the appropriate page
       if (redirect) {
         await router.push(`/${redirect}`);
       } else {

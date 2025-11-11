@@ -43,7 +43,7 @@ export default function RemoteControl() {
           } else {
             console.log("[Remote] Token from sessionStorage is invalid");
             sessionStorage.removeItem("supabase-token");
-            sessionStorage.removeItem("session-id");
+            sessionStorage.removeItem("remote-session-id");
           }
         }
 
@@ -58,18 +58,18 @@ export default function RemoteControl() {
         }
         
         if (!accessToken) {
-          // Not logged in, redirect to admin login
+          // Not logged in, redirect to login
           console.log("[Remote] No valid token, redirecting to login");
-          router.push("/admin?redirect=remote");
+          router.push("/login?redirect=remote");
           return;
         }
 
         // Get or generate sessionId for remote page
-        let sessionId = sessionStorage.getItem("session-id");
+        let sessionId = sessionStorage.getItem("remote-session-id");
         if (!sessionId) {
           // Generate new sessionId for remote if not exists
           sessionId = `remote-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-          sessionStorage.setItem("session-id", sessionId);
+          sessionStorage.setItem("remote-session-id", sessionId);
         }
         
         // User is logged in, check concurrent session
@@ -95,8 +95,8 @@ export default function RemoteControl() {
           // Other error, redirect to login
           console.error("[Remote] Session check failed:", error);
           sessionStorage.removeItem("supabase-token");
-          sessionStorage.removeItem("session-id");
-          router.push("/admin?redirect=remote");
+          sessionStorage.removeItem("remote-session-id");
+          router.push("/login?redirect=remote");
           return;
         }
 
@@ -147,7 +147,7 @@ export default function RemoteControl() {
                 // Another user is logged in - logout this session
                 console.warn("[Remote] Concurrent session detected, logging out");
                 sessionStorage.removeItem("supabase-token");
-                sessionStorage.removeItem("session-id");
+                sessionStorage.removeItem("remote-session-id");
                 setSessionError(`Another user (${error.activeUser}) is logged in. You have been logged out.`);
                 setIsAuthenticated(false);
               }
@@ -161,8 +161,8 @@ export default function RemoteControl() {
         console.error("[Remote] Auth check error:", error);
         if (mounted) {
           sessionStorage.removeItem("supabase-token");
-          sessionStorage.removeItem("session-id");
-          router.push("/admin?redirect=remote");
+          sessionStorage.removeItem("remote-session-id");
+          router.push("/login?redirect=remote");
         }
       }
     };
