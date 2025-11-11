@@ -81,7 +81,7 @@ export async function createOrUpdateSession(
     const supabase = getSupabaseServiceRoleClient();
     
     // Check if this exact session already exists (same user, page, and sessionId)
-    const { data: existingSession } = await supabase
+    const { data: existingSession, error: queryError } = await supabase
       .from(SESSION_TABLE as any)
       .select("*")
       .eq("user_id", userId)
@@ -89,12 +89,12 @@ export async function createOrUpdateSession(
       .eq("session_id", sessionId)
       .single();
     
-    if (existingSession) {
+    if (!queryError && existingSession) {
       // Session already exists, just update last_seen
       await supabase
         .from(SESSION_TABLE as any)
         .update({ last_seen: new Date().toISOString() })
-        .eq("id", existingSession.id);
+        .eq("id", (existingSession as any).id);
       
       console.log(`[Session] Updated existing session for ${email} on ${page}`);
       return { success: true };

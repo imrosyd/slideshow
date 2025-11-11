@@ -7,6 +7,7 @@ type SuccessResponse = {
   success: true;
   token: string;
   supabaseToken: string;
+  sessionId: string;
 };
 
 type ErrorResponse = {
