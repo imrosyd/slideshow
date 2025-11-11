@@ -26,6 +26,7 @@ import { useImages } from "../hooks/useImages";
 import { useToast } from "../hooks/useToast";
 import { getBrowserId } from "../lib/browser-utils";
 import { getAdminAuthCookieName, getExpectedAdminToken } from "../lib/auth";
+import { LoginAttemptDialog } from "../components/LoginAttemptDialog";
 
 const AdminContent = () => {
   // (Reserved) additional admin-only state
@@ -49,6 +50,7 @@ const AdminContent = () => {
   
   const { pushToast } = useToast();
   const router = useRouter();
+  const [loginAttempt, setLoginAttempt] = useState<any>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -132,6 +134,28 @@ const AdminContent = () => {
       checkSession();
     }, 15000);
     
+    // Check for login attempts every 5 seconds
+    const attemptCheckInterval = setInterval(async () => {
+      if (!supabaseToken) return;
+      
+      try {
+        const response = await fetch("/api/auth/check-attempts", {
+          headers: {
+            "Authorization": `Bearer ${supabaseToken}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.hasPendingAttempt && !loginAttempt) {
+            setLoginAttempt(data.attempt);
+          }
+        }
+      } catch (error) {
+        console.error("[Admin] Error checking login attempts:", error);
+      }
+    }, 5000);
+    
     const previousSelect = document.body.style.userSelect;
     const previousTouch = document.body.style.touchAction;
     document.body.style.userSelect = "auto";
@@ -139,6 +163,7 @@ const AdminContent = () => {
     
     return () => {
       clearInterval(sessionCheckInterval);
+      clearInterval(attemptCheckInterval);
       document.body.style.userSelect = previousSelect;
       document.body.style.touchAction = previousTouch;
     };
@@ -1135,6 +1160,52 @@ const AdminContent = () => {
         onDeleteImages={handleBulkDelete}
         isSaving={isSavingMetadata}
       />
+
+      {/* Login attempt dialog */}
+      {loginAttempt && (
+        <LoginAttemptDialog
+          attempt={loginAttempt}
+          onRespond={async (attemptId, decision) => {
+            try {
+              const response = await fetch("/api/auth/respond-attempt", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${sessionStorage.getItem("supabase-token")}`,
+                },
+                body: JSON.stringify({ attemptId, decision }),
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                if (decision === "approve") {
+                  // User approved, we will be logged out
+                  sessionStorage.removeItem("admin-auth-token");
+                  sessionStorage.removeItem("supabase-token");
+                  sessionStorage.removeItem("admin-session-id");
+                  pushToast({ 
+                    variant: "info", 
+                    description: "Login approved. Your session has ended." 
+                  });
+                  router.push("/login");
+                } else {
+                  pushToast({ 
+                    variant: "success", 
+                    description: "Login attempt denied." 
+                  });
+                }
+              }
+            } catch (error) {
+              console.error("[Admin] Error responding to login attempt:", error);
+              pushToast({ 
+                variant: "error", 
+                description: "Failed to respond to login attempt." 
+              });
+            }
+          }}
+          onClose={() => setLoginAttempt(null)}
+        />
+      )}
 
       {/* Fullscreen preview modal */}
       {fullscreenImage && (

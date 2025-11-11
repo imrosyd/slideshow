@@ -9,20 +9,82 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [sessionConflict, setSessionConflict] = useState<any>(null);
   const [browserId, setBrowserId] = useState<string>("");
+  const [waitingForApproval, setWaitingForApproval] = useState(false);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
   const router = useRouter();
   
   useEffect(() => {
     // Get browser ID on mount
     setBrowserId(getBrowserId());
   }, []);
+  
+  // Poll for approval status when waiting
+  useEffect(() => {
+    if (!waitingForApproval || !attemptId) return;
+    
+    const checkInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/auth/attempt-status?attemptId=${attemptId}`);
+        const data = await response.json();
+        
+        if (data.status === "approved") {
+          // Approved! Proceed with login
+          setWaitingForApproval(false);
+          setAttemptId(null);
+          // Retry login with forceLogin flag
+          const form = document.querySelector('form');
+          if (form) {
+            const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+            Object.defineProperty(submitEvent, 'preventDefault', { value: () => {} });
+            handleSubmit(submitEvent as any, true, true); // Skip attempt creation
+          }
+        } else if (data.status === "denied" || data.status === "expired") {
+          // Denied or expired
+          setWaitingForApproval(false);
+          setAttemptId(null);
+          setError(data.status === "denied" ? 
+            "Login denied by active session." : 
+            "Login attempt expired. Please try again.");
+        }
+      } catch (err) {
+        console.error("Error checking attempt status:", err);
+      }
+    }, 2000); // Check every 2 seconds
+    
+    return () => clearInterval(checkInterval);
+  }, [waitingForApproval, attemptId]);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>, forceLogin = false) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>, forceLogin = false, skipAttempt = false) => {
     event.preventDefault();
     setError(null);
     setIsLoading(true);
     setSessionConflict(null);
 
     try {
+      // First, check if we need to create a login attempt
+      if (!forceLogin && !skipAttempt) {
+        const attemptResponse = await fetch("/api/auth/attempt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: "pending", // Will be set properly after password check
+            email: "admin@slideshow.local",
+            browserId,
+            browserInfo: navigator.userAgent
+          }),
+        });
+        
+        const attemptData = await attemptResponse.json();
+        
+        if (attemptData.status === "pending") {
+          // Need to wait for approval
+          setAttemptId(attemptData.attemptId);
+          setWaitingForApproval(true);
+          setIsLoading(false);
+          return;
+        }
+        // If no conflict or same browser, continue with login
+      }
       const response = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -171,11 +233,33 @@ export default function LoginPage() {
               )}
               <button
                 type="submit"
-                disabled={!password || isLoading}
+                disabled={!password || isLoading || waitingForApproval}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 via-sky-400 to-blue-500 px-5 py-3 text-base font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 focus:ring-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isLoading ? "Signing in…" : "Sign in to dashboard"}
+                {waitingForApproval ? "Waiting for approval..." : 
+                 isLoading ? "Signing in…" : 
+                 "Sign in to dashboard"}
               </button>
+              
+              {waitingForApproval && (
+                <div className="rounded-xl border border-blue-400/40 bg-blue-500/10 px-4 py-3 text-white">
+                  <p className="text-[0.9rem] mb-2">
+                    A request has been sent to the active session. 
+                    Waiting for approval...
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWaitingForApproval(false);
+                      setAttemptId(null);
+                      setIsLoading(false);
+                    }}
+                    className="text-sm underline hover:no-underline"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>
