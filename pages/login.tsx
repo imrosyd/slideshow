@@ -61,30 +61,6 @@ export default function LoginPage() {
     setSessionConflict(null);
 
     try {
-      // First, check if we need to create a login attempt
-      if (!forceLogin && !skipAttempt) {
-        const attemptResponse = await fetch("/api/auth/attempt", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: "pending", // Will be set properly after password check
-            email: "admin@slideshow.local",
-            browserId,
-            browserInfo: navigator.userAgent
-          }),
-        });
-        
-        const attemptData = await attemptResponse.json();
-        
-        if (attemptData.status === "pending") {
-          // Need to wait for approval
-          setAttemptId(attemptData.attemptId);
-          setWaitingForApproval(true);
-          setIsLoading(false);
-          return;
-        }
-        // If no conflict or same browser, continue with login
-      }
       const response = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -92,11 +68,21 @@ export default function LoginPage() {
       });
 
       if (response.status === 409) {
-        // Session conflict detected
+        // Login needs approval
         const payload = await response.json();
-        setSessionConflict(payload);
-        setIsLoading(false);
-        return;
+        
+        if (payload.error === "pending_approval") {
+          // Need to wait for approval from active session
+          setAttemptId(payload.attemptId);
+          setWaitingForApproval(true);
+          setIsLoading(false);
+          return;
+        } else {
+          // Old session conflict (shouldn't happen now)
+          setSessionConflict(payload);
+          setIsLoading(false);
+          return;
+        }
       }
 
       if (!response.ok) {

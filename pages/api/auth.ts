@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAdminAuthCookieName, getExpectedAdminToken } from "../../lib/auth";
 import { getSupabaseServiceRoleClient } from "../../lib/supabase";
-import { createOrUpdateSession } from "../../lib/session-manager";
+import { createOrUpdateSession, getActiveSession } from "../../lib/session-manager";
 
 type SuccessResponse = {
   success: true;
@@ -14,6 +14,7 @@ type ErrorResponse = {
   error: string;
   details?: string;
   existingSession?: any;
+  attemptId?: string;
 };
 
 const buildCookieHeader = (token: string) => {
@@ -108,27 +109,48 @@ export default async function handler(
     // Use browser ID or generate a fallback
     const browserIdToUse = browserId || `server-${Date.now()}`;
     
-    // Create session (force new on initial login OR when explicitly requested)
-    // First login attempt should always clear other sessions (single device enforcement)
-    const isFirstAttempt = forceLogin !== true;
-    console.log(`[Auth] Creating session for ${user.email || adminEmail}, forceLogin: ${forceLogin}, isFirstAttempt: ${isFirstAttempt}`);
+    // Check if there's an active session from different browser FIRST
+    if (!forceLogin) {
+      const activeSession = await getActiveSession();
+      
+      if (activeSession && (activeSession as any).browser_id !== browserIdToUse) {
+        // Different browser detected - create login attempt
+        console.log(`[Auth] Different browser detected, creating login attempt`);
+        
+        const supabase = getSupabaseServiceRoleClient();
+        const { data: attempt, error: attemptError } = await supabase
+          .from("login_attempts" as any)
+          .insert({
+            user_id: user.id,
+            email: user.email || adminEmail,
+            browser_id: browserIdToUse,
+            browser_info: req.headers['user-agent'] || 'Unknown browser',
+            status: "pending",
+            expires_at: new Date(Date.now() + 2 * 60 * 1000).toISOString()
+          })
+          .select()
+          .single();
+        
+        if (!attemptError && attempt) {
+          return res.status(409).json({ 
+            error: "pending_approval",
+            attemptId: (attempt as any).id,
+            details: "Waiting for approval from the active session"
+          });
+        }
+      }
+    }
+    
+    // No conflict or forced login - create/update session
+    console.log(`[Auth] Creating session for ${user.email || adminEmail}, forceLogin: ${forceLogin}`);
     const sessionResult = await createOrUpdateSession(
       user.id,
       user.email || adminEmail,
       "admin",
       sessionId,
       browserIdToUse,
-      isFirstAttempt || forceLogin === true // Always force on first attempt to ensure single device
+      true // Always force to ensure single device
     );
-    
-    // Check for session conflict
-    if (sessionResult.conflict) {
-      return res.status(409).json({ 
-        error: "session_conflict",
-        details: "Another browser is currently logged in. Do you want to take over the session?",
-        existingSession: sessionResult.existingSession
-      });
-    }
     
     if (!sessionResult.success) {
       console.error("[Auth] Session creation failed:", sessionResult.message);
