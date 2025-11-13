@@ -12,7 +12,11 @@
 
 🌐 **Language:** 🇺🇸 English · [🇮🇩 Indonesian](README.id.md)
 
-**Last Updated:** November 13, 2025 · **Status:** Production ready
+**Last Updated:** November 13, 2025 · **Status:** ✅ Production Ready
+
+[![GitHub Release](https://img.shields.io/github/v/release/imrosyd/slideshow)](https://github.com/imrosyd/slideshow/releases)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/imrosyd/slideshow)
+[![Code Size](https://img.shields.io/github/languages/code-size/imrosyd/slideshow)](https://github.com/imrosyd/slideshow)
 
 ---
 
@@ -1119,11 +1123,60 @@ Contributions welcome! Please:
 
 ---
 
-## Changelog
+## Version History
 
-See [CHANGELOG.md](CHANGELOG.md) for version history.
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
-**Latest:** v2.5.0 - Filesystem Storage & Multiple Deployment Options
+### Latest Releases
+
+#### v2.5.0 (2025-11-13) - Current
+**Multiple Deployment Options & Code Cleanup**
+- ✅ 5 deployment options: Supabase, VPS, Docker, Shared Hosting, Local
+- ✅ Comprehensive README with all guides consolidated
+- ✅ Filesystem storage adapter with auto-fallback
+- ✅ Shared hosting support (cPanel Node.js)
+- ✅ Code cleanup: removed unused dependencies and obsolete features
+- ✅ Performance: smaller bundle, faster builds
+
+#### v2.4.0 (2025-11-13)
+**Prisma Integration & Database Flexibility**
+- Prisma ORM with auto-fallback to Supabase
+- Database abstraction layer
+- Type-safe operations
+- Support for any PostgreSQL database
+
+#### v2.3.0 (2025-11-12)
+**Authentication & Session Management**
+- Remote page authentication
+- Single concurrent session control
+- Browser fingerprinting
+- Smart session management
+
+#### v2.2.1 (2025-11-11)
+**Real-time Updates**
+- Auto-refresh gallery without page reload
+- Supabase Realtime integration
+
+### Migration Guide
+
+#### From v2.4.x to v2.5.0
+No breaking changes. Simply:
+1. `git pull origin main`
+2. `npm install` (some dependencies removed)
+3. `npx prisma generate` (if using Prisma)
+4. Done!
+
+#### From v2.3.x to v2.4.0
+Add to `.env`:
+```bash
+DATABASE_URL=postgresql://user:pass@host:5432/db  # Optional
+```
+Then:
+```bash
+npm install
+npx prisma generate
+npx prisma db push  # Only if using Prisma
+```
 
 ---
 

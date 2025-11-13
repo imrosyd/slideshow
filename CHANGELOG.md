@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Multiple Deployment Options & Comprehensive Documentation
 
-#### Added
+#### Added - Documentation & Deployment
 - **Filesystem Storage Adapter**: Self-hosted file storage option
   - Auto-fallback between Filesystem and Supabase Storage
   - API routes for serving images and videos from filesystem
@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supabase only (cloud)
   - VPS/Server (self-hosted with PM2 + Nginx)
   - Docker container deployment
+  - Shared hosting (cPanel with Node.js)
   - Local development options
 - **Comprehensive README**: All-in-one installation guide
   - Quick comparison table for deployment options
@@ -29,6 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Unified interface for all storage providers
   - Type-safe operations
   - Environment-based auto-detection
+- **Custom Server** (`server.js`)
+  - Support for cPanel Node.js App deployment
+  - Graceful shutdown handling
+  - Environment-aware configuration
+- **Shared Hosting Guide**: Complete cPanel deployment documentation
+  - MySQL database setup (alternative to PostgreSQL)
+  - Node.js App configuration
+  - .htaccess proxy setup
+  - Limitations and workarounds explained
 
 #### Changed
 - **Documentation Consolidation**: Merged all guides into README.md
@@ -36,18 +46,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Single source of truth for installation and configuration
   - Improved navigation with table of contents
 - **README.md**: Complete rewrite with deployment options
-  - Added deployment comparison matrix
+  - Added deployment comparison matrix (5 options)
   - Included code examples for all scenarios
   - Added maintenance commands and troubleshooting
+  - Shared hosting section with cPanel guide
+  - API documentation expanded
 - **Version**: Updated to 2.5.0 in package.json
+- **Dependencies**: Removed unused packages
+  - Removed `dotenv` (Next.js handles .env automatically)
+  - Removed `sharp` (not used in codebase)
+  - Total: -8 packages
 
-#### Removed
+#### Removed - Documentation
 - Obsolete documentation files (consolidated into README)
-  - DATABASE_SETUP.md
-  - DATABASE_FALLBACK.id.md
-  - DEPLOYMENT_NO_SUPABASE.md
-  - QUICKSTART_NO_SUPABASE.md
-  - VERSION_PLAN.md
+  - `DATABASE_SETUP.md`
+  - `DATABASE_FALLBACK.id.md`
+  - `DEPLOYMENT_NO_SUPABASE.md`
+  - `QUICKSTART_NO_SUPABASE.md`
+  - `VERSION_PLAN.md`
+- Supabase documentation (consolidated into README)
+  - `supabase/000_MIGRATION_ORDER.md`
+  - `supabase/README.md`
+  - Kept: `supabase/COMPLETE_MIGRATION.sql` (still useful)
+
+#### Removed - Code Cleanup
+- Disabled login approval feature (had bugs)
+  - `components/LoginAttemptDialog.tsx`
+  - `pages/api/auth/attempt.ts`
+  - `pages/api/auth/respond-attempt.ts`
+  - `pages/api/auth/check-attempts.ts`
+  - `pages/api/auth/attempt-status.ts`
+  - Cleaned code references in `pages/admin.tsx` and `pages/login.tsx`
+  - Database table `login_attempts` kept for potential future use
+
+#### Performance
+- Reduced bundle size: Login page 2.52 kB → 2.33 kB (-190 bytes)
+- Removed 1,106 lines of unused code
+- Reduced total source size by ~500 KB
+- Faster npm install (457 packages vs 465 packages)
+- Cleaner codebase with no dead code
 
 ---
 
