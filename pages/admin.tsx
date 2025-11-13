@@ -26,7 +26,7 @@ import { useImages } from "../hooks/useImages";
 import { useToast } from "../hooks/useToast";
 import { getBrowserId } from "../lib/browser-utils";
 import { getAdminAuthCookieName, getExpectedAdminToken } from "../lib/auth";
-// import { LoginAttemptDialog } from "../components/LoginAttemptDialog"; // DISABLED
+// Login approval feature removed in v2.5.0 cleanup
 
 const AdminContent = () => {
   // (Reserved) additional admin-only state

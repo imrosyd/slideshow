@@ -18,40 +18,10 @@ export default function LoginPage() {
     setBrowserId(getBrowserId());
   }, []);
   
-  // Poll for approval status when waiting
+  // Login approval polling removed in v2.5.0 cleanup
+  // Feature was disabled due to bugs - now using direct login only
   useEffect(() => {
-    if (!waitingForApproval || !attemptId) return;
-    
-    const checkInterval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/auth/attempt-status?attemptId=${attemptId}`);
-        const data = await response.json();
-        
-        if (data.status === "approved") {
-          // Approved! Proceed with login
-          setWaitingForApproval(false);
-          setAttemptId(null);
-          // Retry login with forceLogin flag
-          const form = document.querySelector('form');
-          if (form) {
-            const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
-            Object.defineProperty(submitEvent, 'preventDefault', { value: () => {} });
-            handleSubmit(submitEvent as any, true, true); // Skip attempt creation
-          }
-        } else if (data.status === "denied" || data.status === "expired") {
-          // Denied or expired
-          setWaitingForApproval(false);
-          setAttemptId(null);
-          setError(data.status === "denied" ? 
-            "Login denied by active session." : 
-            "Login attempt expired. Please try again.");
-        }
-      } catch (err) {
-        console.error("Error checking attempt status:", err);
-      }
-    }, 2000); // Check every 2 seconds
-    
-    return () => clearInterval(checkInterval);
+    // No-op: Login approval feature removed
   }, [waitingForApproval, attemptId]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>, forceLogin = false, skipAttempt = false) => {
