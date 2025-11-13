@@ -1,4 +1,4 @@
-import { getSupabaseServiceRoleClient } from "./supabase";
+import { db } from "./db";
 
 /**
  * Strict single-device session management
@@ -6,18 +6,17 @@ import { getSupabaseServiceRoleClient } from "./supabase";
  * New logins automatically logout all other sessions
  */
 
-const SESSION_TABLE = "active_sessions";
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
 
 export interface ActiveSession {
   id: string;
   user_id: string;
   email: string;
-  created_at: string;
-  last_seen: string;
+  created_at: string | Date;
+  last_seen: string | Date;
   page: "admin" | "remote";
   session_id: string; // Unique ID for each browser/tab
-  browser_id?: string; // Browser fingerprint to identify same browser
+  browser_id?: string | null; // Browser fingerprint to identify same browser
 }
 
 /**
@@ -25,21 +24,8 @@ export interface ActiveSession {
  */
 export async function hasActiveSession(): Promise<boolean> {
   try {
-    const supabase = getSupabaseServiceRoleClient();
-    
-    // Check if sessions table exists, if not return false (no sessions tracked)
-    const { data: sessions, error } = await supabase
-      .from(SESSION_TABLE as any)
-      .select("id")
-      .limit(1);
-    
-    if (error) {
-      // Table doesn't exist yet, no sessions
-      console.log("[Session] No sessions table, allowing access");
-      return false;
-    }
-    
-    return (sessions && sessions.length > 0);
+    const sessions = await db.getAllActiveSessions();
+    return sessions.length > 0;
   } catch (error) {
     console.error("[Session] Error checking active session:", error);
     return false; // Allow access on error
@@ -51,18 +37,8 @@ export async function hasActiveSession(): Promise<boolean> {
  */
 export async function getActiveSession(): Promise<ActiveSession | null> {
   try {
-    const supabase = getSupabaseServiceRoleClient();
-    
-    const { data, error } = await supabase
-      .from(SESSION_TABLE as any)
-      .select("*")
-      .single();
-    
-    if (error || !data) {
-      return null;
-    }
-    
-    return data as unknown as ActiveSession;
+    const sessions = await db.getAllActiveSessions();
+    return sessions.length > 0 ? sessions[0] : null;
   } catch (error) {
     console.error("[Session] Error getting active session:", error);
     return null;
@@ -83,24 +59,15 @@ export async function createOrUpdateSession(
   forceNew: boolean = false
 ): Promise<{ success: boolean; message?: string; conflict?: boolean; existingSession?: any }> {
   try {
-    const supabase = getSupabaseServiceRoleClient();
-    
     // Check if this exact session already exists
     if (!forceNew) {
-      const { data: existingSession, error: queryError } = await supabase
-        .from(SESSION_TABLE as any)
-        .select("*")
-        .eq("user_id", userId)
-        .eq("page", page)
-        .eq("session_id", sessionId)
-        .single();
+      const existingSession = await db.getActiveSessionBySessionId(sessionId);
       
-      if (!queryError && existingSession) {
+      if (existingSession && existingSession.user_id === userId && existingSession.page === page) {
         // Session already exists, just update last_seen
-        await supabase
-          .from(SESSION_TABLE as any)
-          .update({ last_seen: new Date().toISOString() })
-          .eq("id", (existingSession as any).id);
+        await db.updateActiveSession(existingSession.id, {
+          last_seen: new Date().toISOString(),
+        });
         
         console.log(`[Session] Updated existing session for ${email} on ${page}`);
         return { success: true };
@@ -110,20 +77,15 @@ export async function createOrUpdateSession(
     // If forcing new, clear ALL other sessions (strict single device)
     if (forceNew) {
       console.log(`[Session] Force new: Clearing ALL sessions for ${email}`);
-      await supabase
-        .from(SESSION_TABLE as any)
-        .delete()
-        .eq("user_id", userId);
+      await db.deleteActiveSession(userId);
     } else {
       // Not forcing - check for conflicts
-      const { data: existingSessions } = await supabase
-        .from(SESSION_TABLE as any)
-        .select("*")
-        .eq("user_id", userId);
+      const existingSessions = await db.getAllActiveSessions();
+      const userSessions = existingSessions.filter(s => s.user_id === userId);
       
       // Check if there's a session from a different browser
-      const differentBrowserSession = existingSessions?.find(
-        (s: any) => s.browser_id && s.browser_id !== browserId
+      const differentBrowserSession = userSessions.find(
+        s => s.browser_id && s.browser_id !== browserId
       );
       
       if (differentBrowserSession) {
@@ -138,29 +100,24 @@ export async function createOrUpdateSession(
       }
       
       // Same browser - clear sessions for same page from OTHER browsers
-      await supabase
-        .from(SESSION_TABLE as any)
-        .delete()
-        .eq("user_id", userId)
-        .eq("page", page)
-        .neq("browser_id", browserId);
+      const sessionsToDelete = userSessions.filter(
+        s => s.page === page && s.browser_id !== browserId
+      );
+      
+      for (const session of sessionsToDelete) {
+        await db.deleteActiveSession(session.user_id);
+      }
     }
     
     // Create new session with sessionId and browserId
-    const { error } = await supabase.from(SESSION_TABLE as any).insert({
+    await db.createActiveSession({
       user_id: userId,
       email: email,
-      created_at: new Date().toISOString(),
       last_seen: new Date().toISOString(),
       page: page,
       session_id: sessionId,
       browser_id: browserId,
     });
-    
-    if (error) {
-      console.error("[Session] Error creating session:", error);
-      return { success: false, message: "Failed to create session" };
-    }
     
     console.log(`[Session] Created new session for ${email} on ${page} with sessionId ${sessionId}`);
     return { success: true };
@@ -175,12 +132,12 @@ export async function createOrUpdateSession(
  */
 export async function updateLastSeen(userId: string): Promise<void> {
   try {
-    const supabase = getSupabaseServiceRoleClient();
-    
-    await supabase
-      .from(SESSION_TABLE as any)
-      .update({ last_seen: new Date().toISOString() })
-      .eq("user_id", userId);
+    const session = await db.getActiveSessionByUserId(userId);
+    if (session) {
+      await db.updateActiveSession(session.id, {
+        last_seen: new Date().toISOString(),
+      });
+    }
   } catch (error) {
     console.error("[Session] Error updating last seen:", error);
   }
@@ -191,13 +148,7 @@ export async function updateLastSeen(userId: string): Promise<void> {
  */
 export async function clearSession(userId: string): Promise<void> {
   try {
-    const supabase = getSupabaseServiceRoleClient();
-    
-    await supabase
-      .from(SESSION_TABLE as any)
-      .delete()
-      .eq("user_id", userId);
-    
+    await db.deleteActiveSession(userId);
     console.log("[Session] Cleared session for user:", userId);
   } catch (error) {
     console.error("[Session] Error clearing session:", error);
@@ -209,13 +160,7 @@ export async function clearSession(userId: string): Promise<void> {
  */
 export async function clearAllSessions(): Promise<void> {
   try {
-    const supabase = getSupabaseServiceRoleClient();
-    
-    await supabase
-      .from(SESSION_TABLE as any)
-      .delete()
-      .neq("id", "dummy"); // Delete all
-    
+    await db.deleteAllActiveSessions();
     console.log("[Session] Cleared all sessions");
   } catch (error) {
     console.error("[Session] Error clearing all sessions:", error);
@@ -227,15 +172,8 @@ export async function clearAllSessions(): Promise<void> {
  */
 export async function cleanupStaleSessions(): Promise<void> {
   try {
-    const supabase = getSupabaseServiceRoleClient();
-    
-    const cutoff = new Date(Date.now() - SESSION_TIMEOUT).toISOString();
-    
-    await supabase
-      .from(SESSION_TABLE as any)
-      .delete()
-      .lt("last_seen", cutoff);
-    
+    const cutoff = new Date(Date.now() - SESSION_TIMEOUT);
+    await db.deleteStaleActiveSessions(cutoff);
     console.log("[Session] Cleaned up stale sessions");
   } catch (error) {
     console.error("[Session] Error cleaning up stale sessions:", error);

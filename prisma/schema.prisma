@@ -1,0 +1,91 @@
+// Prisma schema for Slideshow App
+// This schema mirrors the Supabase database structure
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ImageDuration {
+  id              Int      @id @default(autoincrement())
+  filename        String   @unique
+  duration_ms     Int      @default(5000)
+  caption         String?
+  order_index     Int      @default(0)
+  hidden          Boolean  @default(false)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  
+  // Video metadata columns
+  video_url       String?
+  video_duration_ms Int?
+  video_status    String   @default("none") // none, processing, ready, error
+  is_video        Boolean  @default(false)
+
+  @@index([filename])
+  @@index([order_index])
+  @@index([hidden])
+  @@index([is_video])
+  @@map("image_durations")
+}
+
+model SlideshowSetting {
+  id         Int      @id @default(autoincrement())
+  key        String   @unique
+  value      String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([key])
+  @@map("slideshow_settings")
+}
+
+model ActiveSession {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  email      String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  last_seen  DateTime @default(now()) @db.Timestamptz(6)
+  page       String   // admin or remote
+  session_id String
+  browser_id String?
+
+  @@index([user_id])
+  @@index([last_seen])
+  @@index([session_id])
+  @@index([browser_id])
+  @@map("active_sessions")
+}
+
+model LoginAttempt {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String    @db.Uuid
+  email        String
+  browser_id   String
+  browser_info String?
+  status       String    @default("pending") // pending, approved, denied, expired
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  responded_at DateTime? @db.Timestamptz(6)
+  expires_at   DateTime  @default(dbgenerated("(NOW() + '00:02:00'::interval)")) @db.Timestamptz(6)
+
+  @@index([user_id])
+  @@index([status])
+  @@index([expires_at])
+  @@map("login_attempts")
+}
+
+model Profile {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email      String   @unique
+  role       String   @default("viewer") // admin or viewer
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([email])
+  @@index([role])
+  @@map("profiles")
+}

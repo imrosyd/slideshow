@@ -1,23 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getSupabaseServiceRoleClient } from "../../lib/supabase";
+import { db } from "../../lib/db";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const supabase = getSupabaseServiceRoleClient();
-
   if (req.method === "GET") {
     // Get settings from database
     try {
-      const { data, error } = await supabase
-        .from('slideshow_settings')
-        .select('*');
-
-      if (error) {
-        console.error("[Settings] Error fetching settings:", error);
-        return res.status(500).json({ error: "Failed to fetch settings" });
-      }
+      const data = await db.getSettings();
 
       // Convert array to object with camelCase keys for compatibility
       const settings: Record<string, any> = {
@@ -44,19 +35,20 @@ export default async function handler(
       };
 
       data?.forEach((row) => {
+        const value = row.value ?? '';
         // Map database keys to frontend keys
         if (row.key === 'transition_effect') {
-          settings.transitionEffect = row.value;
+          settings.transitionEffect = value;
         } else if (row.key === 'auto_refresh_interval') {
-          settings.autoRefreshInterval = parseInt(row.value, 10);
+          settings.autoRefreshInterval = parseInt(value, 10);
         } else if (row.key === 'default_duration') {
-          settings.defaultDuration = parseInt(row.value, 10);
+          settings.defaultDuration = parseInt(value, 10);
         } else if (row.key.startsWith('music_')) {
           // Pass through all music settings
-          settings[row.key] = row.value;
+          settings[row.key] = value;
         } else if (row.key.startsWith('video_')) {
           // Pass through video encoding settings as-is (snake_case)
-          settings[row.key] = row.value;
+          settings[row.key] = value;
         }
       });
 
@@ -92,14 +84,7 @@ export default async function handler(
 
       // Upsert each setting
       for (const update of updates) {
-        const { error } = await supabase
-          .from('slideshow_settings')
-          .upsert(update, { onConflict: 'key' });
-
-        if (error) {
-          console.error(`[Settings] Error updating ${update.key}:`, error);
-          return res.status(500).json({ error: `Failed to update ${update.key}` });
-        }
+        await db.upsertSetting(update.key, update.value);
       }
 
       return res.status(200).json({ success: true });

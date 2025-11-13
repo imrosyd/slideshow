@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
+import { db, getSupabaseServiceRoleClient } from "../../../lib/db";
 import { isAuthorizedAdminRequest } from "../../../lib/auth";
 
 type AdminImage = {
@@ -88,13 +88,8 @@ export default async function handler(
     }>();
     
     // Try to load from database (with fallback if migration not run yet)
-    const { data: dbMetadata, error: dbError } = await supabaseServiceRole
-      .from('image_durations')
-      .select('*');
-
-    if (dbError) {
-      console.error("[Admin Images] Database error:", dbError);
-    } else if (dbMetadata) {
+    try {
+      const dbMetadata = await db.getImageDurations();
       dbMetadata.forEach((row: any) => {
         metadataMap.set(row.filename, {
           duration_ms: row.duration_ms,
@@ -111,6 +106,8 @@ export default async function handler(
       if (metadataMap.size > 0) {
         console.log(`[Admin Images] Sample entry: ${Array.from(metadataMap.entries())[0]?.[0]} hidden=${Array.from(metadataMap.entries())[0]?.[1]?.hidden}`);
       }
+    } catch (dbError) {
+      console.error("[Admin Images] Database error:", dbError);
     }
 
     // List files from storage

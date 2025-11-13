@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
+import { db, supabase, getSupabaseServiceRoleClient } from "../../../lib/db";
 import { isAuthorizedAdminRequest } from "../../../lib/auth";
 
 type MetadataPayload = {
@@ -24,8 +24,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!isAuthorizedAdminRequest(req)) {
     return res.status(401).json({ error: "Akses ditolak." });
   }
-
-  const supabase = getSupabaseServiceRoleClient();
 
   if (req.method === "PUT") {
     try {
@@ -64,23 +62,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: true, count: 0 });
       }
 
-      const { error: upsertError } = await supabase
-        .from('image_durations')
-        .upsert(upsertPayload, {
-          onConflict: 'filename',
-        });
-
-      if (upsertError) {
-        console.error(`[Metadata] Failed to upsert batch:`, upsertError);
-        return res.status(500).json({ error: upsertError.message });
-      }
+      await db.upsertImageDurations(upsertPayload);
 
       console.log(`[Metadata] Upserted ${upsertPayload.length} records successfully`);
       
       // Broadcast image metadata changes to refresh galleries
       try {
-        const supabase = getSupabaseServiceRoleClient();
-        const channel = supabase.channel('image-metadata-updates');
+        const supabaseClient = getSupabaseServiceRoleClient();
+        const channel = supabaseClient.channel('image-metadata-updates');
         await channel.send({
           type: 'broadcast',
           event: 'image-updated',

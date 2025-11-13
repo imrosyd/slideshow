@@ -1,26 +1,18 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
+import { db } from "../../../lib/db";
 import { isAuthorizedAdminRequest } from "../../../lib/auth";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const supabase = getSupabaseServiceRoleClient();
 
   // GET - Read settings
   if (req.method === "GET") {
     try {
-      const { data, error } = await supabase
-        .from('slideshow_settings')
-        .select('*');
-
-      if (error) {
-        console.error("[Settings API] Error fetching settings:", error);
-        return res.status(500).json({ error: "Failed to fetch settings" });
-      }
+      const data = await db.getSettings();
 
       // Convert array to object
       const settings: Record<string, string> = {};
       data?.forEach((row) => {
-        settings[row.key] = row.value;
+        settings[row.key] = row.value ?? '';
       });
 
       // Set defaults if not found
@@ -49,19 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: "Invalid payload" });
       }
 
-      const { error } = await supabase
-        .from('slideshow_settings')
-        .upsert({
-          key,
-          value,
-        }, {
-          onConflict: 'key',
-        });
-
-      if (error) {
-        console.error(`[Settings API] Error upserting ${key}:`, error);
-        return res.status(500).json({ error: `Failed to save setting: ${key}` });
-      }
+      await db.upsertSetting(key, value);
 
       console.log(`[Settings API] Saved ${key} = ${value}`);
       return res.status(200).json({ success: true });
