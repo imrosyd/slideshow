@@ -1,263 +1,949 @@
 # 📺 Slideshow Display System
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
+[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
-[![Supabase](https://img.shields.io/badge/Supabase-Storage%20%26%20DB-green)](https://supabase.com/)
+[![Prisma](https://img.shields.io/badge/Prisma-6.19-2D3748)](https://www.prisma.io/)
+[![Supabase](https://img.shields.io/badge/Supabase-Optional-green)](https://supabase.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-> All-in-one digital signage dashboard for TV displays with Supabase storage, manual image/PDF → MP4 conversion, and webOS keep-awake optimizations.
+> Flexible digital signage system with multiple deployment options: Supabase, VPS, Docker, or localhost. Supports both cloud and self-hosted configurations.
 
 🌐 **Language:** 🇺🇸 English · [🇮🇩 Indonesian](README.id.md)
 
-**Last Updated:** November 9, 2025 · **Status:** Production ready
+**Last Updated:** November 13, 2025 · **Status:** Production ready
+
+---
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Deployment Options](#deployment-options)
+  - [Quick Comparison](#quick-comparison)
+  - [1. Supabase Only (Cloud)](#1-supabase-only-cloud)
+  - [2. VPS/Server (Self-Hosted)](#2-vpsserver-self-hosted)
+  - [3. Docker (Container)](#3-docker-container)
+  - [4. Local Development](#4-local-development)
+- [Configuration](#configuration)
+- [Usage Guide](#usage-guide)
+- [API Documentation](#api-documentation)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [Changelog](#changelog)
+- [License](#license)
 
 ---
 
 ## Overview
-Slideshow is a Next.js 14 + TypeScript application for managing always-on TV content. Admins upload images or PDFs, fine-tune durations, captions, and order, then trigger one-click FFmpeg conversion to MP4 so displays can play buttery-smooth loops on LG webOS or any modern screen.
 
-## Feature Highlights
+Slideshow is a Next.js 14 + TypeScript application for managing always-on TV content. Features include:
 
-### 🎨 Admin Dashboard (`/admin`)
-**Upload & Management**
-- Drag-and-drop uploads (JPG, PNG, GIF, PDF) directly to Supabase Storage
-- PDF-to-images conversion with preview before upload
-- Bulk upload support with progress tracking
-- Search and filter images by filename
-- Real-time upload status with individual task tracking
-
-**Image Organization**
-- Drag-and-drop reordering with visual feedback
-- Hide/show images from slideshow without deletion
-- Rename files with extension preservation
-- Delete single or multiple images (bulk delete)
-- Individual image metadata editing (caption, duration)
-
-**Video Generation**
-- Manual per-image MP4 generation with FFmpeg
-- Merge multiple images (min. 1 image) into single dashboard video
-- Custom duration per image in merged videos
-- Video preview and management
-- Delete generated videos while keeping source images
-- Progress indicator for video processing
-
-**Bulk Operations**
-- Bulk edit dialog for batch metadata updates
-- Bulk delete with confirmation
-- Apply same duration/caption to multiple images
-- Quick visibility toggle for multiple items
-
-**Maintenance Tools**
-- Force refresh slideshow display remotely
-- Cleanup corrupt videos automatically
-- Remove orphaned files from storage
-- Database consistency checks
-- Quick stats dashboard (total images, storage size, video count)
-
-**UI/UX Features**
-- Glassmorphism design with backdrop blur effects
-- Responsive layout for desktop and tablet
-- Fullscreen image preview on click
-- Thumbnail generation for fast loading
-- Dark theme with gradient accents
-- Toast notifications for all actions
-
-### 📺 Display Player (`/`)
-**Playback Features**
-- Fullscreen slideshow optimized for TV displays
-- Smooth transitions between images/videos
-- Auto-advance based on configured durations
-- Preload buffer for seamless playback
-- Retry logic for failed media loads
-- Auto-refresh every 60 seconds for new content
-
-**Display Management**
-- Keep display awake (Wake Lock API + webOS Power Manager)
-- Prevent TV sleep with synthetic movement
-- WebOS-specific optimizations
-- Fullscreen mode with keyboard shortcuts
-- Video format support (MP4, WebM)
-
-**Gallery Features**
-- Auto-hide bottom gallery bar (appears on mouse proximity)
-- 150px trigger zone with smooth animations
-- Grid layout with image thumbnails
-- Premium badge with gradient
-- Click images for fullscreen preview
-- Glassmorphism card design
-
-**Keyboard Controls**
-- `Space` / `P` - Play/Pause
-- `→` / `N` - Next slide
-- `←` / `B` - Previous slide
-- `F` - Toggle fullscreen
-- `Escape` - Exit fullscreen/preview
-
-### 📱 Remote Control (`/remote`)
-**Mobile Interface**
-- Touch-optimized controls for smartphones/tablets
-- Large, easy-to-tap buttons
-- Real-time sync with display via Supabase Realtime
-- QR code access from admin dashboard
-
-**Control Features**
-- Play/Pause toggle
-- Next/Previous navigation
-- Current slide information display
-- Connection status indicator
-- Responsive design for all screen sizes
-
-**Realtime Communication**
-- Bi-directional WebSocket sync
-- Instant command propagation
-- Status updates from display
-- Heartbeat channel for reliable connection
-- Auto-reconnect on disconnect
-
-### 🔒 Security & Reliability
-**Authentication**
-- Password-protected admin access
-- HTTP-only cookie sessions
-- Token-based API authorization
-- Server-side validation
-
-**Database Security**
-- Supabase Row Level Security (RLS) policies
-- Service role for admin operations only
-- Anon key for public read access
-- Tested RLS policies (`test-rls.html`)
-
-**Error Handling**
-- Graceful degradation on failures
-- Automatic retry for transient errors
-- Corrupt video detection and cleanup
-- Orphaned file cleanup
-- Comprehensive error logging
-
-### ⚙️ Technical Features
-**Performance**
-- Optimized FFmpeg encoding (H.264, yuv420p)
-- Sharp for thumbnail generation
-- Image preloading for smooth transitions
-- Lazy loading for admin components
-- Resource hints for faster loading
-
-**Monitoring**
-- Upload task tracking
-- Video generation progress
-- Storage usage statistics
-- Active image count
-- Real-time status updates
-
-## Architecture & Stack
-- **Frontend:** Next.js 14, React 18, Tailwind CSS, glassmorphism UI
-- **Backend:** Next.js API Routes + Supabase (PostgreSQL, Storage, Realtime)
-- **Media Processing:** FFmpeg via `@ffmpeg-installer/ffmpeg`
-- **Deployment:** Vercel-ready (works locally or self-hosted Node.js)
-
-## Getting Started
-### Prerequisites
-- Node.js 18+
-- npm or yarn
-- Supabase project (URL, anon key, service role key)
-
-### Installation
-```bash
-git clone https://github.com/imrosyd/slideshow.git
-cd slideshow
-npm install
-
-cp .env.example .env.local
-# edit .env.local with your Supabase credentials (see table below)
-
-npm run dev        # http://localhost:3000 (fallback 3001)
-# npm run build && npm start for production
-```
-
-## Environment Variables
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `ADMIN_PASSWORD` | ✅ | Password for `/admin` login (stored server-side) |
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL (safe for client) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anon key (client) |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Service role key (server-only operations) |
-| `SUPABASE_STORAGE_BUCKET` | ⬜️ | Custom storage bucket name (default `slideshow-images`) |
-| `SUPABASE_DURATIONS_TABLE` | ⬜️ | Custom table name for durations (default `image_durations`) |
-
-## Supabase Setup
-1. **Storage buckets:** `slideshow-images` (media/PDF) and `slideshow-videos` (generated MP4).
-2. **SQL migrations:** run the files in `supabase/` sequentially (`001`–`004`) to create tables, settings, metadata, and enable RLS.
-3. **Storage policies:** allow public `SELECT` for both buckets; allow full access for service role.
-4. **Test RLS:** open `test-rls.html`, input Supabase URL & anon key, click *Initialize* → *Run All Tests* and ensure every check passes.
-
-## Usage
-- `/` — fullscreen slideshow player (optimized for TV/webOS)
-- `/admin` — authenticated dashboard for upload, metadata editing, and video generation
-- `/remote` — mobile-friendly remote control with realtime sync
-
-## Advanced Video Encoding (optional)
-Configure values in `slideshow_settings` to tweak FFmpeg without redeploying:
-
-| Key | Default | Notes |
-|-----|---------|-------|
-| `video_crf` | `22` | Quality (lower = better quality, larger file) |
-| `video_preset` | `veryfast` | Encoding speed (`ultrafast` … `veryslow`) |
-| `video_profile` | `high` | H.264 profile (`baseline`, `main`, `high`) |
-| `video_level` | `4.0` | H.264 level (3.1, 4.0, 4.2, …) |
-| `video_fps` | `24` | Frames per second |
-| `video_gop` | `48` | Keyframe interval (defaults to 2 × fps) |
-| `video_width` | `1920` | Output width (keeps aspect via scale+pad) |
-| `video_height` | `1080` | Output height (keeps aspect via scale+pad) |
-
-## Available Scripts
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start the Next.js dev server |
-| `npm run build` | Build production assets |
-| `npm start` | Run the production server |
-| `npm run lint` | Run ESLint + TypeScript checks |
-
-## Troubleshooting
-**Playback & UI**
-
-| Issue | Fix |
-|-------|-----|
-| TV screen sleeps/blank | Ensure MP4 is H.264 + yuv420p (defaults already), verify keep-awake logs, maintain stable connection |
-| Video will not start on webOS | Confirm duration ≥2s, inspect with `ffmpeg -i file.mp4`, check console for webOS detection |
-| Fullscreen warnings | Browser requires a user gesture — click or tap once |
-| Realtime warnings | Fixed since v1.3 using `httpSend()`; safe to ignore on latest build |
-
-**Database & RLS**
-
-| Issue | Fix |
-|-------|-----|
-| Policies not applied | Re-run `004_enable_row_level_security.sql`, confirm RLS toggled on, use `test-rls.html` |
-| Service role upload error | Double-check `SUPABASE_SERVICE_ROLE_KEY`; never expose it to client code |
-
-## Recent Updates (v2.2.0)
-- **Video Resume Bug Fixed**: Videos now properly resume from pause position when closing image overlay instead of restarting
-- **Consistent Browser Tab Title**: Main page now displays "Slideshow" in browser tab across all states
-- **Project Cleanup**: Removed unused debug scripts and cache files (~530KB cleanup) for cleaner codebase
-- **Smart Video Position Tracking**: Added advanced position tracking using refs for smooth pause/resume functionality
-
-## Previous Updates (v2.1.0)
-- **Merge to Video Enhancement**: Reduced minimum images from 2 to 1 for single-image video conversion
-- Glassmorphism UI design with auto-hide gallery and fullscreen preview
-- Individual MP4 per image with manual trigger (no more batch generation)
-- Enhanced bulk operations with bulk edit dialog and search/filter
-- PDF-to-images conversion support
-- Force refresh and cleanup tools for maintenance
-- Double-transition bug fixed with preload timeout fallback
-- Enhanced keep-awake + smooth transitions for webOS TVs
-- Comprehensive security with tested RLS policies
-
-## Changelog, License, Author
-- Full history: [CHANGELOG.md](CHANGELOG.md)
-- License: [MIT](LICENSE)
-- Author: **Imron** ([@imrosyd](https://github.com/imrosyd))
+- **Flexible Database**: Prisma + PostgreSQL with automatic Supabase fallback
+- **Multiple Storage Options**: Supabase Storage, Filesystem, or S3-compatible
+- **Video Processing**: FFmpeg-powered image-to-MP4 conversion
+- **Remote Control**: Mobile-friendly control interface
+- **WebOS Optimized**: Keep-awake features for LG TV displays
 
 ---
 
-Made with ❤️ for unstoppable slideshow dashboards.
+## Features
+
+### 🎨 Admin Dashboard (`/admin`)
+
+**Upload & Management**
+- Drag-and-drop uploads (JPG, PNG, GIF, PDF)
+- PDF-to-images conversion with preview
+- Bulk upload with progress tracking
+- Search and filter images
+- Real-time upload status
+
+**Image Organization**
+- Drag-and-drop reordering
+- Hide/show images without deletion
+- Rename files with extension preservation
+- Bulk operations (edit, delete)
+- Individual metadata editing
+
+**Video Generation**
+- Per-image MP4 generation with FFmpeg
+- Merge multiple images into single video
+- Custom duration per image
+- Video preview and management
+- Progress indicators
+
+**Maintenance Tools**
+- Force refresh displays remotely
+- Cleanup corrupt videos
+- Database consistency checks
+- Storage statistics
+
+### 📺 Display Player (`/`)
+
+**Playback Features**
+- Fullscreen slideshow for TV displays
+- Smooth transitions
+- Auto-advance with configurable durations
+- Preload buffer for seamless playback
+- Auto-refresh every 60 seconds
+
+**Display Management**
+- Keep display awake (Wake Lock API + webOS)
+- Prevent TV sleep
+- WebOS-specific optimizations
+- Keyboard shortcuts
+
+**Keyboard Controls**
+- `Space`/`P` - Play/Pause
+- `→`/`N` - Next slide
+- `←`/`B` - Previous slide
+- `F` - Toggle fullscreen
+- `Esc` - Exit fullscreen
+
+### 📱 Remote Control (`/remote`)
+
+- Touch-optimized mobile interface
+- Play/Pause, Next/Previous controls
+- Real-time sync with display
+- Authentication required
+
+---
+
+## Tech Stack
+
+### Core
+- **Framework**: Next.js 14 (React 18, TypeScript 5.3)
+- **Database**: Prisma 6.19 + PostgreSQL
+- **Storage**: Supabase Storage / Filesystem / S3
+- **Styling**: Tailwind CSS 3.4, Glassmorphism UI
+
+### Media Processing
+- **Video**: FFmpeg (via @ffmpeg-installer)
+- **Images**: Sharp (resize, optimize)
+- **PDF**: pdf-lib + pdfjs-dist
+
+### Deployment
+- **Serverless**: Vercel / Netlify
+- **Self-Hosted**: VPS (PM2 + Nginx)
+- **Container**: Docker + Docker Compose
+- **Database**: PostgreSQL / Supabase / Neon.tech / Railway
+
+---
+
+## Deployment Options
+
+### Quick Comparison
+
+| Option | Setup Time | Cost/Month | Best For | Control |
+|--------|------------|------------|----------|---------|
+| **Supabase Only** | 5 min | $0-25 | Quick start, prototype | Low |
+| **VPS** | 20 min | $5-20 | Production, full control | High |
+| **Docker** | 10 min | $5-20 | Portability, easy scaling | Medium |
+| **Local** | 5 min | $0 | Development, testing | High |
+
+---
+
+### 1. Supabase Only (Cloud)
+
+**Best for:** Quick deployment, no server management
+
+#### Prerequisites
+- Supabase account (free tier available)
+- Vercel account (optional, for hosting)
+
+#### Step 1: Setup Supabase
+
+```bash
+# 1. Create Supabase project at https://supabase.com
+# 2. Go to Project Settings → Database → Connection String
+# 3. Run SQL migration in SQL Editor:
+```
+
+```sql
+-- Run this in Supabase SQL Editor
+-- Create tables
+CREATE TABLE IF NOT EXISTS image_durations (
+  id SERIAL PRIMARY KEY,
+  filename TEXT NOT NULL UNIQUE,
+  duration_ms INTEGER DEFAULT 5000,
+  caption TEXT,
+  order_index INTEGER DEFAULT 0,
+  hidden BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  video_url TEXT,
+  video_duration_ms INTEGER,
+  video_status TEXT DEFAULT 'none',
+  is_video BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS slideshow_settings (
+  id SERIAL PRIMARY KEY,
+  key TEXT NOT NULL UNIQUE,
+  value TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS active_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  email TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_seen TIMESTAMPTZ DEFAULT NOW(),
+  page TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  browser_id TEXT
+);
+
+-- Insert default settings
+INSERT INTO slideshow_settings (key, value) VALUES 
+  ('transition_type', 'fade'),
+  ('transition_duration', '1000')
+ON CONFLICT (key) DO NOTHING;
+```
+
+#### Step 2: Setup Storage
+
+```bash
+# In Supabase Dashboard:
+# 1. Go to Storage → Create bucket "slideshow-images"
+# 2. Create bucket "slideshow-videos"
+# 3. Make both buckets public (Settings → Public bucket)
+```
+
+#### Step 3: Deploy Application
+
+**Option A: Vercel (Recommended)**
+
+```bash
+# Clone repository
+git clone https://github.com/your-repo/slideshow.git
+cd slideshow
+
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
+
+# Add environment variables in Vercel Dashboard:
+```
+
+```env
+# Supabase credentials
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
+SUPABASE_SERVICE_ROLE_KEY=eyJxxx...
+SUPABASE_STORAGE_BUCKET=slideshow-images
+
+# Admin password
+ADMIN_PASSWORD=your_secure_password
+```
+
+**Option B: Local with Supabase**
+
+```bash
+# Clone and install
+git clone https://github.com/your-repo/slideshow.git
+cd slideshow
+npm install
+
+# Create .env.local
+cat > .env.local << EOF
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
+SUPABASE_SERVICE_ROLE_KEY=eyJxxx...
+SUPABASE_STORAGE_BUCKET=slideshow-images
+ADMIN_PASSWORD=your_password
+EOF
+
+# Run
+npm run dev
+```
+
+✅ **Done!** Access at http://localhost:3000
+
+---
+
+### 2. VPS/Server (Self-Hosted)
+
+**Best for:** Production, full control, no vendor lock-in
+
+#### Prerequisites
+- Ubuntu 20.04+ / Debian 11+ server
+- Root or sudo access
+- Domain name (optional)
+
+#### Step 1: Install Dependencies
+
+```bash
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Install PostgreSQL
+sudo apt install -y postgresql postgresql-contrib
+
+# Install PM2 (process manager)
+sudo npm install -g pm2
+
+# Install Nginx (web server)
+sudo apt install -y nginx
+
+# Install Certbot (SSL)
+sudo apt install -y certbot python3-certbot-nginx
+```
+
+#### Step 2: Setup PostgreSQL
+
+```bash
+# Start PostgreSQL
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+# Create database and user
+sudo -u postgres psql << EOF
+CREATE DATABASE slideshow_db;
+CREATE USER slideshow_user WITH PASSWORD 'your_secure_password';
+GRANT ALL PRIVILEGES ON DATABASE slideshow_db TO slideshow_user;
+\q
+EOF
+```
+
+#### Step 3: Deploy Application
+
+```bash
+# Clone application
+cd /var/www
+sudo git clone https://github.com/your-repo/slideshow.git
+cd slideshow
+
+# Install dependencies
+sudo npm install --production
+sudo npx prisma generate
+
+# Create production environment
+sudo nano .env.production
+```
+
+```env
+# Database (Prisma)
+DATABASE_URL=postgresql://slideshow_user:your_password@localhost:5432/slideshow_db
+
+# Storage (Filesystem)
+USE_FILESYSTEM_STORAGE=true
+STORAGE_PATH=/var/www/slideshow/storage
+STORAGE_PUBLIC_URL=/api/storage
+
+# Admin
+ADMIN_PASSWORD=your_secure_password
+
+# App
+NODE_ENV=production
+PORT=3000
+```
+
+```bash
+# Setup database schema
+sudo npx prisma db push
+
+# Build application
+sudo npm run build
+
+# Create storage directory
+sudo mkdir -p storage/images storage/videos
+sudo chown -R www-data:www-data storage
+
+# Start with PM2
+pm2 start npm --name slideshow -- start
+pm2 save
+pm2 startup
+```
+
+#### Step 4: Configure Nginx
+
+```bash
+sudo nano /etc/nginx/sites-available/slideshow
+```
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;  # Change this
+
+    client_max_body_size 100M;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # Optional: Serve storage files directly (better performance)
+    location /storage/ {
+        alias /var/www/slideshow/storage/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+```
+
+```bash
+# Enable site
+sudo ln -s /etc/nginx/sites-available/slideshow /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+
+# Setup SSL (optional but recommended)
+sudo certbot --nginx -d your-domain.com
+
+# Allow firewall
+sudo ufw allow 'Nginx Full'
+```
+
+✅ **Done!** Access at https://your-domain.com
+
+#### Maintenance Commands
+
+```bash
+# View logs
+pm2 logs slideshow
+
+# Restart application
+pm2 restart slideshow
+
+# Update application
+cd /var/www/slideshow
+git pull
+npm install
+npx prisma generate
+npm run build
+pm2 restart slideshow
+
+# Backup database
+pg_dump -U slideshow_user slideshow_db > backup.sql
+
+# Restore database
+psql -U slideshow_user slideshow_db < backup.sql
+```
+
+---
+
+### 3. Docker (Container)
+
+**Best for:** Portability, easy deployment, consistent environment
+
+#### Prerequisites
+- Docker 20.10+
+- Docker Compose 2.0+
+
+#### Step 1: Create Configuration Files
+
+**docker-compose.yml**
+```yaml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: slideshow-postgres
+    environment:
+      POSTGRES_DB: slideshow_db
+      POSTGRES_USER: slideshow_user
+      POSTGRES_PASSWORD: your_secure_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - slideshow-network
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: slideshow-app
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://slideshow_user:your_secure_password@postgres:5432/slideshow_db
+      ADMIN_PASSWORD: your_admin_password
+      USE_FILESYSTEM_STORAGE: "true"
+      STORAGE_PATH: /app/storage
+      NODE_ENV: production
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      - postgres
+    networks:
+      - slideshow-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  slideshow-network:
+```
+
+**Dockerfile**
+```dockerfile
+FROM node:20-alpine AS base
+
+# Install dependencies for Sharp and FFmpeg
+RUN apk add --no-cache libc6-compat ffmpeg
+
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy application
+COPY . .
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Build application
+RUN npm run build
+
+# Create storage directory
+RUN mkdir -p storage/images storage/videos
+
+EXPOSE 3000
+
+# Start command
+CMD ["sh", "-c", "npx prisma db push --skip-generate && npm start"]
+```
+
+**.dockerignore**
+```
+node_modules
+.next
+.git
+.env*
+storage
+*.md
+```
+
+#### Step 2: Deploy
+
+```bash
+# Clone repository
+git clone https://github.com/your-repo/slideshow.git
+cd slideshow
+
+# Start containers
+docker-compose up -d
+
+# View logs
+docker-compose logs -f app
+
+# Stop containers
+docker-compose down
+
+# Update application
+git pull
+docker-compose up -d --build
+```
+
+✅ **Done!** Access at http://localhost:3000
+
+#### Docker Management
+
+```bash
+# View running containers
+docker ps
+
+# Access app shell
+docker exec -it slideshow-app sh
+
+# View logs
+docker logs slideshow-app
+
+# Backup database
+docker exec slideshow-postgres pg_dump -U slideshow_user slideshow_db > backup.sql
+
+# Restart services
+docker-compose restart
+```
+
+---
+
+### 4. Local Development
+
+**Best for:** Development, testing, learning
+
+#### Prerequisites
+- Node.js 20+
+- PostgreSQL 14+ (or Docker)
+
+#### Option A: With Local PostgreSQL
+
+```bash
+# Install PostgreSQL
+# Ubuntu/Debian:
+sudo apt install postgresql
+
+# macOS:
+brew install postgresql@16
+brew services start postgresql@16
+
+# Windows:
+# Download from https://www.postgresql.org/download/windows/
+
+# Create database
+createdb slideshow_db
+
+# Clone repository
+git clone https://github.com/your-repo/slideshow.git
+cd slideshow
+npm install
+
+# Create .env.local
+cat > .env.local << EOF
+DATABASE_URL=postgresql://postgres:password@localhost:5432/slideshow_db
+ADMIN_PASSWORD=admin123
+USE_FILESYSTEM_STORAGE=true
+STORAGE_PATH=./storage
+STORAGE_PUBLIC_URL=/api/storage
+EOF
+
+# Setup database
+npx prisma generate
+npx prisma db push
+
+# Run development server
+npm run dev
+```
+
+#### Option B: With Docker PostgreSQL
+
+```bash
+# Start PostgreSQL in Docker
+docker run -d --name postgres \
+  -e POSTGRES_DB=slideshow_db \
+  -e POSTGRES_PASSWORD=password \
+  -p 5432:5432 \
+  postgres:16-alpine
+
+# Clone and setup
+git clone https://github.com/your-repo/slideshow.git
+cd slideshow
+npm install
+
+# Create .env.local (same as above)
+# Run
+npm run dev
+```
+
+#### Option C: With Supabase (Hybrid)
+
+Use Supabase for database but run locally:
+
+```bash
+# Create Supabase project at https://supabase.com
+# Get connection string from Project Settings → Database
+
+# Clone and setup
+git clone https://github.com/your-repo/slideshow.git
+cd slideshow
+npm install
+
+# Create .env.local with Supabase credentials
+cat > .env.local << EOF
+# Option 1: Use Supabase Database directly
+DATABASE_URL=postgresql://postgres:[password]@db.[project].supabase.co:5432/postgres
+
+# Option 2: Use Supabase SDK (original method)
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
+SUPABASE_SERVICE_ROLE_KEY=eyJxxx...
+SUPABASE_STORAGE_BUCKET=slideshow-images
+
+ADMIN_PASSWORD=admin123
+EOF
+
+# Setup and run
+npx prisma generate
+npx prisma db push  # Only if using DATABASE_URL
+npm run dev
+```
+
+✅ **Done!** Access at http://localhost:3000
+
+---
+
+## Configuration
+
+### Environment Variables
+
+#### Required
+
+```env
+# Authentication
+ADMIN_PASSWORD=your_secure_password
+
+# Choose ONE database option:
+
+# Option 1: Prisma + PostgreSQL (Recommended)
+DATABASE_URL=postgresql://user:password@host:5432/database
+
+# Option 2: Supabase SDK (Original)
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
+SUPABASE_SERVICE_ROLE_KEY=eyJxxx...
+SUPABASE_STORAGE_BUCKET=slideshow-images
+```
+
+#### Storage Options
+
+```env
+# Option 1: Filesystem (Self-hosted)
+USE_FILESYSTEM_STORAGE=true
+STORAGE_PATH=/path/to/storage
+STORAGE_PUBLIC_URL=/api/storage
+
+# Option 2: Supabase Storage (Cloud)
+# (Use Supabase credentials above)
+
+# Option 3: S3-Compatible (Future)
+# S3_ENDPOINT=https://...
+# S3_BUCKET_NAME=slideshow
+# S3_ACCESS_KEY_ID=xxx
+# S3_SECRET_ACCESS_KEY=xxx
+```
+
+#### Optional
+
+```env
+NODE_ENV=production
+PORT=3000
+```
+
+### Database Priority
+
+The application automatically detects which database to use:
+
+1. **Prisma** (if `DATABASE_URL` is set) → Uses Prisma Client
+2. **Supabase** (fallback) → Uses Supabase SDK
+
+### Storage Priority
+
+1. **Filesystem** (if `USE_FILESYSTEM_STORAGE=true`)
+2. **Supabase Storage** (fallback)
+
+---
+
+## Usage Guide
+
+### Admin Dashboard
+
+1. **Login**: Navigate to `/admin` and enter password
+2. **Upload Images**: Drag files or click upload button
+3. **Organize**: Drag to reorder, toggle visibility
+4. **Edit Metadata**: Click edit icon to change duration/caption
+5. **Generate Video**: Select images → Click "Merge to Video"
+6. **Force Refresh**: Update displays remotely
+
+### Display Setup
+
+1. Open browser on TV: `https://your-domain.com`
+2. Slideshow starts automatically
+3. Press `F` for fullscreen
+4. TV keeps awake automatically (webOS)
+
+### Remote Control
+
+1. Open on mobile: `https://your-domain.com/remote`
+2. Login with admin password
+3. Control slideshow remotely
+
+---
+
+## API Documentation
+
+### Authentication
+
+```bash
+POST /api/auth
+Content-Type: application/json
+
+{
+  "password": "your_password"
+}
+
+Response: { "authenticated": true, "userId": "..." }
+```
+
+### Upload Image
+
+```bash
+POST /api/upload
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+file: <image_file>
+
+Response: { "success": true, "filename": "image.jpg" }
+```
+
+### Get Images
+
+```bash
+GET /api/admin/images
+Authorization: Bearer <token>
+
+Response: {
+  "images": [
+    {
+      "name": "image.jpg",
+      "durationMs": 5000,
+      "caption": "Caption",
+      "hidden": false
+    }
+  ]
+}
+```
+
+### Update Metadata
+
+```bash
+PUT /api/admin/metadata
+Authorization: Bearer <token>
+Content-Type: application/json
+
+[
+  {
+    "filename": "image.jpg",
+    "durationMs": 8000,
+    "caption": "New caption",
+    "hidden": false
+  }
+]
+
+Response: { "success": true, "count": 1 }
+```
+
+---
+
+## Troubleshooting
+
+### Database Connection Issues
+
+```bash
+# Test connection
+psql "postgresql://user:pass@host:5432/database"
+
+# Check Prisma
+npx prisma studio
+
+# Reset database
+npx prisma db push --force-reset
+```
+
+### Storage Issues
+
+```bash
+# Check permissions (Linux)
+sudo chown -R www-data:www-data storage
+chmod -R 755 storage
+
+# Create directories
+mkdir -p storage/images storage/videos
+```
+
+### Port Already in Use
+
+```bash
+# Find process
+lsof -i :3000
+
+# Kill process
+kill -9 <PID>
+
+# Use different port
+PORT=3001 npm start
+```
+
+### Build Errors
+
+```bash
+# Clear cache
+rm -rf .next node_modules package-lock.json
+
+# Reinstall
+npm install
+
+# Regenerate Prisma
+npx prisma generate
+```
+
+### FFmpeg Issues
+
+```bash
+# Check FFmpeg
+ffmpeg -version
+
+# Install (Ubuntu)
+sudo apt install ffmpeg
+
+# Install (macOS)
+brew install ffmpeg
+```
+
+---
+
+## Contributing
+
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing`)
+5. Open Pull Request
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
+
+**Latest:** v2.5.0 - Filesystem Storage & Multiple Deployment Options
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/imrosyd/slideshow/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/imrosyd/slideshow/discussions)
+- **Email**: support@yourdomain.com
+
+---
+
+## Acknowledgments
+
+- Next.js team for amazing framework
+- Supabase for cloud infrastructure
+- FFmpeg for video processing
+- Prisma for database toolkit
+
+---
+
+**Made with ❤️ by imrosyd**

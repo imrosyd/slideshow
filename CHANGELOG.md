@@ -5,6 +5,154 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2025-11-13
+
+### 🚀 Multiple Deployment Options & Comprehensive Documentation
+
+#### Added
+- **Filesystem Storage Adapter**: Self-hosted file storage option
+  - Auto-fallback between Filesystem and Supabase Storage
+  - API routes for serving images and videos from filesystem
+  - Support for range requests (video streaming)
+  - Security measures (directory traversal prevention)
+- **Deployment Flexibility**: Support for multiple hosting environments
+  - Supabase only (cloud)
+  - VPS/Server (self-hosted with PM2 + Nginx)
+  - Docker container deployment
+  - Local development options
+- **Comprehensive README**: All-in-one installation guide
+  - Quick comparison table for deployment options
+  - Step-by-step guides for each environment
+  - Configuration examples for all scenarios
+  - Troubleshooting section
+- **Storage Abstraction Layer** (`lib/storage-adapter.ts`)
+  - Unified interface for all storage providers
+  - Type-safe operations
+  - Environment-based auto-detection
+
+#### Changed
+- **Documentation Consolidation**: Merged all guides into README.md
+  - Removed separate documentation files (except CHANGELOG.md)
+  - Single source of truth for installation and configuration
+  - Improved navigation with table of contents
+- **README.md**: Complete rewrite with deployment options
+  - Added deployment comparison matrix
+  - Included code examples for all scenarios
+  - Added maintenance commands and troubleshooting
+- **Version**: Updated to 2.5.0 in package.json
+
+#### Removed
+- Obsolete documentation files (consolidated into README)
+  - DATABASE_SETUP.md
+  - DATABASE_FALLBACK.id.md
+  - DEPLOYMENT_NO_SUPABASE.md
+  - QUICKSTART_NO_SUPABASE.md
+  - VERSION_PLAN.md
+
+---
+
+## [2.4.0] - 2025-11-13
+
+### 🗄️ Prisma Integration & Database Flexibility
+
+#### Added
+- **Prisma Database Adapter**: Type-safe database operations
+  - Automatic fallback from Prisma to Supabase
+  - Full TypeScript support with Prisma Client
+  - Database abstraction layer (`lib/db.ts`)
+  - Support for any PostgreSQL database
+- **Prisma Schema** (`prisma/schema.prisma`)
+  - Mirror of Supabase database structure
+  - Type-safe queries and mutations
+  - Auto-generated TypeScript types
+- **Database Abstraction Layer** (`lib/db.ts`)
+  - Unified interface for database operations
+  - Auto-detection: DATABASE_URL → Prisma, no URL → Supabase
+  - Zero data loss migration path
+  - Backward compatible with existing Supabase setup
+
+#### Changed
+- **API Endpoints**: Migrated to use database abstraction
+  - `/api/admin/settings` - Settings operations
+  - `/api/admin/metadata` - Image metadata
+  - `/api/admin/images` - Image listing
+  - `/api/settings` - Public settings
+- **Session Manager** (`lib/session-manager.ts`)
+  - Now uses database abstraction layer
+  - Compatible with both Prisma and Supabase
+- **Dependencies**: Added Prisma packages
+  - `@prisma/client` v6.19.0
+  - `prisma` v6.19.0
+
+#### Fixed
+- Type safety issues with null values in Prisma
+- Session management type compatibility
+- Settings value handling (null to empty string)
+
+---
+
+## [2.3.0] - 2025-11-12
+
+### 🔐 Authentication & Session Management
+
+#### Added
+- **Remote Page Authentication**: Login required for remote control
+  - Password-based authentication
+  - Session persistence
+  - Auto-redirect after login
+- **Single Concurrent Session Control**: Enforce one device at a time
+  - Automatic logout of other sessions on new login
+  - Browser fingerprinting for session identification
+  - Session heartbeat for keep-alive
+  - Periodic session validation
+- **Smart Session Management**: Browser-aware sessions
+  - Multiple tabs on same browser allowed
+  - Different browsers trigger session conflict
+  - Session expiry after 24 hours of inactivity
+- **Login Approval Flow** (disabled by default)
+  - Approval dialog in active session
+  - Timeout for pending approvals
+  - Configurable via environment
+
+#### Changed
+- **Admin Integration**: Admin page now requires authentication
+  - Consistent auth flow across all protected pages
+  - Session-based access control
+  - Improved security model
+- **Remote UI**: Enhanced login flow
+  - Better error messages
+  - Redirect preservation
+  - Session status indicators
+
+#### Fixed
+- Login loop issues on remote page
+- Session query error handling
+- Strict single device enforcement
+- Browser_id column migration
+
+#### Security
+- Enforced auth validation on all protected endpoints
+- Separate session IDs for admin and remote pages
+- Session cleanup for expired entries
+
+---
+
+## [2.2.1] - 2025-11-11
+
+### 📡 Real-time Updates
+
+#### Added
+- **Real-time Image Gallery Updates**: Auto-refresh without page reload
+  - Supabase Realtime broadcast on image metadata changes
+  - Client-side subscription for instant updates
+  - Seamless UX for multi-user scenarios
+
+#### Changed
+- Gallery images now update automatically on admin changes
+- No manual refresh needed when images are uploaded/modified
+
+---
+
 ## [2.2.0] - 2025-11-09
 
 ### 🧹 Maintenance & Polish
