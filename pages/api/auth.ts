@@ -63,6 +63,17 @@ export default async function handler(
     // Create/login Supabase user for admin
     const supabase = getSupabaseServiceRoleClient();
     
+    // If Supabase is not configured, return success without authentication
+    if (!supabase) {
+      console.warn('[Auth] Supabase not configured - auth disabled');
+      return res.status(200).json({
+        success: true,
+        token: "no-auth-token",
+        supabaseToken: "no-auth-token",
+        sessionId: "default-session",
+      });
+    }
+    
     // Try to sign in or create user
     let authResult = await supabase.auth.signInWithPassword({
       email: adminEmail,

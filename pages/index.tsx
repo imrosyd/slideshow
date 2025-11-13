@@ -682,9 +682,10 @@ export default function Home() {
 
   // Send initial status when slides are loaded
   useEffect(() => {
-    if (slides.length > 0) {
+    if (slides.length > 0 && supabase) {
       console.log('📡 Slides loaded, broadcasting initial status');
-      const channel = supabase.channel('remote-control-status-init');
+      const supabaseClient = supabase; // Store reference for callback
+      const channel = supabaseClient.channel('remote-control-status-init');
       channel.send({
         type: 'broadcast',
         event: 'slideshow-status',
@@ -696,10 +697,10 @@ export default function Home() {
         }
       }, { httpSend: true }).then(() => {
         console.log('✅ Initial status sent');
-        supabase.removeChannel(channel);
+        supabaseClient.removeChannel(channel);
       }).catch((err) => {
         console.error('❌ Failed to send initial status:', err);
-        supabase.removeChannel(channel);
+        supabaseClient.removeChannel(channel);
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -742,15 +743,18 @@ export default function Home() {
     setIsOverlayVisible(false);
     setSelectedImage(null); // Remove immediately for faster response
     
-    // Notify remote that image overlay is closed
-    const channel = supabase.channel('remote-control-notifications');
-    channel.send({
-      type: 'broadcast',
-      event: 'image-closed',
-      payload: { timestamp: Date.now() }
-    }, { httpSend: true }).then(() => {
-      supabase.removeChannel(channel);
-    });
+    // Notify remote that image overlay is closed (only if Supabase configured)
+    if (supabase) {
+      const supabaseClient = supabase; // Store reference for callback
+      const channel = supabaseClient.channel('remote-control-notifications');
+      channel.send({
+        type: 'broadcast',
+        event: 'image-closed',
+        payload: { timestamp: Date.now() }
+      }, { httpSend: true }).then(() => {
+        supabaseClient.removeChannel(channel);
+      });
+    }
     
     // Resume slideshow immediately without delay
     if (!wasPaused) {
@@ -815,9 +819,12 @@ export default function Home() {
     };
   }, [selectedImage]);
 
-  // Supabase realtime listener for metadata changes
+  // Supabase realtime listener for metadata changes (only if Supabase configured)
   useEffect(() => {
-    const channel = supabase
+    if (!supabase) return; // Skip if Supabase not configured
+    
+    const supabaseClient = supabase; // Store reference for cleanup
+    const channel = supabaseClient
       .channel("image-metadata-watch")
       .on(
         "postgres_changes",
@@ -831,16 +838,19 @@ export default function Home() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabaseClient.removeChannel(channel);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Additional listener specifically for video updates
+  // Additional listener specifically for video updates (only if Supabase configured)
   useEffect(() => {
+    if (!supabase) return; // Skip if Supabase not configured
+    
     // Use a unique channel ID to avoid conflicts
     const channelName = `video-updates-${Date.now()}`;
-    const channel = supabase
+    const supabaseClient = supabase; // Store reference for cleanup
+    const channel = supabaseClient
       .channel(channelName)
       .on("broadcast", { event: 'video-updated' }, (payload) => {
         console.log(`📹 Video update received on channel ${channelName}:`, payload);
@@ -896,7 +906,7 @@ export default function Home() {
     
     return () => {
       console.log(`📡 Cleaning up video updates channel ${channelName}`);
-      supabase.removeChannel(channel);
+      supabaseClient.removeChannel(channel);
       
       // Clean up fast refresh timer
       if (fastRefreshTimer) {
@@ -959,8 +969,11 @@ export default function Home() {
 
   // Additional listener for image metadata updates
   useEffect(() => {
+    if (!supabase) return; // Skip if Supabase not configured
+    
     const channelName = `image-updates-${Date.now()}`;
-    const channel = supabase
+    const supabaseClient = supabase; // Store reference for cleanup
+    const channel = supabaseClient
       .channel(channelName)
       .on("broadcast", { event: 'image-updated' }, (payload) => {
         console.log(`🖼️ Image update received on channel ${channelName}:`, payload);
@@ -977,7 +990,7 @@ export default function Home() {
     
     return () => {
       console.log(`🖼️ Cleaning up image updates channel ${channelName}`);
-      supabase.removeChannel(channel);
+      supabaseClient.removeChannel(channel);
     };
   }, [fetchAdminImages]);
 
@@ -1024,14 +1037,21 @@ export default function Home() {
       setTimeout(checkDashboardStatus, 500); // Small delay to allow API to update
     };
     
-    // Listen for force-refresh events
-    const forceRefreshChannel = supabase.channel('slideshow-control');
-    forceRefreshChannel.on('broadcast', { event: 'force-refresh' }, handleForceRefresh);
-    forceRefreshChannel.subscribe();
+    // Listen for force-refresh events (only if Supabase configured)
+    if (supabase) {
+      const supabaseClient = supabase; // Store reference for cleanup
+      const forceRefreshChannel = supabaseClient.channel('slideshow-control');
+      forceRefreshChannel.on('broadcast', { event: 'force-refresh' }, handleForceRefresh);
+      forceRefreshChannel.subscribe();
+      
+      return () => {
+        clearInterval(interval);
+        supabaseClient.removeChannel(forceRefreshChannel);
+      };
+    }
     
     return () => {
       clearInterval(interval);
-      supabase.removeChannel(forceRefreshChannel);
     };
   }, [slides.length, currentSlide?.videoUrl, fetchSlides]); // Include dependencies
 

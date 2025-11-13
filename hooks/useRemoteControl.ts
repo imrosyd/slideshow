@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { getSocket } from '../lib/socketio';
 
 interface UseRemoteControlProps {
   slides: any[];
@@ -33,6 +34,12 @@ export function useRemoteControl({
   
   // Listen for remote control commands
   useEffect(() => {
+    // Skip if Supabase is not configured
+    if (!supabase) {
+      console.log('⚠️ Supabase not configured - remote control disabled');
+      return;
+    }
+    
     console.log('🔌 Setting up remote control listener');
     
     const remoteChannel = supabase
@@ -103,13 +110,16 @@ export function useRemoteControl({
 
     return () => {
       console.log('🔌 Removing remote control channel');
-      supabase.removeChannel(remoteChannel);
+      if (supabase) {
+        supabase.removeChannel(remoteChannel);
+      }
     };
   }, [slides, currentIndex, isPaused, goToNext, goToPrevious, goToSlide, togglePause, fetchSlides]);
 
   // Broadcast status updates when state changes
   useEffect(() => {
-    if (slides.length === 0) return; // Don't broadcast if no slides
+    // Skip if Supabase is not configured or no slides
+    if (!supabase || slides.length === 0) return;
     
     console.log('📡 Broadcasting status update');
     
@@ -129,16 +139,21 @@ export function useRemoteControl({
     });
 
     return () => {
-      supabase.removeChannel(remoteChannel);
+      if (supabase) {
+        supabase.removeChannel(remoteChannel);
+      }
     };
   }, [slides.length, currentIndex, isPaused]);
   
   // Periodic status broadcast (every 5 seconds) to ensure remote stays connected
   useEffect(() => {
-    if (slides.length === 0) return;
+    // Skip if Supabase is not configured or no slides
+    if (!supabase || slides.length === 0) return;
     
     const interval = setInterval(() => {
       console.log('⏰ Periodic status broadcast');
+      
+      if (!supabase) return;
       
       const channel = supabase.channel('remote-control-heartbeat');
       channel.send({
@@ -151,9 +166,9 @@ export function useRemoteControl({
           paused: isPaused,
         }
       }, { httpSend: true }).then(() => {
-        supabase.removeChannel(channel);
+        if (supabase) supabase.removeChannel(channel);
       }).catch(() => {
-        supabase.removeChannel(channel);
+        if (supabase) supabase.removeChannel(channel);
       });
     }, 5000); // Every 5 seconds
     

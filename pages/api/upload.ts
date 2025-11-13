@@ -4,6 +4,7 @@ import type { File as FormidableFile, Files, Fields } from "formidable";
 import { promises as fs } from "fs";
 import { getSupabaseServiceRoleClient } from "../../lib/supabase";
 import { isAuthorizedAdminRequest } from "../../lib/auth";
+import { db } from "../../lib/db";
 
 const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
 
@@ -52,6 +53,12 @@ const uploadSingleFile = async (file: FormidableFile, bucket: string) => {
 
   const sanitizedFilename = sanitizeFilename(originalFilename);
   const supabaseServiceRole = getSupabaseServiceRoleClient();
+  
+  if (!supabaseServiceRole) {
+    console.warn('[Upload] Supabase not configured');
+    throw new Error('Storage not configured');
+  }
+  
   const fileBuffer = await fs.readFile(file.filepath); // Read file into memory to avoid Node fetch duplex issues
   const { error } = await supabaseServiceRole.storage
     .from(bucket)
@@ -196,16 +203,20 @@ const handleDeleteRequest = async (
     // Step 1: Delete images from storage (may not exist for merged video placeholders)
     let deletedCount = 0;
     try {
-      const { data, error: deleteError } = await supabaseServiceRole.storage
-        .from(SUPABASE_STORAGE_BUCKET)
-        .remove(sanitizedFilenames);
-
-      if (deleteError) {
-        console.warn("Warning deleting files from storage (this is OK for merged videos):", deleteError);
-        // Don't fail the request - continue to delete metadata
+      if (!supabaseServiceRole) {
+        console.warn('[Delete] Supabase not configured - skipping storage delete');
       } else {
-        deletedCount = data?.length || 0;
-        console.log(`[Delete] Successfully deleted ${deletedCount} files from storage`);
+        const { data, error: deleteError } = await supabaseServiceRole.storage
+          .from(SUPABASE_STORAGE_BUCKET)
+          .remove(sanitizedFilenames);
+
+        if (deleteError) {
+          console.warn("Warning deleting files from storage (this is OK for merged videos):", deleteError);
+          // Don't fail the request - continue to delete metadata
+        } else {
+          deletedCount = data?.length || 0;
+          console.log(`[Delete] Successfully deleted ${deletedCount} files from storage`);
+        }
       }
     } catch (storageError) {
       console.warn("Storage deletion error (continuing with metadata):", storageError);
@@ -222,42 +233,48 @@ const handleDeleteRequest = async (
 
     // Try to delete videos (don't fail if they don't exist)
     try {
-      await supabaseServiceRole.storage
-        .from('slideshow-videos')
-        .remove(videoFilenames);
+      if (supabaseServiceRole) {
+        await supabaseServiceRole.storage
+          .from('slideshow-videos')
+          .remove(videoFilenames);
+      }
     } catch (videoError) {
       console.log('No videos to delete or error deleting videos:', videoError);
     }
 
     // Step 3: Check if any of these items have associated videos and delete them too
     try {
-      const { data: videoList } = await supabaseServiceRole.storage
-        .from('slideshow-videos')
-        .list('', { limit: 1000 });
+      if (!supabaseServiceRole) {
+        console.warn('[Delete] Supabase not configured - skipping video list check');
+      } else {
+        const { data: videoList } = await supabaseServiceRole.storage
+          .from('slideshow-videos')
+          .list('', { limit: 1000 });
 
-      if (videoList) {
-        const associatedVideosToDelete: string[] = [];
-        
-        sanitizedFilenames.forEach(filename => {
-          // Convert image name to expected video name
-          const videoName = filename.replace(/\.[^/.]+$/, '.mp4');
+        if (videoList) {
+          const associatedVideosToDelete: string[] = [];
           
-          if (videoList.some(v => v.name === videoName)) {
-            associatedVideosToDelete.push(videoName);
-          }
-        });
+          sanitizedFilenames.forEach(filename => {
+            // Convert image name to expected video name
+            const videoName = filename.replace(/\.[^/.]+$/, '.mp4');
+            
+            if (videoList.some(v => v.name === videoName)) {
+              associatedVideosToDelete.push(videoName);
+            }
+          });
 
-        if (associatedVideosToDelete.length > 0) {
-          console.log(`[Delete] Found ${associatedVideosToDelete.length} associated videos to delete`);
-          
-          const { error: videoDeleteError } = await supabaseServiceRole.storage
-            .from('slideshow-videos')
-            .remove(associatedVideosToDelete);
+          if (associatedVideosToDelete.length > 0) {
+            console.log(`[Delete] Found ${associatedVideosToDelete.length} associated videos to delete`);
+            
+            const { error: videoDeleteError } = await supabaseServiceRole.storage
+              .from('slideshow-videos')
+              .remove(associatedVideosToDelete);
 
-          if (videoDeleteError) {
-            console.warn('Warning deleting associated videos:', videoDeleteError);
-          } else {
-            console.log(`[Delete] ✅ Deleted ${associatedVideosToDelete.length} associated videos`);
+            if (videoDeleteError) {
+              console.warn('Warning deleting associated videos:', videoDeleteError);
+            } else {
+              console.log(`[Delete] ✅ Deleted ${associatedVideosToDelete.length} associated videos`);
+            }
           }
         }
       }
@@ -265,43 +282,24 @@ const handleDeleteRequest = async (
       console.warn('Error checking for associated videos:', videoCheckError);
     }
 
-    // Step 4: Delete metadata from database
+    // Step 4: Delete metadata from database using db adapter
     try {
-      const { error: dbError } = await supabaseServiceRole
-        .from('image_durations')
-        .delete()
-        .in('filename', sanitizedFilenames);
-
-      if (dbError) {
-        console.error('Error deleting metadata from database:', dbError);
-        // Don't fail the request, just log the error
+      for (const filename of sanitizedFilenames) {
+        try {
+          await db.deleteImageDuration(filename);
+        } catch (err) {
+          console.warn(`Failed to delete metadata for ${filename}:`, err);
+        }
       }
+      console.log(`[Delete] Successfully deleted metadata for ${sanitizedFilenames.length} files`);
     } catch (dbError) {
       console.error('Error deleting from database:', dbError);
     }
 
-    // Check if metadata was actually deleted
-    let metadataDeleted = false;
-    try {
-      const { data: checkData } = await supabaseServiceRole
-        .from('image_durations')
-        .select('filename')
-        .in('filename', sanitizedFilenames);
-      
-      metadataDeleted = !checkData || checkData.length === 0;
-    } catch (checkError) {
-      console.warn('Error checking metadata deletion:', checkError);
-    }
-
-    // Broadcast image deletion to refresh galleries
-    if (deletedCount > 0 || metadataDeleted) {
+    // Broadcast image deletion to refresh galleries (only if Supabase is configured)
+    if (deletedCount > 0 && supabaseServiceRole) {
       try {
-        const { createClient } = require('@supabase/supabase-js');
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
-        const channel = supabase.channel('image-metadata-updates');
+        const channel = supabaseServiceRole.channel('image-metadata-updates');
         await channel.send({
           type: 'broadcast',
           event: 'image-updated',
@@ -318,14 +316,10 @@ const handleDeleteRequest = async (
     }
 
     let message = '';
-    if (deletedCount > 0 && metadataDeleted) {
-      message = `${deletedCount} file berhasil dihapus dari Supabase dan metadata.`;
-    } else if (deletedCount > 0) {
-      message = `${deletedCount} file berhasil dihapus dari Supabase.`;
-    } else if (metadataDeleted) {
-      message = `Metadata berhasil dihapus untuk ${sanitizedFilenames.length} item tanpa file.`;
+    if (deletedCount > 0) {
+      message = `${deletedCount} file dan metadata berhasil dihapus.`;
     } else {
-      message = `File atau metadata tidak ditemukan.`;
+      message = `${sanitizedFilenames.length} file dan metadata berhasil dihapus.`;
     }
 
     res.status(200).json({ message, filenames: sanitizedFilenames });

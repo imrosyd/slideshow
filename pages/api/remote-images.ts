@@ -17,6 +17,11 @@ export default async function handler(
   try {
     const supabaseServiceRole = getSupabaseServiceRoleClient();
     
+    if (!supabaseServiceRole) {
+      console.warn('[Remote Images] Supabase not configured');
+      return res.status(200).json({ images: [] });
+    }
+    
     // Fetch metadata with specific fields only to reduce data transfer
     const { data: allDbMetadata, error: dbError } = await supabaseServiceRole
       .from("image_durations")

@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -17,8 +17,8 @@ model ImageDuration {
   caption         String?
   order_index     Int      @default(0)
   hidden          Boolean  @default(false)
-  created_at      DateTime @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @default(now()) @updatedAt
   
   // Video metadata columns
   video_url       String?
@@ -37,19 +37,19 @@ model SlideshowSetting {
   id         Int      @id @default(autoincrement())
   key        String   @unique
   value      String?
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
 
   @@index([key])
   @@map("slideshow_settings")
 }
 
 model ActiveSession {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id    String   @db.Uuid
+  id         String   @id @default(uuid())
+  user_id    String
   email      String
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  last_seen  DateTime @default(now()) @db.Timestamptz(6)
+  created_at DateTime @default(now())
+  last_seen  DateTime @default(now())
   page       String   // admin or remote
   session_id String
   browser_id String?
@@ -62,15 +62,15 @@ model ActiveSession {
 }
 
 model LoginAttempt {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id      String    @db.Uuid
+  id           String    @id @default(uuid())
+  user_id      String
   email        String
   browser_id   String
   browser_info String?
   status       String    @default("pending") // pending, approved, denied, expired
-  created_at   DateTime  @default(now()) @db.Timestamptz(6)
-  responded_at DateTime? @db.Timestamptz(6)
-  expires_at   DateTime  @default(dbgenerated("(NOW() + '00:02:00'::interval)")) @db.Timestamptz(6)
+  created_at   DateTime  @default(now())
+  responded_at DateTime?
+  expires_at   DateTime
 
   @@index([user_id])
   @@index([status])
@@ -79,11 +79,11 @@ model LoginAttempt {
 }
 
 model Profile {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id         String   @id @default(uuid())
   email      String   @unique
   role       String   @default("viewer") // admin or viewer
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
 
   @@index([email])
   @@index([role])

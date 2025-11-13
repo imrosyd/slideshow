@@ -693,25 +693,36 @@ class SupabaseAdapter implements DatabaseAdapter {
 
 // Auto-detect and create appropriate adapter
 function createDatabaseAdapter(): DatabaseAdapter {
-  // Try Prisma first if DATABASE_URL is set
-  if (process.env.DATABASE_URL) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const databaseUrl = process.env.DATABASE_URL;
+
+  // If no Supabase config, automatically use Prisma
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.log('[DB] Supabase not configured, using Prisma adapter');
+    
+    // Use default SQLite if no DATABASE_URL provided
+    if (!databaseUrl) {
+      console.log('[DB] No DATABASE_URL found, using SQLite (file:./prisma/dev.db)');
+      process.env.DATABASE_URL = 'file:./prisma/dev.db';
+    }
+    
+    const prisma = new PrismaClient();
+    return new PrismaAdapter(prisma);
+  }
+
+  // Try Prisma first if DATABASE_URL is set (preferred)
+  if (databaseUrl) {
     try {
       const prisma = new PrismaClient();
-      console.log('[DB] Using Prisma adapter');
+      console.log('[DB] Using Prisma adapter with custom DATABASE_URL');
       return new PrismaAdapter(prisma);
     } catch (error) {
       console.warn('[DB] Prisma initialization failed, falling back to Supabase:', error);
     }
   }
 
-  // Fallback to Supabase
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('No database configured. Set DATABASE_URL for Prisma or Supabase credentials.');
-  }
-
+  // Fallback to Supabase if configured
   const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
     auth: { persistSession: false },
   });

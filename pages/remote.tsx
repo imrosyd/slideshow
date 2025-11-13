@@ -35,7 +35,7 @@ export default function RemoteControl() {
         const supabaseToken = sessionStorage.getItem("supabase-token");
         let accessToken: string | null = null;
 
-        if (supabaseToken) {
+        if (supabaseToken && supabase) {
           // Verify token is still valid
           const { data: { user }, error } = await supabase.auth.getUser(supabaseToken);
           if (!error && user) {
@@ -48,8 +48,8 @@ export default function RemoteControl() {
           }
         }
 
-        // If no valid token from sessionStorage, check Supabase session
-        if (!accessToken) {
+        // If no valid token from sessionStorage, check Supabase session (only if Supabase configured)
+        if (!accessToken && supabase) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
             accessToken = session.access_token;
@@ -193,11 +193,13 @@ export default function RemoteControl() {
 
   // Remote control logic (only runs if authenticated)
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !supabase) return;
     console.log('📱 Setting up remote control channels');
     
+    const supabaseClient = supabase; // Store reference for cleanup
+    
     // Subscribe to slideshow status on ALL channels
-    const commandChannel = supabase
+    const commandChannel = supabaseClient
       .channel('remote-control')
       .on('broadcast', { event: 'slideshow-status' }, (payload) => {
         console.log('Status update (command channel):', payload);
@@ -223,7 +225,7 @@ export default function RemoteControl() {
       })
       .subscribe();
 
-    const statusChannel = supabase
+    const statusChannel = supabaseClient
       .channel('remote-control-status')
       .on('broadcast', { event: 'slideshow-status' }, (payload) => {
         console.log('Status update (status channel):', payload);
@@ -237,7 +239,7 @@ export default function RemoteControl() {
       })
       .subscribe();
 
-    const heartbeatChannel = supabase
+    const heartbeatChannel = supabaseClient
       .channel('remote-control-heartbeat')
       .on('broadcast', { event: 'slideshow-status' }, (payload) => {
         console.log('Status update (heartbeat channel):', payload);
@@ -283,10 +285,10 @@ export default function RemoteControl() {
 
     return () => {
       clearInterval(statusInterval);
-      supabase.removeChannel(commandChannel);
-      supabase.removeChannel(statusChannel);
-      supabase.removeChannel(heartbeatChannel);
-      supabase.removeChannel(notificationChannel);
+      supabaseClient.removeChannel(commandChannel);
+      supabaseClient.removeChannel(statusChannel);
+      supabaseClient.removeChannel(heartbeatChannel);
+      supabaseClient.removeChannel(notificationChannel);
     };
   }, [isAuthenticated]);
 
@@ -463,7 +465,9 @@ export default function RemoteControl() {
               </div>
               <button
                 onClick={() => {
-                  supabase.auth.signOut();
+                  if (supabase) {
+                    supabase.auth.signOut();
+                  }
                   router.push('/admin');
                 }}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 via-rose-400 to-red-500 px-5 py-3 text-base font-semibold text-white transition hover:shadow-lg hover:shadow-rose-500/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 focus:ring-rose-400 active:scale-95"

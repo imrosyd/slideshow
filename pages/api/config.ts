@@ -33,7 +33,12 @@ export default async function handler(
 
   if (req.method === "GET") {
     try {
-      const supabaseServiceRole: SupabaseClient<Database> = getSupabaseServiceRoleClient(); // Explicitly type here
+      const supabaseServiceRole = getSupabaseServiceRoleClient();
+      
+      if (!supabaseServiceRole) {
+        console.warn('[Config] Supabase not configured - returning empty config');
+        return res.status(200).json({});
+      }
       const { data, error } = await supabaseServiceRole
         .from(SUPABASE_DURATIONS_TABLE as 'image_durations')
         .select("filename, duration_ms");
@@ -73,7 +78,12 @@ export default async function handler(
   if (req.method === "POST") {
     try {
       const newConfig: Config = req.body;
-      const supabaseServiceRole: SupabaseClient<Database> = getSupabaseServiceRoleClient(); // Explicitly type here
+      const supabaseServiceRole = getSupabaseServiceRoleClient();
+      
+      if (!supabaseServiceRole) {
+        console.warn('[Config] Supabase not configured - cannot save settings');
+        return res.status(500).json({ error: 'Supabase not configured' });
+      }
 
       // Clear existing durations - select all first, then delete
       const { data: allRows } = await supabaseServiceRole

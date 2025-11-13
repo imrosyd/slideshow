@@ -69,16 +69,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Broadcast image metadata changes to refresh galleries
       try {
         const supabaseClient = getSupabaseServiceRoleClient();
-        const channel = supabaseClient.channel('image-metadata-updates');
-        await channel.send({
-          type: 'broadcast',
-          event: 'image-updated',
-          payload: {
-            updatedAt: new Date().toISOString(),
-            totalCount: upsertPayload.length
-          }
-        }, { httpSend: true });
-        console.log(`[Metadata] Broadcast: Updated ${upsertPayload.length} images`);
+        if (supabaseClient) {
+          const channel = supabaseClient.channel('image-metadata-updates');
+          await channel.send({
+            type: 'broadcast',
+            event: 'image-updated',
+            payload: {
+              updatedAt: new Date().toISOString(),
+              totalCount: upsertPayload.length
+            }
+          }, { httpSend: true });
+          console.log(`[Metadata] Broadcast: Updated ${upsertPayload.length} images`);
+        }
       } catch (broadcastError) {
         console.warn('[Metadata] Failed to broadcast image update:', broadcastError);
       }

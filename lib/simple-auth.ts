@@ -20,6 +20,17 @@ export async function verifyAuth(
 
   try {
     const supabase = getSupabaseServiceRoleClient();
+    
+    // If Supabase is not configured, skip authentication
+    if (!supabase) {
+      console.warn('[Auth] Supabase not configured - authentication disabled');
+      return {
+        authenticated: true,
+        userId: 'default-user',
+        email: 'admin@localhost',
+      };
+    }
+    
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {

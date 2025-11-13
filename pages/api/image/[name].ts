@@ -40,13 +40,16 @@ export default async function handler(
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     try {
-      const { data: { user }, error: authError } = await getSupabaseServiceRoleClient().auth.getUser(
-        authHeader.replace('Bearer ', '')
-      );
+      const supabaseClient = getSupabaseServiceRoleClient();
+      if (supabaseClient) {
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
+          authHeader.replace('Bearer ', '')
+        );
       
-      if (!authError && user) {
-        isAuthenticated = true;
-        userId = user.id;
+        if (!authError && user) {
+          isAuthenticated = true;
+          userId = user.id;
+        }
       }
     } catch (error) {
       // Auth failed - continue as anonymous with rate limiting
@@ -74,6 +77,12 @@ export default async function handler(
   try {
     // Get file metadata for bandwidth estimation
     const supabaseServiceRole = getSupabaseServiceRoleClient();
+    
+    if (!supabaseServiceRole) {
+      console.warn('[Image API] Supabase not configured - cannot serve images');
+      return res.status(500).json({ error: 'Storage not configured' });
+    }
+    
     const { data: fileMetadata } = await supabaseServiceRole.storage
       .from(SUPABASE_STORAGE_BUCKET)
       .list('', { search: name });

@@ -59,6 +59,11 @@ export default async function handler(
   try {
     const supabaseServiceRole = getSupabaseServiceRoleClient();
 
+    if (!supabaseServiceRole) {
+      console.warn('[Rename Image] Supabase not configured');
+      return res.status(500).json({ error: 'Supabase Storage not configured' });
+    }
+
     const timestamp = new Date().toISOString();
 
     // Copy file to new name (no overwrite)

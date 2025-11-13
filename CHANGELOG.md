@@ -550,3 +550,37 @@ Each version represents a stable, working state of the application:
 ---
 
 **Note**: For creating releases on GitHub, each version tag should point to the last commit of that version as listed above.
+
+## v2.6.0 (2025-11-13) - Realtime Updates & Full Offline Support
+
+**Major Features:**
+- ✅ **Socket.io Integration**: Realtime updates tanpa Supabase
+- ✅ **Auto-fallback**: Aplikasi otomatis gunakan Socket.io jika Supabase tidak dikonfigurasi
+- ✅ **Full Offline Support**: Database (Prisma+SQLite) + Storage (Filesystem) + Realtime (Socket.io)
+- ✅ **Custom Server**: server.js dengan WebSocket built-in
+- ✅ **Zero Configuration**: Jalankan langsung tanpa setup eksternal
+
+**Realtime Features (Socket.io):**
+- 🎮 Remote control (play/pause/next/previous)
+- 📊 Live status sync
+- 🖼️ Image metadata updates
+- 🎬 Video generation progress
+- 🔄 Force refresh broadcasts
+- 📱 Multi-device sync
+
+**Technical Changes:**
+- Added: socket.io & socket.io-client packages
+- Added: lib/socketio.ts - Client connection manager
+- Modified: server.js - Integrated Socket.io server
+- Modified: hooks/useRemoteControl.ts - Auto-detect realtime provider
+- Modified: package.json - Updated scripts untuk custom server
+- Added: README_REALTIME.md - Dokumentasi realtime
+
+**Breaking Changes:**
+- npm run dev sekarang menggunakan custom server (node server.js)
+- npm start production menggunakan custom server
+
+**Deployment:**
+- Localhost/VPS: Socket.io (auto-enabled)
+- Vercel/Serverless: Supabase Realtime (jika dikonfigurasi)
+

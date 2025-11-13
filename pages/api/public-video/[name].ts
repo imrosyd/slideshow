@@ -14,6 +14,11 @@ export default async function handler(
   try {
     const supabase = getSupabaseServiceRoleClient();
     
+    if (!supabase) {
+      console.warn('[Public Video] Supabase not configured');
+      return res.status(500).json({ error: 'Storage not configured' });
+    }
+    
     // Get public URL directly (no authentication required)
     const { data } = supabase.storage
       .from('slideshow-videos')

@@ -19,6 +19,11 @@ export default async function handler(
   try {
     const supabase = getSupabaseServiceRoleClient();
     
+    if (!supabase) {
+      console.warn('[Secure Video] Supabase not configured');
+      return res.status(500).json({ error: 'Storage not configured' });
+    }
+    
     // Create signed URL for video
     const { data, error } = await supabase.storage
       .from('slideshow-videos')

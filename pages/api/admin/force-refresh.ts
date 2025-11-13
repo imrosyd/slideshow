@@ -11,6 +11,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // Skip broadcast if Supabase is not configured
+    if (!supabase) {
+      console.warn('[force-refresh] Supabase not configured - refresh signal skipped');
+      res.status(200).json({
+        success: true,
+        message: 'Refresh signal skipped (Supabase not configured)',
+        timestamp: Date.now()
+      });
+      return;
+    }
+
     // Broadcast refresh signal via Supabase channel using explicit REST delivery
     const channel = supabase.channel('slideshow-control');
 

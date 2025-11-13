@@ -75,6 +75,12 @@ export default async function handler(
 
     const supabaseServiceRole = getSupabaseServiceRoleClient();
 
+    // Check if Supabase is configured
+    if (!supabaseServiceRole || !SUPABASE_STORAGE_BUCKET) {
+      console.warn('[Admin Images] Supabase Storage not configured - returning empty list');
+      return res.status(200).json({ images: [] });
+    }
+
     // Load metadata from database
     const metadataMap = new Map<string, { 
       duration_ms: number; 

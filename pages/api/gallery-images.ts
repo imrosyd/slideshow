@@ -49,6 +49,11 @@ export default async function handler(
   try {
     const supabaseServiceRole = getSupabaseServiceRoleClient();
     
+    if (!supabaseServiceRole) {
+      console.warn('[Gallery Images] Supabase not configured');
+      return res.status(200).json({ images: [] });
+    }
+    
     // First, get all entries to debug
     const { data: allEntries, error: allError } = await supabaseServiceRole
       .from("image_durations")
