@@ -44,6 +44,15 @@ model SlideshowSetting {
   @@map("slideshow_settings")
 }
 
+model AdminConfig {
+  id               Int      @id @default(autoincrement())
+  password_changed Boolean  @default(false)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @default(now()) @updatedAt
+
+  @@map("admin_config")
+}
+
 model ActiveSession {
   id         String   @id @default(uuid())
   user_id    String

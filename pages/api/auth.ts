@@ -2,12 +2,16 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getAdminAuthCookieName, getExpectedAdminToken } from "../../lib/auth";
 import { getSupabaseServiceRoleClient } from "../../lib/supabase";
 import { createOrUpdateSession, getActiveSession } from "../../lib/session-manager";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 type SuccessResponse = {
   success: true;
   token: string;
   supabaseToken: string;
   sessionId: string;
+  passwordChanged?: boolean;
 };
 
 type ErrorResponse = {
@@ -60,6 +64,21 @@ export default async function handler(
     // Get default admin email from env or use default
     const adminEmail = process.env.ADMIN_EMAIL || "admin@slideshow.local";
     
+    // Check if password has been changed from default
+    let passwordChanged = false;
+    try {
+      const adminConfig = await prisma.adminConfig.findFirst();
+      passwordChanged = adminConfig?.password_changed || false;
+      
+      // Also check if current password is not the default
+      if (password !== 'admin123') {
+        passwordChanged = true;
+      }
+    } catch (dbError) {
+      console.warn('[Auth] Could not check password status:', dbError);
+      // Default to false if we can't check
+    }
+    
     // Create/login Supabase user for admin
     const supabase = getSupabaseServiceRoleClient();
     
@@ -82,6 +101,7 @@ export default async function handler(
         token: cookieToken,
         supabaseToken: cookieToken, // Use same token for compatibility
         sessionId: sessionId,
+        passwordChanged: passwordChanged,
       });
     }
     
@@ -159,7 +179,8 @@ export default async function handler(
       success: true, 
       token: cookieToken,
       supabaseToken: session.access_token,
-      sessionId: sessionId
+      sessionId: sessionId,
+      passwordChanged: passwordChanged
     });
     
   } catch (error) {
@@ -168,5 +189,7 @@ export default async function handler(
       error: "Terjadi kesalahan saat login.",
       details: error instanceof Error ? error.message : String(error)
     });
+  } finally {
+    await prisma.$disconnect();
   }
 }

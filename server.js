@@ -6,6 +6,7 @@
  * - Remote control commands
  * - Status broadcasts
  * - Image/video updates
+ * - Auto-setup: Database, Storage folders
  * 
  * Usage:
  * - Development: npm run dev (or node server.js)
@@ -16,10 +17,83 @@ const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
 const { Server } = require('socket.io');
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
 const port = parseInt(process.env.PORT, 10) || 3000;
+
+/**
+ * Auto-setup function
+ * Runs database migrations and creates storage folders
+ */
+async function autoSetup() {
+  console.log('[Setup] Running auto-setup...');
+  
+  try {
+    // 1. Setup database with Prisma
+    console.log('[Setup] Checking database...');
+    try {
+      execSync('npx prisma db push --skip-generate --accept-data-loss', { 
+        stdio: 'inherit',
+        env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./prisma/dev.db' }
+      });
+      console.log('[Setup] ✓ Database ready');
+    } catch (error) {
+      console.warn('[Setup] Database setup warning (may already exist):', error.message);
+    }
+    
+    // 2. Create storage folders
+    console.log('[Setup] Creating storage folders...');
+    const storagePath = process.env.STORAGE_PATH || './storage';
+    const folders = [
+      path.join(storagePath, 'images'),
+      path.join(storagePath, 'videos')
+    ];
+    
+    for (const folder of folders) {
+      if (!fs.existsSync(folder)) {
+        fs.mkdirSync(folder, { recursive: true });
+        console.log(`[Setup] ✓ Created ${folder}`);
+      } else {
+        console.log(`[Setup] ✓ ${folder} exists`);
+      }
+    }
+    
+    // 3. Check .env file
+    const envPath = dev ? '.env.local' : '.env';
+    if (!fs.existsSync(envPath)) {
+      console.log(`[Setup] Warning: ${envPath} not found`);
+      console.log('[Setup] Creating default .env.local with admin123 password...');
+      const defaultEnv = `# Auto-generated default configuration
+ADMIN_PASSWORD=admin123
+USE_FILESYSTEM_STORAGE=true
+STORAGE_PATH=./storage
+STORAGE_PUBLIC_URL=/api/storage
+DATABASE_URL=file:./prisma/dev.db
+`;
+      fs.writeFileSync('.env.local', defaultEnv);
+      console.log('[Setup] ✓ Created .env.local with default settings');
+      console.log('[Setup] ⚠️  Default password: admin123 (Please change on first login)');
+      
+      // Reload env
+      process.env.ADMIN_PASSWORD = 'admin123';
+      process.env.USE_FILESYSTEM_STORAGE = 'true';
+      process.env.STORAGE_PATH = './storage';
+      process.env.STORAGE_PUBLIC_URL = '/api/storage';
+      process.env.DATABASE_URL = 'file:./prisma/dev.db';
+    }
+    
+    console.log('[Setup] ✓ Auto-setup completed');
+    console.log('[Setup] ========================================');
+    
+  } catch (error) {
+    console.error('[Setup] Auto-setup error:', error);
+    console.log('[Setup] Continuing anyway...');
+  }
+}
 
 // Initialize Next.js app
 const app = next({ dev, hostname, port });
@@ -29,7 +103,10 @@ console.log('[Server] Initializing Next.js application...');
 console.log('[Server] Environment:', dev ? 'development' : 'production');
 console.log('[Server] Port:', port);
 
-app.prepare().then(() => {
+// Run auto-setup before starting server
+autoSetup().then(() => {
+  return app.prepare();
+}).then(() => {
   const httpServer = createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true);

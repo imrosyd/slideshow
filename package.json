@@ -1,6 +1,6 @@
 {
   "name": "slideshow",
-  "version": "2.5.0",
+  "version": "2.7.0",
   "private": true,
   "engines": {
     "node": ">=18.0.0",
@@ -10,7 +10,8 @@
     "dev": "node server.js",
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

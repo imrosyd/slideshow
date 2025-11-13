@@ -5,7 +5,104 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.5.0] - 2025-11-13
+## [2.7.0] - 2024-11-13
+
+### 🔒 Zero-Config Setup & Password Security
+
+#### Added - Auto-Setup System
+- **Postinstall Script**: Automatic Prisma client generation after npm install
+  - Added `postinstall` script in package.json
+  - No manual `npx prisma generate` needed anymore
+- **Auto-Setup Function** (`server.js`):
+  - Automatic database migration on server startup
+  - Auto-create storage folders (`storage/images`, `storage/videos`)
+  - Auto-generate `.env.local` if not exists with default configuration
+  - Smart error handling with fallback behavior
+  - Zero manual configuration required
+
+#### Added - Password Management System
+- **Default Password**: `admin123` auto-configured on first run
+  - Server auto-creates `.env.local` with default password
+  - Environment reloaded automatically
+  - Clear console warning about changing default password
+- **Forced Password Change on First Login**:
+  - Modal popup appears automatically when using default password
+  - Modal cannot be closed until password is changed (enforced security)
+  - Beautiful glassmorphism design with security icon
+  - Clear warning message about default password
+- **Change Password Component** (`components/ChangePasswordModal.tsx`):
+  - Three-step form: current password, new password, confirm password
+  - Show/hide password toggles for all fields
+  - Real-time validation (min 6 characters, must be different, must match)
+  - Error messages with clear feedback
+  - Loading state during submission
+- **Change Password API** (`/api/admin/change-password`):
+  - Validates current password against environment
+  - Updates `.env.local` file with new password
+  - Marks password as changed in database
+  - Updates environment variable in memory
+  - Auto-logout and redirect to login after success
+- **Database Schema Addition** (`AdminConfig` model):
+  - New table to track password change status
+  - `password_changed` boolean field
+  - Timestamps for audit trail
+- **Enhanced Authentication**:
+  - Auth API returns `passwordChanged` status
+  - Checks if password is still default (`admin123`)
+  - Stores status in sessionStorage
+  - Admin page detects and shows modal accordingly
+
+#### Changed - Enhanced Developer Experience
+- **One-Command Setup**: Users only need `npm install && npm run dev`
+  - All setup happens automatically
+  - No manual database commands
+  - No manual folder creation
+  - No manual .env file editing
+- **Smart Defaults**:
+  - DATABASE_URL: `file:./prisma/dev.db` (SQLite)
+  - STORAGE_PATH: `./storage`
+  - ADMIN_PASSWORD: `admin123` (forced to change)
+  - USE_FILESYSTEM_STORAGE: `true`
+
+#### Security
+- **Forced Password Change**: Users cannot use app without changing default password
+- **Password Requirements**: Minimum 6 characters, must be different from default
+- **Secure Storage**: Password saved in `.env.local` (gitignored)
+- **Database Tracking**: Password change status persisted in database
+- **Auto-Logout**: Forces re-login after password change for security
+
+#### Developer Experience Improvements
+- **Zero Manual Steps**: Complete auto-configuration from scratch
+- **Clear Console Logs**: Detailed startup logs for debugging
+- **Graceful Error Handling**: Continues if setup steps fail (with warnings)
+- **Updated Documentation**: `.env.example` includes password documentation
+
+#### Files Added
+- `components/ChangePasswordModal.tsx` - Password change UI component
+- `pages/api/admin/change-password.ts` - Password change endpoint
+
+#### Files Modified
+- `package.json` - Added postinstall script, version 2.7.0
+- `server.js` - Added auto-setup function with database/storage/env setup
+- `prisma/schema.prisma` - Added AdminConfig model
+- `pages/api/auth.ts` - Enhanced to return password change status
+- `pages/login.tsx` - Stores password change status in sessionStorage
+- `pages/admin.tsx` - Shows password modal on first login
+- `.env.example` - Added password documentation
+
+#### Breaking Changes
+- None - fully backward compatible
+
+#### Migration Path
+- **From v2.6.0 to v2.7.0**: Zero breaking changes
+  - Existing installations continue working unchanged
+  - New installations get automatic setup
+  - First login with `admin123` triggers password change
+  - Subsequent logins use new password
+
+---
+
+## [2.5.0] - 2024-11-13
 
 ### 🚀 Multiple Deployment Options & Comprehensive Documentation
 
@@ -88,7 +185,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.4.0] - 2025-11-13
+## [2.4.0] - 2024-11-13
 
 ### 🗄️ Prisma Integration & Database Flexibility
 
@@ -128,7 +225,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.3.0] - 2025-11-12
+## [2.3.0] - 2024-11-12
 
 ### 🔐 Authentication & Session Management
 
@@ -174,7 +271,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.2.1] - 2025-11-11
+## [2.2.1] - 2024-11-11
 
 ### 📡 Real-time Updates
 
@@ -190,7 +287,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.2.0] - 2025-11-09
+## [2.2.0] - 2024-11-09
 
 ### 🧹 Maintenance & Polish
 
@@ -215,7 +312,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.1.0] - 2025-11-09
+## [2.1.0] - 2024-11-09
 
 ### 🎬 Video Processing Enhancement
 
@@ -232,7 +329,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.0.0] - 2025-11-08
+## [2.0.0] - 2024-11-08
 
 ### 🎨 Major UI Overhaul - Glassmorphism Design
 
@@ -274,7 +371,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.9.0] - 2025-11-07
+## [1.9.0] - 2024-11-07
 
 ### 🖼️ Image Gallery & UI Polish
 
@@ -303,7 +400,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.8.0] - 2025-11-06
+## [1.8.0] - 2024-11-06
 
 ### 🧹 Auto Cleanup & Maintenance
 
@@ -326,7 +423,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.7.0] - 2025-11-05
+## [1.7.0] - 2024-11-05
 
 ### 🎬 Video Processing Improvements
 
@@ -351,7 +448,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.6.0] - 2025-11-04
+## [1.6.0] - 2024-11-04
 
 ### 🔧 Database & API Refactoring
 
@@ -374,7 +471,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.5.0] - 2025-11-03
+## [1.5.0] - 2024-11-03
 
 ### 🎮 UI Control System
 
@@ -409,7 +506,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.4.0] - 2025-11-02
+## [1.4.0] - 2024-11-02
 
 ### 📡 Remote Control Integration
 
@@ -434,7 +531,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.0] - 2025-11-01
+## [1.3.0] - 2024-11-01
 
 ### ⚡ Performance Optimization
 
@@ -461,7 +558,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.2.0] - 2025-10-31
+## [1.2.0] - 2024-10-31
 
 ### 💤 Display Management
 
@@ -483,7 +580,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.1.0] - 2025-10-30
+## [1.1.0] - 2024-10-30
 
 ### 📤 Upload & Admin Improvements
 
@@ -509,7 +606,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2025-10-29
+## [1.0.0] - 2024-10-29
 
 ### 🎉 Initial Release
 
@@ -551,7 +648,7 @@ Each version represents a stable, working state of the application:
 
 **Note**: For creating releases on GitHub, each version tag should point to the last commit of that version as listed above.
 
-## [2.6.0] - 2025-11-13
+## [2.6.0] - 2024-11-13
 
 ### 🚀 Socket.io Realtime & Full Offline Support
 

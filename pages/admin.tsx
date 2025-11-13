@@ -22,6 +22,7 @@ const ImageCard = dynamic(async () => (await import("../components/admin/ImageCa
 const ConfirmModal = dynamic(async () => (await import("../components/admin/ConfirmModal")).ConfirmModal as any, { ssr: false }) as any;
 const MergeVideoDialog = dynamic(async () => (await import("../components/admin/MergeVideoDialog")).MergeVideoDialog as any, { ssr: false }) as any;
 const BulkEditDialog = dynamic(async () => (await import("../components/admin/BulkEditDialog")).BulkEditDialog as any, { ssr: false }) as any;
+const ChangePasswordModal = dynamic(async () => (await import("../components/ChangePasswordModal")).default as any, { ssr: false }) as any;
 import { useImages } from "../hooks/useImages";
 import { useToast } from "../hooks/useToast";
 import { getBrowserId } from "../lib/browser-utils";
@@ -35,6 +36,10 @@ const AdminContent = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [togglingImage, setTogglingImage] = useState<string | null>(null); // Track which image is being toggled
+  
+  // Password change modal
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [isFirstTimePassword, setIsFirstTimePassword] = useState(false);
   
   // States for custom dialogs
   const [renameDialog, setRenameDialog] = useState<{ filename: string } | null>(null);
@@ -164,6 +169,20 @@ const AdminContent = () => {
       document.body.style.touchAction = previousTouch;
     };
   }, [pushToast, router]);
+
+  // Check if password needs to be changed
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    
+    const passwordChanged = sessionStorage.getItem("password-changed");
+    
+    // If password not changed (false or not set), show modal
+    if (passwordChanged === "false") {
+      console.log("[Admin] Default password detected - showing change password modal");
+      setIsFirstTimePassword(true);
+      setShowPasswordModal(true);
+    }
+  }, []);
 
   const {
     images,
@@ -1189,6 +1208,17 @@ const AdminContent = () => {
           />
         </div>
       )}
+
+      {/* Password change modal */}
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        isFirstTime={isFirstTimePassword}
+        onClose={() => !isFirstTimePassword && setShowPasswordModal(false)}
+        onSuccess={() => {
+          setShowPasswordModal(false);
+          sessionStorage.setItem("password-changed", "true");
+        }}
+      />
     </div>
   );
 };

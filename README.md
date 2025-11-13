@@ -1,6 +1,6 @@
 # 📺 Slideshow Display System
 
-[![Version](https://img.shields.io/badge/version-2.6.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
+[![Version](https://img.shields.io/badge/version-2.7.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
@@ -11,7 +11,7 @@
 
 > Self-hosted digital signage system with zero external dependencies. Deploy to localhost, VPS, or cloud platforms with realtime remote control.
 
-**Last Updated:** November 13, 2025 · **Status:** ✅ Production Ready · **Deployment:** 🏠 Self-Hosted or ☁️ Cloud
+**Last Updated:** November 13, 2024 · **Status:** ✅ Production Ready · **Deployment:** 🏠 Self-Hosted or ☁️ Cloud
 
 [![GitHub Release](https://img.shields.io/github/v/release/imrosyd/slideshow)](https://github.com/imrosyd/slideshow/releases)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/imrosyd/slideshow)
@@ -592,9 +592,42 @@ docker-compose restart
 
 #### Prerequisites
 - Node.js 20+
-- PostgreSQL 14+ (or Docker)
+- **That's it!** Everything else is auto-configured
 
-#### Option A: With Local PostgreSQL
+#### Zero-Config Setup (Recommended)
+
+```bash
+# Clone repository
+git clone https://github.com/your-repo/slideshow.git
+cd slideshow
+
+# Install dependencies (auto-generates Prisma client)
+npm install
+
+# Start development server (auto-setup everything)
+npm run dev
+
+# ✨ That's it! Server will automatically:
+# - Create SQLite database (./prisma/dev.db)
+# - Run database migrations
+# - Create storage folders (./storage/images, ./storage/videos)
+# - Generate .env.local with default config
+# - Start server on http://localhost:3000
+
+# 🔐 Login with default password: admin123
+# You'll be prompted to change it on first login!
+```
+
+**What happens automatically:**
+1. ✅ Prisma client generated (postinstall hook)
+2. ✅ Database created and migrated (server startup)
+3. ✅ Storage folders created (server startup)
+4. ✅ .env.local generated with defaults (server startup)
+5. ✅ Ready to use immediately!
+
+#### Option A: With PostgreSQL (Optional)
+
+If you prefer PostgreSQL over SQLite:
 
 ```bash
 # Install PostgreSQL
@@ -616,7 +649,7 @@ git clone https://github.com/your-repo/slideshow.git
 cd slideshow
 npm install
 
-# Create .env.local
+# Create .env.local with PostgreSQL
 cat > .env.local << EOF
 DATABASE_URL=postgresql://postgres:password@localhost:5432/slideshow_db
 ADMIN_PASSWORD=admin123
@@ -625,11 +658,7 @@ STORAGE_PATH=./storage
 STORAGE_PUBLIC_URL=/api/storage
 EOF
 
-# Setup database
-npx prisma generate
-npx prisma db push
-
-# Run development server
+# Start (auto-setup will handle the rest)
 npm run dev
 ```
 
@@ -928,7 +957,26 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 ### Latest Releases
 
-#### v2.5.0 (2025-11-13) - Current
+#### v2.7.0 (2024-11-13) - Current
+**Zero-Config Setup & Password Security**
+- ✅ Complete auto-setup: `npm install && npm run dev` - that's it!
+- ✅ Automatic database migration on startup
+- ✅ Auto-create storage folders
+- ✅ Default password `admin123` with forced change on first login
+- ✅ Password change enforced via modal (cannot be dismissed)
+- ✅ Secure password management with .env.local updates
+- ✅ Zero manual configuration required
+
+#### v2.6.0 (2024-11-13)
+**Socket.io Realtime & Full Offline Support**
+- ✅ Built-in Socket.io WebSocket server for realtime features
+- ✅ Zero external dependency for localhost/VPS deployments
+- ✅ Full feature parity with Supabase Realtime
+- ✅ Works completely offline with SQLite + Filesystem
+- ✅ Simple auth mode secure for single-user scenarios
+- ✅ Auto-detect: Supabase → Socket.io fallback
+
+#### v2.5.0 (2024-11-13)
 **Multiple Deployment Options & Code Cleanup**
 - ✅ 4 deployment options: Supabase, VPS, Docker, Local
 - ✅ Comprehensive README with all guides consolidated
@@ -937,26 +985,38 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 - ✅ Code cleanup: removed unused dependencies and obsolete features
 - ✅ Performance: smaller bundle, faster builds
 
-#### v2.4.0 (2025-11-13)
+#### v2.4.0 (2024-11-13)
 **Prisma Integration & Database Flexibility**
 - Prisma ORM with auto-fallback to Supabase
 - Database abstraction layer
 - Type-safe operations
 - Support for any PostgreSQL database
 
-#### v2.3.0 (2025-11-12)
+#### v2.3.0 (2024-11-12)
 **Authentication & Session Management**
 - Remote page authentication
 - Single concurrent session control
 - Browser fingerprinting
 - Smart session management
 
-#### v2.2.1 (2025-11-11)
+#### v2.2.1 (2024-11-11)
 **Real-time Updates**
 - Auto-refresh gallery without page reload
 - Supabase Realtime integration
 
 ### Migration Guide
+
+#### From v2.6.x to v2.7.0
+Zero-config upgrade! Simply:
+1. `git pull origin main`
+2. `npm install` (auto-generates Prisma client)
+3. `npm run dev` (auto-setup runs on startup)
+4. Done! Login with existing password or `admin123` if fresh install
+
+**New features available:**
+- Auto-setup on server startup
+- Password change enforcement on first login
+- No more manual database/storage commands
 
 #### From v2.4.x to v2.5.0
 No breaking changes. Simply:

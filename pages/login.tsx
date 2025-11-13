@@ -54,6 +54,7 @@ export default function LoginPage() {
       const token = payload?.token as string | undefined;
       const supabaseToken = payload?.supabaseToken as string | undefined;
       const sessionId = payload?.sessionId as string | undefined;
+      const passwordChanged = payload?.passwordChanged as boolean | undefined;
       
       if (!token) {
         throw new Error("Invalid authentication token.");
@@ -63,6 +64,11 @@ export default function LoginPage() {
       sessionStorage.setItem("admin-auth-token", token);
       if (supabaseToken) {
         sessionStorage.setItem("supabase-token", supabaseToken);
+      }
+      
+      // Store password changed status
+      if (passwordChanged !== undefined) {
+        sessionStorage.setItem("password-changed", String(passwordChanged));
       }
       
       // Store sessionId based on redirect target
