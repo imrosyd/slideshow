@@ -1,18 +1,17 @@
 # 📺 Slideshow Display System
 
-[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
+[![Version](https://img.shields.io/badge/version-2.6.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-6.19-2D3748)](https://www.prisma.io/)
+[![Socket.io](https://img.shields.io/badge/Socket.io-4.8-010101)](https://socket.io/)
 [![Supabase](https://img.shields.io/badge/Supabase-Optional-green)](https://supabase.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-> Flexible digital signage system with multiple deployment options: Supabase, VPS, Docker, or localhost. Supports both cloud and self-hosted configurations.
+> Self-hosted digital signage system with zero external dependencies. Deploy to localhost, VPS, or cloud platforms with realtime remote control.
 
-🌐 **Language:** 🇺🇸 English · [🇮🇩 Indonesian](README.id.md)
-
-**Last Updated:** November 13, 2025 · **Status:** ✅ Production Ready
+**Last Updated:** November 13, 2025 · **Status:** ✅ Production Ready · **Deployment:** 🏠 Self-Hosted or ☁️ Cloud
 
 [![GitHub Release](https://img.shields.io/github/v/release/imrosyd/slideshow)](https://github.com/imrosyd/slideshow/releases)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/imrosyd/slideshow)
@@ -24,18 +23,18 @@
 
 - [Overview](#overview)
 - [Features](#features)
-- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
 - [Deployment Options](#deployment-options)
-  - [Quick Comparison](#quick-comparison)
-  - [1. Supabase Only (Cloud)](#1-supabase-only-cloud)
-  - [2. VPS/Server (Self-Hosted)](#2-vpsserver-self-hosted)
-  - [3. Docker (Container)](#3-docker-container)
-  - [4. Local Development](#4-local-development)
+  - [1. Localhost (Zero Config)](#1-localhost-zero-config)
+  - [2. VPS/Droplet (Self-Hosted)](#2-vpsdroplet-self-hosted)
+  - [3. DigitalOcean App Platform](#3-digitalocean-app-platform)
+  - [4. Docker Container](#4-docker-container)
+  - [5. Vercel (Serverless)](#5-vercel-serverless)
+- [Realtime Features](#realtime-features)
 - [Configuration](#configuration)
 - [Usage Guide](#usage-guide)
 - [API Documentation](#api-documentation)
 - [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
 - [Changelog](#changelog)
 - [License](#license)
 
@@ -43,13 +42,17 @@
 
 ## Overview
 
-Slideshow is a Next.js 14 + TypeScript application for managing always-on TV content. Features include:
+**Slideshow** is a fully self-hosted digital signage system that works **without any external dependencies**. Perfect for localhost, VPS, or cloud deployments.
 
-- **Flexible Database**: Prisma + PostgreSQL with automatic Supabase fallback
-- **Multiple Storage Options**: Supabase Storage, Filesystem, or S3-compatible
-- **Video Processing**: FFmpeg-powered image-to-MP4 conversion
-- **Remote Control**: Mobile-friendly control interface
-- **WebOS Optimized**: Keep-awake features for LG TV displays
+### 🎯 Key Highlights
+
+- **🏠 Zero External Dependencies**: Works completely offline with SQLite + Filesystem
+- **🔌 Built-in Realtime**: Socket.io WebSocket server (no Supabase required)
+- **🎮 Remote Control**: Control slideshow from any device on your network
+- **🎬 Video Processing**: FFmpeg-powered image-to-MP4 conversion
+- **📱 Mobile-Friendly**: Responsive admin interface and remote control
+- **🚀 Multiple Deploy Options**: Localhost, VPS, Docker, or Cloud platforms
+- **⚙️ Auto-Configuration**: Smart fallback system detects available services
 
 ---
 

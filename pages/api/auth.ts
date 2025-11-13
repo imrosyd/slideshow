@@ -63,14 +63,25 @@ export default async function handler(
     // Create/login Supabase user for admin
     const supabase = getSupabaseServiceRoleClient();
     
-    // If Supabase is not configured, return success without authentication
+    // If Supabase is not configured, use simple password-based auth
     if (!supabase) {
-      console.warn('[Auth] Supabase not configured - auth disabled');
+      console.log('[Auth] Supabase not configured - using simple auth');
+      
+      // Generate unique session ID
+      const sessionId = `simple-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      const browserIdToUse = browserId || `browser-${Date.now()}`;
+      
+      // Set cookie for authentication
+      const cookieToken = getExpectedAdminToken(adminPassword);
+      res.setHeader("Set-Cookie", buildCookieHeader(cookieToken));
+      
+      console.log('[Auth] Simple auth successful for password match');
+      
       return res.status(200).json({
         success: true,
-        token: "no-auth-token",
-        supabaseToken: "no-auth-token",
-        sessionId: "default-session",
+        token: cookieToken,
+        supabaseToken: cookieToken, // Use same token for compatibility
+        sessionId: sessionId,
       });
     }
     

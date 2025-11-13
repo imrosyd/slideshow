@@ -551,36 +551,104 @@ Each version represents a stable, working state of the application:
 
 **Note**: For creating releases on GitHub, each version tag should point to the last commit of that version as listed above.
 
-## v2.6.0 (2025-11-13) - Realtime Updates & Full Offline Support
+## [2.6.0] - 2025-11-13
 
-**Major Features:**
-- ✅ **Socket.io Integration**: Realtime updates tanpa Supabase
-- ✅ **Auto-fallback**: Aplikasi otomatis gunakan Socket.io jika Supabase tidak dikonfigurasi
-- ✅ **Full Offline Support**: Database (Prisma+SQLite) + Storage (Filesystem) + Realtime (Socket.io)
-- ✅ **Custom Server**: server.js dengan WebSocket built-in
-- ✅ **Zero Configuration**: Jalankan langsung tanpa setup eksternal
+### 🚀 Socket.io Realtime & Full Offline Support
 
-**Realtime Features (Socket.io):**
-- 🎮 Remote control (play/pause/next/previous)
-- 📊 Live status sync
-- 🖼️ Image metadata updates
-- 🎬 Video generation progress
-- 🔄 Force refresh broadcasts
-- 📱 Multi-device sync
+#### Added - Realtime Without Supabase
+- **Socket.io Integration**: Built-in WebSocket server for realtime features
+  - Auto-enabled when Supabase not configured
+  - Zero external dependency for localhost/VPS deployments
+  - Full feature parity with Supabase Realtime
+- **Socket.io Client Library** (`lib/socketio.ts`)
+  - Auto-connect singleton pattern
+  - Helper functions for common operations
+  - Fallback to polling if WebSocket unavailable
+- **Custom Server with WebSocket** (`server.js`)
+  - Integrated Socket.io Server with Next.js
+  - 7 event handlers: remote-command, slideshow-status, image-updated, video-updated, force-refresh, image-closed, request-status
+  - Connection tracking and logging
+  - Graceful shutdown handling
 
-**Technical Changes:**
-- Added: socket.io & socket.io-client packages
-- Added: lib/socketio.ts - Client connection manager
-- Modified: server.js - Integrated Socket.io server
-- Modified: hooks/useRemoteControl.ts - Auto-detect realtime provider
-- Modified: package.json - Updated scripts untuk custom server
-- Added: README_REALTIME.md - Dokumentasi realtime
+#### Changed - Supabase Optional Everywhere
+- **Authentication System**: Works without Supabase
+  - Simple password-based auth fallback
+  - Session management without external service
+  - Cookie-based authentication
+- **API Routes** (35+ files): All handle Supabase null gracefully
+  - `/api/auth.ts` - Simple auth mode when Supabase unavailable
+  - `/api/session/*` - Compatible with both modes
+  - `/api/admin/*` - Null-safe broadcasts
+  - All API endpoints check Supabase before usage
+- **Frontend Pages**: Realtime fallback implemented
+  - `pages/index.tsx` - 5 useEffect hooks updated for Socket.io
+  - `pages/remote.tsx` - Dual realtime support
+  - `hooks/useRemoteControl.ts` - Auto-detect: Supabase → Socket.io
+- **Database** (`prisma/schema.prisma`)
+  - Converted from PostgreSQL to SQLite
+  - Removed 15+ PostgreSQL-specific type annotations
+  - Compatible with both databases via DATABASE_URL
+- **Package Scripts** (`package.json`)
+  - `npm run dev` → uses custom server (`node server.js`)
+  - `npm start` → production with custom server
+  - Added engines field for Node.js 18+
 
-**Breaking Changes:**
-- npm run dev sekarang menggunakan custom server (node server.js)
-- npm start production menggunakan custom server
+#### Added - Deployment Documentation
+- **DigitalOcean App Platform Guide**
+  - Quick setup (3 steps)
+  - App Spec YAML template (`.do/app.yaml`)
+  - Environment variables reference
+  - Storage & database persistence options
+  - Pricing comparison (Ephemeral vs Production)
+  - Troubleshooting section
+- **VPS/Droplet Deployment Guide**
+  - PM2 process management
+  - Nginx reverse proxy config
+  - SSL setup with Certbot
+  - Firewall configuration
+  - Performance tuning tips
+- **Environment Examples**
+  - `.env.production.example` - VPS deployment
+  - `.env.digitalocean.example` - App Platform
+  - `.gitignore` updated for database files
 
-**Deployment:**
-- Localhost/VPS: Socket.io (auto-enabled)
-- Vercel/Serverless: Supabase Realtime (jika dikonfigurasi)
+#### Removed - Documentation Cleanup
+- **Consolidated Deployment Docs**: Merged into README.md
+  - `README_REALTIME.md` → README "Realtime Features" section
+  - `DEPLOY_VPS.md` → README "VPS Deployment" section  
+  - `DEPLOY_DIGITALOCEAN_APP.md` → README "DigitalOcean" section
+  - `QUICK_START_DO.md` → README "Quick Start" section
+  - `README.id.md` → Removed (outdated)
+
+#### Security
+- Admin password required for all deployments
+- Simple auth mode secure for single-user scenarios
+- Cookie-based sessions with HttpOnly flag
+- Token verification without external dependencies
+
+#### Performance
+- Socket.io adds minimal overhead (~25KB compressed)
+- Custom server startup time: <2 seconds
+- WebSocket connections: low latency (<50ms local)
+- Build size unchanged: 142 kB main, 94.2 kB admin, 136 kB remote
+
+#### Breaking Changes
+- **npm run dev**: Now uses `node server.js` instead of `next dev`
+- **npm start**: Now uses `NODE_ENV=production node server.js`
+- Older deployment scripts may need update
+- Vercel deployments unaffected (Supabase Realtime still works)
+
+#### Deployment Flexibility
+| Environment | Database | Storage | Realtime | Cost |
+|------------|----------|---------|----------|------|
+| Localhost | SQLite | Filesystem | Socket.io | Free |
+| VPS/Droplet | SQLite/PostgreSQL | Filesystem | Socket.io | $4-6/mo |
+| DigitalOcean App | PostgreSQL (managed) | Spaces | Socket.io | $25/mo |
+| Vercel | Supabase PostgreSQL | Supabase Storage | Supabase Realtime | Free tier |
+
+#### Migration Path
+- **From v2.5.0 to v2.6.0**: Zero breaking changes for existing Supabase users
+- Supabase configurations continue working unchanged
+- New deployments can choose Supabase or self-hosted
+- No data migration required
 

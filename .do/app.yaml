@@ -1,0 +1,85 @@
+# DigitalOcean App Platform Spec
+# Gunakan file ini untuk deploy via doctl atau import di App Platform
+
+name: slideshow
+region: sgp1
+
+services:
+  - name: web
+    # GitHub repository (ganti dengan repo Anda)
+    github:
+      repo: your-username/slideshow
+      branch: main
+      deploy_on_push: true
+    
+    # Build & Run commands
+    build_command: npm run build
+    run_command: npm start
+    
+    # Environment variables (WAJIB diisi)
+    envs:
+      - key: ADMIN_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+        value: "change-this-password"
+      
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: "file:./prisma/dev.db"
+      
+      - key: USE_FILESYSTEM_STORAGE
+        scope: RUN_TIME
+        value: "true"
+      
+      - key: STORAGE_PATH
+        scope: RUN_TIME
+        value: "./storage"
+      
+      - key: STORAGE_PUBLIC_URL
+        scope: RUN_TIME
+        value: "/api/storage"
+      
+      - key: NODE_ENV
+        scope: RUN_TIME
+        value: "production"
+    
+    # Port configuration
+    http_port: 8080
+    
+    # Instance configuration
+    instance_count: 1
+    instance_size_slug: basic-xxs  # $5/month
+    
+    # Health check
+    health_check:
+      http_path: /
+      initial_delay_seconds: 60
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    
+    # Routes
+    routes:
+      - path: /
+    
+    # Persistent storage (Optional - requires paid plan)
+    # volumes:
+    #   - name: uploads
+    #     mount_path: /app/storage
+
+# Database (Optional - Managed PostgreSQL)
+# databases:
+#   - name: slideshow-db
+#     engine: PG
+#     version: "15"
+#     size: db-s-1vcpu-1gb  # $15/month
+
+# Static site (jika ingin serve static files separately)
+# static_sites:
+#   - name: assets
+#     github:
+#       repo: your-username/slideshow
+#       branch: main
+#     source_dir: /public
+#     output_dir: /
