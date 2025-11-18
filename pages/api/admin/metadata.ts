@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { db, supabase, getSupabaseServiceRoleClient } from "../../../lib/db";
+import { db } from "../../../lib/db";
 import { isAuthorizedAdminRequest } from "../../../lib/auth";
+import { broadcast } from "../../../lib/websocket";
 
 type MetadataPayload = {
   filename: string;
@@ -36,12 +37,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const upsertPayload: UpsertRecord[] = payload
         .filter((item): item is MetadataPayload => Boolean(item?.filename))
         .map((item, index) => {
-          // Check if durationMs is provided (including 0)
           const hasDurationMs = item.durationMs !== null && item.durationMs !== undefined;
           const hasValidDuration = hasDurationMs && typeof item.durationMs === "number" && !Number.isNaN(item.durationMs);
           
-          // Use the provided duration if valid, otherwise use default
-          // Special case: if durationMs is 0, it's valid and should be stored as 0
           const roundedDuration = hasValidDuration
             ? Math.max(0, Math.round(item.durationMs as number))
             : DEFAULT_DURATION_MS;
@@ -62,22 +60,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: true, count: 0 });
       }
 
-      await db.upsertImageDurations(upsertPayload);
+      await db.upsertImageDurations(upsertPayload as any[]);
 
       console.log(`[Metadata] Upserted ${upsertPayload.length} records successfully`);
       
-      // Broadcast image metadata changes to refresh galleries
       try {
-        const supabaseClient = getSupabaseServiceRoleClient();
-        const channel = supabaseClient.channel('image-metadata-updates');
-        await channel.send({
-          type: 'broadcast',
+        broadcast(JSON.stringify({
           event: 'image-updated',
           payload: {
             updatedAt: new Date().toISOString(),
             totalCount: upsertPayload.length
           }
-        }, { httpSend: true });
+        }));
         console.log(`[Metadata] Broadcast: Updated ${upsertPayload.length} images`);
       } catch (broadcastError) {
         console.warn('[Metadata] Failed to broadcast image update:', broadcastError);

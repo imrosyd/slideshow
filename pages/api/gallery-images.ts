@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getSupabaseServiceRoleClient } from "../../lib/supabase";
+import { db } from "../../lib/db";
+import fs from 'fs';
+import path from 'path';
 
 type Data =
   | { images: Array<{name: string; url: string}> }
@@ -47,12 +49,8 @@ export default async function handler(
   }
 
   try {
-    const supabaseServiceRole = getSupabaseServiceRoleClient();
-    
     // First, get all entries to debug
-    const { data: allEntries, error: allError } = await supabaseServiceRole
-      .from("image_durations")
-      .select("filename, hidden, is_video");
+    const allEntries = await db.getImageDurations();
     
     console.log(`[Gallery Images] Total entries in DB: ${allEntries?.length || 0}`);
     if (allEntries && allEntries.length > 0) {
@@ -61,14 +59,11 @@ export default async function handler(
       console.log(`[Gallery Images] Video entries: ${allEntries.filter((e: any) => e.is_video).length}`);
     }
     
-    // Fetch metadata with specific fields only to reduce data transfer
-    const { data: allDbMetadata, error: dbError } = await supabaseServiceRole
-      .from("image_durations")
-      .select("filename, hidden, is_video, order_index")
-      .order('order_index', { ascending: true });
+    // Fetch metadata from local database
+    const allDbMetadata = allEntries;
 
-    if (dbError) {
-      console.error("[Gallery Images] Database error:", dbError);
+    if (!allDbMetadata) {
+      console.error("[Gallery Images] Database error: No data returned");
       throw new Error("Failed to load image metadata from database.");
     }
 
@@ -80,7 +75,7 @@ export default async function handler(
 
     console.log(`[Gallery Images] Loaded ${allDbMetadata.length} total entries from database`);
 
-    // Build image data with Supabase public URLs
+    // Build image data with internal API URLs (serve via Prisma/local storage)
     const imageData = allDbMetadata
       .filter((item: any) => {
         // Skip hidden images
@@ -115,51 +110,39 @@ export default async function handler(
         
         return {
           name: item.filename,
-          url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-images/${imageFilename}`
+          // Use internal API route to serve images (no Supabase)
+          url: `/api/storage/images/${encodeURIComponent(imageFilename)}`,
         };
       });
 
     console.log(`[Gallery Images] ${imageData.length} images returned for gallery`);
 
-    // If no images from database, try to get from storage directly
+    // If no images from database, try to list files from local storage dir
     if (imageData.length === 0) {
-      console.log("[Gallery Images] No images from DB, checking storage...");
-      
-      const { data: storageFiles, error: storageError } = await supabaseServiceRole.storage
-        .from("slideshow-images")
-        .list("", { limit: 1000 });
-      
-      if (!storageError && storageFiles && storageFiles.length > 0) {
-        console.log(`[Gallery Images] Found ${storageFiles.length} files in storage`);
-        
-        const storageImageData = storageFiles
-          .filter((file: any) => {
-            // Only include actual image files
-            const filename = file.name || '';
-            const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(filename);
-            const isDashboard = filename.startsWith('dashboard.');
-            
-            if (isDashboard) {
-              console.log(`[Gallery Images] Skipping dashboard file: ${filename}`);
-            }
-            
-            return isImage && !isDashboard;
-          })
-          .map((file: any) => ({
-            name: file.name,
-            url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-images/${file.name}`
-          }));
-        
-        console.log(`[Gallery Images] Returning ${storageImageData.length} images from storage`);
-        
-        res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600"); // 5min browser, 10min CDN
-        res.setHeader("ETag", JSON.stringify(storageImageData.map(i => i.name)).slice(0, 32)); // Simple ETag
-        return res.status(200).json({ images: storageImageData });
+      console.log("[Gallery Images] No images from DB, checking local storage directory...");
+      try {
+        const storageDir = process.env.STORAGE_PATH || path.join(process.cwd(), 'storage', 'images');
+        if (fs.existsSync(storageDir)) {
+          const files = fs.readdirSync(storageDir);
+          const storageImageData = files
+            .filter((filename) => /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(filename) && !filename.startsWith('dashboard.'))
+            .map((filename) => ({
+              name: filename,
+              url: `/api/storage/images/${encodeURIComponent(filename)}`,
+            }));
+
+          console.log(`[Gallery Images] Returning ${storageImageData.length} images from local storage`);
+          res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600"); // 5min browser, 10min CDN
+          res.setHeader("ETag", JSON.stringify(storageImageData.map((i: any) => i.name)).slice(0, 32)); // Simple ETag
+          return res.status(200).json({ images: storageImageData });
+        }
+      } catch (err) {
+        console.error('[Gallery Images] Error reading local storage directory:', err);
       }
     }
 
     res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600"); // 5min browser, 10min CDN
-    res.setHeader("ETag", JSON.stringify(imageData.map(i => i.name)).slice(0, 32)); // Simple ETag
+    res.setHeader("ETag", JSON.stringify(imageData.map((i: any) => i.name)).slice(0, 32)); // Simple ETag
     res.status(200).json({ images: imageData });
     
   } catch (error: any) {

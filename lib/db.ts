@@ -1,16 +1,14 @@
 /**
- * Database Abstraction Layer with Auto-Fallback
+ * Database Abstraction Layer
  * 
- * Priority:
- * 1. Try Prisma (if DATABASE_URL is configured)
- * 2. Fallback to Supabase
+ * This file provides a consistent interface for database operations,
+ * using Prisma as the underlying ORM.
  * 
  * Usage: import { db } from './lib/db'
  */
 
-import { PrismaClient } from '@prisma/client';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from './database.types';
+import { PrismaClient, Profile } from '@prisma/client';
+import { prisma } from './prisma';
 
 // Database adapter types
 export type ImageDuration = {
@@ -39,7 +37,6 @@ export type SlideshowSetting = {
 export type ActiveSession = {
   id: string;
   user_id: string;
-  email: string;
   created_at: string | Date;
   last_seen: string | Date;
   page: "admin" | "remote";
@@ -50,7 +47,6 @@ export type ActiveSession = {
 export type LoginAttempt = {
   id: string;
   user_id: string;
-  email: string;
   browser_id: string;
   browser_info: string | null;
   status: string;
@@ -58,6 +54,8 @@ export type LoginAttempt = {
   responded_at: string | Date | null;
   expires_at: string | Date;
 };
+
+export type { Profile };
 
 // Database adapter interface
 export interface DatabaseAdapter {
@@ -88,9 +86,13 @@ export interface DatabaseAdapter {
   getLoginAttempts(filters?: { user_id?: string; status?: string }): Promise<LoginAttempt[]>;
   createLoginAttempt(data: Omit<LoginAttempt, 'id' | 'created_at' | 'responded_at'>): Promise<LoginAttempt>;
   updateLoginAttempt(id: string, data: Partial<LoginAttempt>): Promise<void>;
+
+  // Profiles
+  getProfileByUsername(username: string): Promise<Profile | null>;
+  createProfile(data: Omit<Profile, 'id' | 'created_at' | 'updated_at'>): Promise<Profile>;
   
   // Utility
-  getAdapterType(): 'prisma' | 'supabase';
+  getAdapterType(): 'prisma';
 }
 
 // Prisma Adapter
@@ -101,7 +103,7 @@ class PrismaAdapter implements DatabaseAdapter {
     this.prisma = prisma;
   }
 
-  getAdapterType(): 'prisma' | 'supabase' {
+  getAdapterType(): 'prisma' {
     return 'prisma';
   }
 
@@ -321,7 +323,6 @@ class PrismaAdapter implements DatabaseAdapter {
     const result = await this.prisma.activeSession.create({
       data: {
         user_id: data.user_id,
-        email: data.email,
         last_seen: new Date(data.last_seen),
         page: data.page,
         session_id: data.session_id,
@@ -386,7 +387,6 @@ class PrismaAdapter implements DatabaseAdapter {
     const result = await this.prisma.loginAttempt.create({
       data: {
         user_id: data.user_id,
-        email: data.email,
         browser_id: data.browser_id,
         browser_info: data.browser_info,
         status: data.status,
@@ -411,317 +411,20 @@ class PrismaAdapter implements DatabaseAdapter {
       },
     });
   }
-}
 
-// Supabase Adapter
-class SupabaseAdapter implements DatabaseAdapter {
-  private supabase: SupabaseClient<Database>;
-
-  constructor(supabase: SupabaseClient<Database>) {
-    this.supabase = supabase;
+  // Profiles
+  async getProfileByUsername(username: string): Promise<Profile | null> {
+    return this.prisma.profile.findUnique({
+      where: { username },
+    });
   }
 
-  getAdapterType(): 'prisma' | 'supabase' {
-    return 'supabase';
+  async createProfile(data: Omit<Profile, 'id' | 'created_at' | 'updated_at' | 'email'>): Promise<Profile> {
+    return this.prisma.profile.create({
+      data,
+    });
   }
-
-  // Image Durations
-  async getImageDurations(filters?: { hidden?: boolean; is_video?: boolean }): Promise<ImageDuration[]> {
-    let query = this.supabase.from('image_durations').select('*').order('order_index', { ascending: true });
-    
-    if (filters?.hidden !== undefined) {
-      query = query.eq('hidden', filters.hidden);
-    }
-    if (filters?.is_video !== undefined) {
-      query = query.eq('is_video', filters.is_video);
-    }
-    
-    const { data, error } = await query;
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-    return (data as any[]) || [];
-  }
-
-  async getImageDurationByFilename(filename: string): Promise<ImageDuration | null> {
-    const { data, error } = await this.supabase
-      .from('image_durations')
-      .select('*')
-      .eq('filename', filename)
-      .single();
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null; // Not found
-      throw new Error(`Supabase error: ${error.message}`);
-    }
-    
-    return data as any;
-  }
-
-  async upsertImageDuration(data: Partial<ImageDuration> & { filename: string }): Promise<ImageDuration> {
-    const { data: result, error } = await this.supabase
-      .from('image_durations')
-      .upsert({
-        filename: data.filename,
-        duration_ms: data.duration_ms ?? 5000,
-        caption: data.caption ?? null,
-        order_index: data.order_index ?? 0,
-        hidden: data.hidden ?? false,
-        video_url: data.video_url,
-        video_duration_ms: data.video_duration_ms,
-        video_status: data.video_status ?? 'none',
-        is_video: data.is_video ?? false,
-      }, { onConflict: 'filename' })
-      .select()
-      .single();
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-    return result as any;
-  }
-
-  async upsertImageDurations(data: (Partial<ImageDuration> & { filename: string })[]): Promise<number> {
-    const upsertData = data.map(item => ({
-      filename: item.filename,
-      duration_ms: item.duration_ms ?? 5000,
-      caption: item.caption ?? null,
-      order_index: item.order_index ?? 0,
-      hidden: item.hidden ?? false,
-      video_url: item.video_url,
-      video_duration_ms: item.video_duration_ms,
-      video_status: item.video_status ?? 'none',
-      is_video: item.is_video ?? false,
-    }));
-    
-    const { error } = await this.supabase
-      .from('image_durations')
-      .upsert(upsertData, { onConflict: 'filename' });
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-    return data.length;
-  }
-
-  async updateImageDuration(filename: string, data: Partial<ImageDuration>): Promise<ImageDuration> {
-    const { data: result, error } = await this.supabase
-      .from('image_durations')
-      .update(data as any)
-      .eq('filename', filename)
-      .select()
-      .single();
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-    return result as any;
-  }
-
-  async deleteImageDuration(filename: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('image_durations')
-      .delete()
-      .eq('filename', filename);
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-  }
-
-  // Settings
-  async getSettings(): Promise<SlideshowSetting[]> {
-    const { data, error } = await this.supabase
-      .from('slideshow_settings')
-      .select('*');
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-    return (data as any[]) || [];
-  }
-
-  async getSettingByKey(key: string): Promise<SlideshowSetting | null> {
-    const { data, error } = await this.supabase
-      .from('slideshow_settings')
-      .select('*')
-      .eq('key', key)
-      .single();
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      throw new Error(`Supabase error: ${error.message}`);
-    }
-    
-    return data as any;
-  }
-
-  async upsertSetting(key: string, value: string): Promise<SlideshowSetting> {
-    const { data, error } = await this.supabase
-      .from('slideshow_settings')
-      .upsert({ key, value }, { onConflict: 'key' })
-      .select()
-      .single();
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-    return data as any;
-  }
-
-  // Active Sessions
-  async getAllActiveSessions(): Promise<ActiveSession[]> {
-    const { data, error } = await this.supabase
-      .from('active_sessions' as any)
-      .select('*');
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-    return (data as any[]) || [];
-  }
-
-  async getActiveSessionByUserId(userId: string): Promise<ActiveSession | null> {
-    const { data, error } = await this.supabase
-      .from('active_sessions' as any)
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      throw new Error(`Supabase error: ${error.message}`);
-    }
-    
-    return data as any;
-  }
-
-  async getActiveSessionBySessionId(sessionId: string): Promise<ActiveSession | null> {
-    const { data, error } = await this.supabase
-      .from('active_sessions' as any)
-      .select('*')
-      .eq('session_id', sessionId)
-      .single();
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      throw new Error(`Supabase error: ${error.message}`);
-    }
-    
-    return data as any;
-  }
-
-  async createActiveSession(data: Omit<ActiveSession, 'id' | 'created_at'>): Promise<ActiveSession> {
-    const { data: result, error } = await this.supabase
-      .from('active_sessions' as any)
-      .insert({
-        user_id: data.user_id,
-        email: data.email,
-        last_seen: data.last_seen,
-        page: data.page,
-        session_id: data.session_id,
-        browser_id: data.browser_id,
-      })
-      .select()
-      .single();
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-    return result as any;
-  }
-
-  async updateActiveSession(id: string, data: Partial<ActiveSession>): Promise<void> {
-    const { error } = await this.supabase
-      .from('active_sessions' as any)
-      .update(data as any)
-      .eq('id', id);
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-  }
-
-  async deleteActiveSession(userId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('active_sessions' as any)
-      .delete()
-      .eq('user_id', userId);
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-  }
-
-  async deleteAllActiveSessions(): Promise<void> {
-    const { error } = await this.supabase
-      .from('active_sessions' as any)
-      .delete()
-      .neq('id', 'dummy'); // Delete all
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-  }
-
-  async deleteStaleActiveSessions(cutoffDate: Date): Promise<void> {
-    const { error } = await this.supabase
-      .from('active_sessions' as any)
-      .delete()
-      .lt('last_seen', cutoffDate.toISOString());
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-  }
-
-  // Login Attempts
-  async getLoginAttempts(filters?: { user_id?: string; status?: string }): Promise<LoginAttempt[]> {
-    let query = this.supabase.from('login_attempts' as any).select('*');
-    
-    if (filters?.user_id) query = query.eq('user_id', filters.user_id);
-    if (filters?.status) query = query.eq('status', filters.status);
-    
-    const { data, error } = await query;
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-    return (data as any[]) || [];
-  }
-
-  async createLoginAttempt(data: Omit<LoginAttempt, 'id' | 'created_at' | 'responded_at'>): Promise<LoginAttempt> {
-    const { data: result, error } = await this.supabase
-      .from('login_attempts' as any)
-      .insert({
-        user_id: data.user_id,
-        email: data.email,
-        browser_id: data.browser_id,
-        browser_info: data.browser_info,
-        status: data.status,
-        expires_at: data.expires_at,
-      })
-      .select()
-      .single();
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-    return result as any;
-  }
-
-  async updateLoginAttempt(id: string, data: Partial<LoginAttempt>): Promise<void> {
-    const { error } = await this.supabase
-      .from('login_attempts' as any)
-      .update(data as any)
-      .eq('id', id);
-    
-    if (error) throw new Error(`Supabase error: ${error.message}`);
-  }
-}
-
-// Auto-detect and create appropriate adapter
-function createDatabaseAdapter(): DatabaseAdapter {
-  // Try Prisma first if DATABASE_URL is set
-  if (process.env.DATABASE_URL) {
-    try {
-      const prisma = new PrismaClient();
-      console.log('[DB] Using Prisma adapter');
-      return new PrismaAdapter(prisma);
-    } catch (error) {
-      console.warn('[DB] Prisma initialization failed, falling back to Supabase:', error);
-    }
-  }
-
-  // Fallback to Supabase
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('No database configured. Set DATABASE_URL for Prisma or Supabase credentials.');
-  }
-
-  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
-    auth: { persistSession: false },
-  });
-
-  console.log('[DB] Using Supabase adapter');
-  return new SupabaseAdapter(supabase);
 }
 
 // Export singleton instance
-export const db: DatabaseAdapter = createDatabaseAdapter();
-
-// For Supabase Storage and Realtime, keep using Supabase directly
-export { supabase, getSupabaseServiceRoleClient } from './supabase';
+export const db: DatabaseAdapter = new PrismaAdapter(prisma);

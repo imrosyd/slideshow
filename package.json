@@ -4,35 +4,58 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build": "next build && npm run build:server",
+    "start": "node dist/server.js",
     "lint": "next lint"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@prisma/client": "^6.19.0",
-    "@supabase/supabase-js": "^2.76.1",
+    "bcrypt": "^6.0.0",
     "formidable": "^3.5.4",
+    "jsonwebtoken": "^9.0.2",
     "mime-types": "^2.1.35",
     "next": "^14.1.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.0.379",
-    "prisma": "^6.19.0",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/formidable": "^3.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/mime-types": "^2.1.4",
     "@types/node": "^24.10.0",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
+    "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.17",
-    "eslint": "^8.57.0",
-    "eslint-config-next": "^14.1.0",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.0.3",
     "postcss": "^8.4.35",
+    "prisma": "^6.19.0",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.3.3"
-  }
+  },
+  "description": "[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/imrosyd/slideshow/releases) [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/) [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/) [![Prisma](https://img.shields.io/badge/Prisma-6.19-2D3748)](https://www.prisma.io/) [![Supabase](https://img.shields.io/badge/Supabase-Optional-green)](https://supabase.com/) [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)",
+  "main": "postcss.config.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imrosyd/slideshow.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/imrosyd/slideshow/issues"
+  },
+  "homepage": "https://github.com/imrosyd/slideshow#readme"
 }

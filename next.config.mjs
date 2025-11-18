@@ -12,6 +12,10 @@ const imageGlobs = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Skip ESLint during build to avoid environment-specific CLI option issues
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Disable image optimization to preserve original quality
   images: {
     unoptimized: true,

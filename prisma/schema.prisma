@@ -47,7 +47,7 @@ model SlideshowSetting {
 model ActiveSession {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id    String   @db.Uuid
-  email      String
+
   created_at DateTime @default(now()) @db.Timestamptz(6)
   last_seen  DateTime @default(now()) @db.Timestamptz(6)
   page       String   // admin or remote
@@ -64,7 +64,7 @@ model ActiveSession {
 model LoginAttempt {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id      String    @db.Uuid
-  email        String
+
   browser_id   String
   browser_info String?
   status       String    @default("pending") // pending, approved, denied, expired
@@ -80,12 +80,13 @@ model LoginAttempt {
 
 model Profile {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email      String   @unique
+  username   String   @unique
+  password   String
   role       String   @default("viewer") // admin or viewer
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
-  @@index([email])
+  @@index([username])
   @@index([role])
   @@map("profiles")
 }

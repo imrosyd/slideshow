@@ -1,16 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { PDFDocument } from 'pdf-lib';
-import { createClient } from '@supabase/supabase-js';
 import { isAuthorizedAdminRequest } from '../../../lib/auth';
-
-// Use pdf-poppler or similar for server-side PDF to image conversion
-// For now, we'll use a simpler approach with pdf-lib to extract pages
-// and sharp for image processing
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 interface ConvertPdfResponse {
   success: boolean;
@@ -36,7 +26,6 @@ export default async function handler(
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  // Check admin authorization
   if (!isAuthorizedAdminRequest(req)) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
@@ -53,11 +42,9 @@ export default async function handler(
 
     console.log(`[PDF Convert] Starting conversion for: ${filename}`);
 
-    // Extract base64 data (remove data:application/pdf;base64, prefix if present)
     const base64Data = pdfBase64.replace(/^data:application\/pdf;base64,/, '');
     const pdfBuffer = Buffer.from(base64Data, 'base64');
     
-    // Load PDF document to get page count
     const pdfDoc = await PDFDocument.load(pdfBuffer);
     const pageCount = pdfDoc.getPageCount();
     
@@ -69,25 +56,15 @@ export default async function handler(
         error: 'PDF has no pages' 
       });
     }
-
-    // For now, we'll create placeholder entries in the database
-    // The actual PDF to image conversion requires additional tools like pdf-poppler
-    // which need to be installed on the server
     
     const uploadedImages: string[] = [];
     const baseFilename = filename.replace(/\.pdf$/i, '');
 
-    // Create metadata entries for each page
-    // The user will need to upload actual images separately, or we can implement
-    // a server-side conversion using external tools
-    
     for (let i = 0; i < pageCount; i++) {
       const imageFilename = pageCount > 1 
         ? `${baseFilename}-page-${i + 1}.png`
         : `${baseFilename}.png`;
       
-      // For now, return the expected filenames
-      // Actual implementation would convert PDF pages to images here
       uploadedImages.push(imageFilename);
       
       console.log(`[PDF Convert] Page ${i + 1}: ${imageFilename}`);

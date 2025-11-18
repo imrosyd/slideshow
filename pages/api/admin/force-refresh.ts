@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabase } from "../../../lib/supabase";
+import { broadcast } from "../../../lib/websocket";
 
 /**
  * Force refresh endpoint - triggers slideshow to reload
- * Uses Supabase Realtime to broadcast refresh signal
+ * Uses WebSocket to broadcast refresh signal
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -11,11 +11,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Broadcast refresh signal via Supabase channel using explicit REST delivery
-    const channel = supabase.channel('slideshow-control');
-
-    await channel.httpSend('force-refresh', { timestamp: Date.now() });
-    await supabase.removeChannel(channel);
+    // Broadcast refresh signal via WebSocket
+    broadcast(JSON.stringify({ event: 'force-refresh', payload: { timestamp: Date.now() } }));
 
     res.status(200).json({
       success: true,

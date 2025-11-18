@@ -1,49 +1,27 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { getBrowserId } from "../lib/browser-utils";
+
+export const dynamic = 'force-dynamic';
 
 export default function LoginPage() {
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("imron");
+  const [password, setPassword] = useState("password");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sessionConflict, setSessionConflict] = useState<any>(null);
-  const [browserId, setBrowserId] = useState<string>("");
-  const [waitingForApproval, setWaitingForApproval] = useState(false);
-  const [attemptId, setAttemptId] = useState<string | null>(null);
   const router = useRouter();
-  
-  useEffect(() => {
-    // Get browser ID on mount
-    setBrowserId(getBrowserId());
-  }, []);
-  
-  // Login approval polling removed in v2.5.0 cleanup
-  // Feature was disabled due to bugs - now using direct login only
-  useEffect(() => {
-    // No-op: Login approval feature removed
-  }, [waitingForApproval, attemptId]);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>, forceLogin = false, skipAttempt = false) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setIsLoading(true);
-    setSessionConflict(null);
 
     try {
-      const response = await fetch("/api/auth", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password, browserId, forceLogin }),
+        body: JSON.stringify({ username, password }),
       });
-
-      // DISABLED: Approval dialog feature (not working properly)
-      // if (response.status === 409) {
-      //   const payload = await response.json();
-      //   setSessionConflict(payload);
-      //   setIsLoading(false);
-      //   return;
-      // }
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
@@ -52,37 +30,17 @@ export default function LoginPage() {
 
       const payload = await response.json();
       const token = payload?.token as string | undefined;
-      const supabaseToken = payload?.supabaseToken as string | undefined;
-      const sessionId = payload?.sessionId as string | undefined;
       
       if (!token) {
         throw new Error("Invalid authentication token.");
       }
 
-      // Store tokens and sessionId
       sessionStorage.setItem("admin-auth-token", token);
-      if (supabaseToken) {
-        sessionStorage.setItem("supabase-token", supabaseToken);
-      }
       
-      // Store sessionId based on redirect target
-      const redirect = router.query.redirect as string | undefined;
-      if (sessionId) {
-        // Always store both session IDs for seamless navigation
-        const sessionIdForPage = redirect === "remote" ? 
-          `remote-${sessionId}` : 
-          `admin-${sessionId}`;
-        
-        if (redirect === "remote") {
-          sessionStorage.setItem("remote-session-id", sessionIdForPage);
-        } else {
-          sessionStorage.setItem("admin-session-id", sessionIdForPage);
-        }
-      }
-      
+      setUsername("");
       setPassword("");
       
-      // Navigate to the appropriate page
+      const redirect = router.query.redirect as string | undefined;
       if (redirect) {
         await router.push(`/${redirect}`);
       } else {
@@ -112,7 +70,7 @@ export default function LoginPage() {
               </span>
               <h1 className="text-3xl font-semibold tracking-tight">Administrator</h1>
               <p className="text-sm text-white/60">
-                Enter the admin password to access the dashboard.
+                Enter your credentials to access the dashboard.
               </p>
             </div>
             <form
@@ -120,6 +78,20 @@ export default function LoginPage() {
               className="flex flex-col gap-5 select-text"
               autoComplete="off"
             >
+              <label className="flex flex-col gap-2">
+                <span className="text-xs uppercase tracking-[0.2em] text-white/60">
+                  Username
+                </span>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="imron"
+                  className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-base text-white outline-none ring-0 transition focus:border-sky-400 focus:bg-slate-900/60 focus:ring-2 focus:ring-sky-500/40"
+                  disabled={isLoading}
+                  autoComplete="username"
+                />
+              </label>
               <label className="flex flex-col gap-2">
                 <span className="text-xs uppercase tracking-[0.2em] text-white/60">
                   Password
@@ -140,72 +112,13 @@ export default function LoginPage() {
                   {error}
                 </div>
               )}
-              
-              {sessionConflict && (
-                <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-white">
-                  <p className="text-[0.9rem] mb-3">
-                    Another browser is currently logged in. Do you want to take over the session?
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setSessionConflict(null);
-                        // Create a proper form event
-                        const form = e.currentTarget.closest('form');
-                        if (form) {
-                          const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
-                          Object.defineProperty(submitEvent, 'preventDefault', { value: () => {} });
-                          handleSubmit(submitEvent as any, true);
-                        }
-                      }}
-                      className="px-3 py-1 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium"
-                    >
-                      Yes, take over
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSessionConflict(null);
-                        setPassword("");
-                      }}
-                      className="px-3 py-1 text-sm rounded-lg bg-white/10 hover:bg-white/20 text-white"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
               <button
                 type="submit"
-                disabled={!password || isLoading || waitingForApproval}
+                disabled={!username || !password || isLoading}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 via-sky-400 to-blue-500 px-5 py-3 text-base font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 focus:ring-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {waitingForApproval ? "Waiting for approval..." : 
-                 isLoading ? "Signing in…" : 
-                 "Sign in to dashboard"}
+                {isLoading ? "Signing in…" : "Sign in to dashboard"}
               </button>
-              
-              {waitingForApproval && (
-                <div className="rounded-xl border border-blue-400/40 bg-blue-500/10 px-4 py-3 text-white">
-                  <p className="text-[0.9rem] mb-2">
-                    A request has been sent to the active session. 
-                    Waiting for approval...
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWaitingForApproval(false);
-                      setAttemptId(null);
-                      setIsLoading(false);
-                    }}
-                    className="text-sm underline hover:no-underline"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
             </form>
           </div>
         </div>

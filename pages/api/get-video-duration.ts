@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getSupabaseServiceRoleClient } from "../../lib/supabase";
+import { db } from "../../lib/db";
 
 export default async function handler(
   req: NextApiRequest,
@@ -12,21 +12,11 @@ export default async function handler(
   const filename = req.query.filename as string;
   
   try {
-    const supabaseServiceRole = getSupabaseServiceRoleClient();
-    // Get metadata for this specific video
-    const { data, error } = await (supabaseServiceRole as any)
-      .from('image_durations')
-      .eq('filename', filename)
-      .single();
+    const data = await db.getImageDurationByFilename(filename);
 
-    if (error) {
-      console.error(`[Video Duration] Database error for ${filename}:`, error);
-      return res.status(500).json({ error: error.message });
-    }
-
-    if (data && data.videoDurationSeconds) {
+    if (data && data.video_duration_ms) {
       return res.status(200).json({ 
-        duration: data.videoDurationSeconds
+        duration: Math.round(data.video_duration_ms / 1000)
       });
     } else {
       return res.status(200).json({ 

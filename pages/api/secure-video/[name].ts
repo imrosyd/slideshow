@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
+import { storage } from "../../../lib/storage-adapter";
 import { requireAuth } from "../../../lib/simple-auth";
+import fs from 'fs/promises';
 
 export default async function handler(
   req: NextApiRequest,
@@ -12,28 +13,19 @@ export default async function handler(
     return res.status(400).json({ error: "Invalid video name" });
   }
 
-  // Simple auth check - just verify user is logged in
   const auth = await requireAuth(req, res);
-  if (!auth) return; // Already sent 401 response
+  if (!auth) return;
 
   try {
-    const supabase = getSupabaseServiceRoleClient();
-    
-    // Create signed URL for video
-    const { data, error } = await supabase.storage
-      .from('slideshow-videos')
-      .createSignedUrl(name, 3600); // 1 hour
+    const videoPath = (storage as any).getVideoPath(name);
+    const fileBuffer = await fs.readFile(videoPath);
 
-    if (error || !data?.signedUrl) {
-      return res.status(404).json({ error: "Video not found" });
-    }
-
-    // Cache headers for authenticated users
-    res.setHeader('Cache-Control', 'private, max-age=3600'); // 1 hour
-    res.redirect(307, data.signedUrl);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.setHeader('Content-Type', 'video/mp4');
+    res.send(fileBuffer);
 
   } catch (error) {
     console.error("Secure video access error:", error);
-    res.status(500).json({ error: "Failed to access video securely" });
+    res.status(404).json({ error: "Video not found" });
   }
 }

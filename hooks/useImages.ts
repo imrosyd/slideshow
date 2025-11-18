@@ -657,9 +657,12 @@ export const useImages = (authToken: string | null) => {
         const pdfjsLib = await import('pdfjs-dist');
         console.log('[useImages] PDF.js library imported successfully');
         
-        // Set worker path - use local worker file
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
-        console.log('[useImages] Worker path set to /pdf.worker.min.js');
+        // Set worker path - prefer `NEXT_PUBLIC_PDFJS_WORKER_URL` env var,
+        // otherwise fall back to the matching version on unpkg so worker
+        // code matches the installed `pdfjs-dist` package.
+        const workerUrl = process.env.NEXT_PUBLIC_PDFJS_WORKER_URL || 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.js';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+        console.log('[useImages] Worker path set to', workerUrl);
         
         // Ensure window is defined (client-side)
         if (typeof window !== 'undefined') {

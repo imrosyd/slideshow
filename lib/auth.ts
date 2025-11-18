@@ -1,99 +1,33 @@
-import { createHash, timingSafeEqual } from "crypto";
-import type { NextApiRequest } from "next";
-import { ADMIN_AUTH_COOKIE_NAME } from "./constants";
+import type { NextApiRequest, NextApiResponse } from "next";
+import jwt from 'jsonwebtoken';
 
-const ADMIN_TOKEN_SALT = process.env.ADMIN_PASSWORD_SALT || "slideshow-admin-salt";
+export async function verifyAuth(
+  req: NextApiRequest,
+  res: NextApiResponse
+): Promise<{ authenticated: boolean; userId?: string; email?: string, role?: string }> {
+  const authHeader = req.headers.authorization;
 
-const cachedTokenKey = Symbol.for("adminTokenCache");
-
-type TokenCache = {
-  expectedToken: string | null;
-};
-
-const globalCache = globalThis as typeof globalThis & { [cachedTokenKey]?: TokenCache };
-
-const getCache = (): TokenCache => {
-  if (!globalCache[cachedTokenKey]) {
-    globalCache[cachedTokenKey] = { expectedToken: null };
-  }
-  return globalCache[cachedTokenKey]!;
-};
-
-export const getAdminAuthCookieName = () => ADMIN_AUTH_COOKIE_NAME;
-
-export const getExpectedAdminToken = (adminPassword: string | null | undefined) => {
-  if (!adminPassword) {
-    throw new Error("ADMIN_PASSWORD is not configured.");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return { authenticated: false };
   }
 
-  const cache = getCache();
-  if (cache.expectedToken) {
-    return cache.expectedToken;
+  const token = authHeader.replace("Bearer ", "");
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-default-secret') as { userId: string, email: string, role: string };
+    return {
+      authenticated: true,
+      userId: decoded.userId,
+      email: decoded.email,
+      role: decoded.role,
+    };
+  } catch (error) {
+    console.error("Auth verification error:", error);
+    return { authenticated: false };
   }
+}
 
-  const token = createHash("sha256")
-    .update(`${adminPassword}:${ADMIN_TOKEN_SALT}`)
-    .digest("hex");
-
-  cache.expectedToken = token;
-  return token;
-};
-
-const safeCompare = (a: string, b: string) => {
-  const bufferA = Buffer.from(a);
-  const bufferB = Buffer.from(b);
-  if (bufferA.length !== bufferB.length) {
-    return false;
-  }
-  return timingSafeEqual(bufferA, bufferB);
-};
-
-export const extractAuthHeader = (req: NextApiRequest) => {
-  const header = req.headers.authorization;
-  if (!header) {
-    return null;
-  }
-
-  const [scheme, value] = header.split(" ");
-  if (!scheme || !value) {
-    return null;
-  }
-
-  if (scheme === "Bearer") {
-    return { type: "password" as const, value };
-  }
-
-  if (scheme === "Token") {
-    return { type: "token" as const, value };
-  }
-
-  return null;
-};
-
-export const isAuthorizedAdminRequest = (req: NextApiRequest): boolean => {
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) {
-    return false;
-  }
-
-  const expectedToken = getExpectedAdminToken(adminPassword);
-  const header = extractAuthHeader(req);
-
-  if (!header) {
-    const cookieToken = (req.cookies || {})[ADMIN_AUTH_COOKIE_NAME];
-    if (typeof cookieToken === "string" && safeCompare(cookieToken, expectedToken)) {
-      return true;
-    }
-    return false;
-  }
-
-  if (header.type === "password") {
-    return safeCompare(header.value, adminPassword);
-  }
-
-  if (header.type === "token") {
-    return safeCompare(header.value, expectedToken);
-  }
-
-  return false;
+export const isAuthorizedAdminRequest = async (req: NextApiRequest): Promise<boolean> => {
+  const authResult = await verifyAuth(req, new (require('http').ServerResponse)(req));
+  return authResult.authenticated && authResult.role === 'admin';
 };

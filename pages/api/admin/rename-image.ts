@@ -1,6 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { isAuthorizedAdminRequest } from "../../../lib/auth";
-import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
+import { storage } from "../../../lib/storage-adapter";
+import { db } from "../../../lib/db";
+import { broadcast } from "../../../lib/websocket";
+import fs from 'fs/promises';
+import path from 'path';
 
 type RenameResponse =
   | { success: true; filename: string; previousName: string }
@@ -49,77 +53,26 @@ export default async function handler(
     return res.status(400).json({ error: "Ekstensi file harus sama saat melakukan rename." });
   }
 
-  const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
-
-  if (!SUPABASE_STORAGE_BUCKET) {
-    console.error("SUPABASE_STORAGE_BUCKET is not set.");
-    return res.status(500).json({ error: "Konfigurasi server salah: Supabase bucket tidak diatur." });
-  }
-
   try {
-    const supabaseServiceRole = getSupabaseServiceRoleClient();
+    const oldPath = (storage as any).getImagePath(trimmedOldName);
+    const newPath = (storage as any).getImagePath(trimmedNewName);
 
-    const timestamp = new Date().toISOString();
-
-    // Copy file to new name (no overwrite)
-    const { error: copyError } = await supabaseServiceRole.storage
-      .from(SUPABASE_STORAGE_BUCKET)
-      .copy(trimmedOldName, trimmedNewName, { upsert: false } as any);
-
-    if (copyError) {
-      console.error("Failed to copy file during rename:", copyError);
-      const message = typeof copyError.message === "string" ? copyError.message.toLowerCase() : "";
-      const isConflict = message.includes("exists") || message.includes("duplicate");
-      return res.status(isConflict ? 409 : 500).json({
-        error: isConflict ? "File dengan nama tersebut sudah ada." : "Gagal menyalin file ke nama baru.",
-      });
-    }
+    await fs.rename(oldPath, newPath);
 
     let metadataUpdated = false;
-
-    // Update metadata row if exists
-    const { data: updateResult, error: updateError } = await supabaseServiceRole
-      .from("image_durations")
-      .update({ filename: trimmedNewName, updated_at: timestamp })
-      .eq("filename", trimmedOldName)
-      .select("filename");
-
-    if (updateError) {
-      console.error("Failed to update metadata during rename:", updateError);
-      // Attempt to clean up new file to avoid duplicates
-      await supabaseServiceRole.storage.from(SUPABASE_STORAGE_BUCKET).remove([trimmedNewName]);
-      return res.status(500).json({ error: "Gagal memperbarui metadata gambar." });
-    }
-
-    metadataUpdated = Boolean(updateResult && updateResult.length > 0);
-
-    // Remove old file after successful copy and metadata update
-    const { error: removeError } = await supabaseServiceRole.storage
-      .from(SUPABASE_STORAGE_BUCKET)
-      .remove([trimmedOldName]);
-
-    if (removeError) {
-      console.error("Failed to remove old file after rename:", removeError);
-      // Try to roll back metadata if we updated it
-      if (metadataUpdated) {
-        await supabaseServiceRole
-          .from("image_durations")
-          .update({ filename: trimmedOldName, updated_at: new Date().toISOString() })
-          .eq("filename", trimmedNewName);
-      }
-      return res.status(500).json({ error: "Gagal menghapus file lama setelah rename." });
+    try {
+      await db.updateImageDuration(trimmedOldName, { filename: trimmedNewName });
+      metadataUpdated = true;
+    } catch (dbError) {
+        console.error("Failed to update metadata during rename:", dbError);
+        // Attempt to clean up new file to avoid duplicates
+        await fs.rename(newPath, oldPath);
+        return res.status(500).json({ error: "Gagal memperbarui metadata gambar." });
     }
 
     // Broadcast image rename to refresh galleries
     try {
-      const { createClient } = require('@supabase/supabase-js');
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-      const channel = supabase.channel('image-metadata-updates');
-      await channel.send({
-        type: 'broadcast',
+      broadcast(JSON.stringify({
         event: 'image-updated',
         payload: {
           action: 'renamed',
@@ -127,14 +80,20 @@ export default async function handler(
           newName: trimmedNewName,
           updatedAt: new Date().toISOString()
         }
-      }, { httpSend: true });
+      }));
       console.log(`[Rename] Broadcast: Renamed ${trimmedOldName} to ${trimmedNewName}`);
     } catch (broadcastError) {
       console.warn('[Rename] Failed to broadcast image rename:', broadcastError);
     }
 
     return res.status(200).json({ success: true, filename: trimmedNewName, previousName: trimmedOldName });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 'EEXIST') {
+        return res.status(409).json({ error: "File dengan nama tersebut sudah ada." });
+    }
+    if (error.code === 'ENOENT') {
+        return res.status(404).json({ error: "File lama tidak ditemukan." });
+    }
     console.error("Unexpected error in rename-image API:", error);
     return res.status(500).json({ error: "Terjadi kesalahan saat rename gambar." });
   }

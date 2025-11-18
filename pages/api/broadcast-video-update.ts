@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { createClient } from "@supabase/supabase-js";
 import { isAuthorizedAdminRequest } from "../../lib/auth";
+import { broadcast } from "../../lib/websocket";
 
 type VideoUpdatePayload = {
   slideName: string;
@@ -27,18 +27,7 @@ export default async function handler(
     const payload = req.body as VideoUpdatePayload;
     
     // Broadcast to all connected main page clients
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    const channel = supabase.channel('video-updates');
-    
-    await channel.send({
-      type: 'broadcast',
-      event: 'video-updated',
-      payload
-    }, { httpSend: true });
+    broadcast(JSON.stringify({ event: 'video-updated', payload }));
 
     console.log(`[Broadcast] Video update broadcasted:`, payload);
 

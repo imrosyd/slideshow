@@ -1,25 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getSupabaseServiceRoleClient } from "../../lib/supabase";
+import { db } from "../../lib/db";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   try {
-    const supabase = getSupabaseServiceRoleClient();
+    const allData = await db.getImageDurations();
     
-    // Get all records with video info
-    const { data: allData, error } = await supabase
-      .from('image_durations')
-      .select('*')
-      .order('order_index', { ascending: true });
-    
-    if (error) {
-      res.status(500).json({ error: error.message });
-      return;
-    }
-
-    // Check specifically for videos
     const videos = allData.filter((item: any) => item.is_video);
     const nonVideos = allData.filter((item: any) => !item.is_video);
     
@@ -30,7 +18,7 @@ export default async function handler(
         is_video: v.is_video,
         video_url: v.video_url,
         video_generated_at: v.video_generated_at,
-        video_duration_seconds: v.video_duration_seconds,
+        video_duration_seconds: v.video_duration_ms ? Math.round(v.video_duration_ms / 1000) : null,
         hasVideoUrl: !!v.video_url
       })),
       nonVideos: nonVideos.length,

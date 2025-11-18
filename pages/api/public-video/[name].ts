@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getSupabaseServiceRoleClient } from "../../../lib/supabase";
+import { storage } from "../../../lib/storage-adapter";
+import fs from 'fs/promises';
 
 export default async function handler(
   req: NextApiRequest,
@@ -12,33 +13,22 @@ export default async function handler(
   }
 
   try {
-    const supabase = getSupabaseServiceRoleClient();
-    
-    // Get public URL directly (no authentication required)
-    const { data } = supabase.storage
-      .from('slideshow-videos')
-      .getPublicUrl(name);
+    const videoPath = (storage as any).getVideoPath(name);
+    const fileBuffer = await fs.readFile(videoPath);
 
-    if (!data?.publicUrl) {
-      return res.status(404).json({ error: "Video not found" });
-    }
-
-    // Aggressive caching for TV playback
-    // Browser cache: 7 days, CDN cache: 30 days
     res.setHeader('Cache-Control', 'public, max-age=604800, s-maxage=2592000, immutable');
     res.setHeader('ETag', `"${name}-v1"`);
     
-    // Support conditional requests for bandwidth savings
     const ifNoneMatch = req.headers['if-none-match'];
     if (ifNoneMatch === `"${name}-v1"`) {
-      return res.status(304).end(); // Not Modified
+      return res.status(304).end();
     }
 
-    // Redirect to public URL
-    res.redirect(307, data.publicUrl);
+    res.setHeader('Content-Type', 'video/mp4');
+    res.send(fileBuffer);
 
   } catch (error) {
     console.error("Public video access error:", error);
-    res.status(500).json({ error: "Failed to access video" });
+    res.status(404).json({ error: "Video not found" });
   }
 }

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase-mock';
 
 interface UseRemoteControlProps {
   slides: any[];
@@ -37,7 +37,7 @@ export function useRemoteControl({
     
     const remoteChannel = supabase
       .channel('remote-control')
-      .on('broadcast', { event: 'remote-command' }, (payload) => {
+      .on('broadcast', { event: 'remote-command' }, (payload: any) => {
         console.log('📱 Remote command received:', payload);
         const { command, data } = payload.payload || {};
         

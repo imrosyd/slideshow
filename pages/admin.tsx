@@ -1,156 +1,46 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
-import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
-import dynamic from "next/dynamic";
-const QRCodeSVG = dynamic(async () => (await import('qrcode.react')).QRCodeSVG as any, { ssr: false }) as any;
+import dynamicImport from "next/dynamic";
+const QRCodeSVG = dynamicImport(async () => (await import('qrcode.react')).QRCodeSVG as any, { ssr: false }) as any;
 
-// Precompute Supabase origin for resource hints on admin page
-const SUPABASE_ORIGIN = (() => {
-  try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
-    return url ? new URL(url).origin : "";
-  } catch {
-    return "";
-  }
-})();
 import { ToastProvider } from "../components/admin/ToastProvider";
 
+export const dynamic = 'force-dynamic';
+
 // Lazy-load komponen berat untuk memperkecil bundle awal halaman admin
-const UploadBox = dynamic(async () => (await import("../components/admin/UploadBox")).UploadBox as any, { ssr: false }) as any;
-const ImageCard = dynamic(async () => (await import("../components/admin/ImageCard")).ImageCard as any, { ssr: false }) as any;
-const ConfirmModal = dynamic(async () => (await import("../components/admin/ConfirmModal")).ConfirmModal as any, { ssr: false }) as any;
-const MergeVideoDialog = dynamic(async () => (await import("../components/admin/MergeVideoDialog")).MergeVideoDialog as any, { ssr: false }) as any;
-const BulkEditDialog = dynamic(async () => (await import("../components/admin/BulkEditDialog")).BulkEditDialog as any, { ssr: false }) as any;
+const UploadBox = dynamicImport(async () => (await import("../components/admin/UploadBox")).UploadBox as any, { ssr: false }) as any;
+const ImageCard = dynamicImport(async () => (await import("../components/admin/ImageCard")).ImageCard as any, { ssr: false }) as any;
+const ConfirmModal = dynamicImport(async () => (await import("../components/admin/ConfirmModal")).ConfirmModal as any, { ssr: false }) as any;
+const MergeVideoDialog = dynamicImport(async () => (await import("../components/admin/MergeVideoDialog")).MergeVideoDialog as any, { ssr: false }) as any;
+const BulkEditDialog = dynamicImport(async () => (await import("../components/admin/BulkEditDialog")).BulkEditDialog as any, { ssr: false }) as any;
 import { useImages } from "../hooks/useImages";
 import { useToast } from "../hooks/useToast";
-import { getBrowserId } from "../lib/browser-utils";
-import { getAdminAuthCookieName, getExpectedAdminToken } from "../lib/auth";
-// Login approval feature removed in v2.5.0 cleanup
 
 const AdminContent = () => {
-  // (Reserved) additional admin-only state
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [togglingImage, setTogglingImage] = useState<string | null>(null); // Track which image is being toggled
   
-  // States for custom dialogs
   const [renameDialog, setRenameDialog] = useState<{ filename: string } | null>(null);
   const [renameInput, setRenameInput] = useState("");
   const [cleanupConfirm, setCleanupConfirm] = useState(false);
   const [deleteVideoConfirm, setDeleteVideoConfirm] = useState<string | null>(null);
   const [mergeVideoDialog, setMergeVideoDialog] = useState(false);
   const [bulkEditDialog, setBulkEditDialog] = useState(false);
-  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<Set<string>>(new Set());
   const [mergeProgress, setMergeProgress] = useState<string>("");
   const [isMerging, setIsMerging] = useState(false);
   const [isCleaningCorrupt, setIsCleaningCorrupt] = useState(false);
   
   const { pushToast } = useToast();
   const router = useRouter();
-  // const [loginAttempt, setLoginAttempt] = useState<any>(null); // DISABLED
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     
-    // Get tokens from sessionStorage
     const sessionToken = sessionStorage.getItem("admin-auth-token");
-    const supabaseToken = sessionStorage.getItem("supabase-token");
-    
-    // Check if we have valid auth tokens
-    if (!sessionToken || !supabaseToken) {
-      console.log("[Admin] No auth tokens found, redirecting to login");
-      router.push("/login");
-      return;
-    }
-    
-    if (sessionToken) {
-      setAuthToken(sessionToken);
-    }
-    
-    // Check session with session manager
-    const checkSession = async () => {
-      if (!supabaseToken) {
-        console.warn("[Admin] No Supabase token - redirecting to login");
-        router.push("/login");
-        return false;
-      }
-      
-      // Get or generate sessionId for admin page
-      let sessionId = sessionStorage.getItem("admin-session-id");
-      if (!sessionId) {
-        // Generate new sessionId if not exists (shouldn't happen normally)
-        sessionId = `admin-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-        sessionStorage.setItem("admin-session-id", sessionId);
-      }
-      
-      // Get browser ID
-      const browserId = getBrowserId();
-      
-      try {
-        console.log("[Admin] Checking session...");
-        const response = await fetch("/api/session/check", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${supabaseToken}`,
-          },
-          body: JSON.stringify({ page: "admin", sessionId, browserId }),
-        });
-        
-        if (!response.ok) {
-          const error = await response.json();
-          console.error("[Admin] Session check failed:", error);
-          
-          if (error.error === "concurrent_session") {
-            // Another user is logged in - logout this session
-            console.warn("[Admin] Concurrent session detected, logging out");
-            sessionStorage.removeItem("admin-auth-token");
-            sessionStorage.removeItem("supabase-token");
-            pushToast({ 
-              variant: "error", 
-              description: "Another user is logged in. You have been logged out." 
-            });
-            router.push("/login");
-            return false;
-          }
-        } else {
-          console.log("[Admin] Session check successful");
-          return true;
-        }
-      } catch (error) {
-        console.error("[Admin] Session check error:", error);
-        return false;
-      }
-    };
-    
-    // Initial check
-    checkSession();
-    
-    // Periodic session check every 15 seconds to detect concurrent logins
-    const sessionCheckInterval = setInterval(() => {
-      checkSession();
-    }, 15000);
-    
-    // DISABLED: Login attempts checking (feature has bugs)
-    // const attemptCheckInterval = setInterval(async () => {
-    //   if (!supabaseToken) return;
-    //   try {
-    //     const response = await fetch("/api/auth/check-attempts", {
-    //       headers: { "Authorization": `Bearer ${supabaseToken}` },
-    //     });
-    //     if (response.ok) {
-    //       const data = await response.json();
-    //       if (data.hasPendingAttempt && !loginAttempt) {
-    //         setLoginAttempt(data.attempt);
-    //       }
-    //     }
-    //   } catch (error) {
-    //     console.error("[Admin] Error checking login attempts:", error);
-    //   }
-    // }, 5000);
+    setAuthToken(sessionToken);
     
     const previousSelect = document.body.style.userSelect;
     const previousTouch = document.body.style.touchAction;
@@ -158,8 +48,6 @@ const AdminContent = () => {
     document.body.style.touchAction = "auto";
     
     return () => {
-      clearInterval(sessionCheckInterval);
-      // clearInterval(attemptCheckInterval); // DISABLED
       document.body.style.userSelect = previousSelect;
       document.body.style.touchAction = previousTouch;
     };
@@ -194,9 +82,6 @@ const AdminContent = () => {
   const [savingImageFor, setSavingImageFor] = useState<string | null>(null);
   const [renamingImage, setRenamingImage] = useState<string | null>(null);
 
-  // Track if auto-generate has been done for current images
-  const hasAutoGenerated = useRef(false);
-
   const galleryStats = useMemo(() => {
     const totalSize = images.reduce((sum, image) => sum + (image.size || 0), 0);
     const totalVideos = images.filter((image) => image.isVideo && image.videoUrl).length;
@@ -220,8 +105,6 @@ const AdminContent = () => {
     () => uploadTasks.filter((task) => task.status === "uploading").length,
     [uploadTasks]
   );
-
-  // Removed auto-generate video feature - videos are only generated via manual button clicks
 
   const handleUpload = useCallback(
     async (files: File[]) => {
@@ -324,34 +207,7 @@ const AdminContent = () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
-      // Get Supabase token for session logout
-      const supabaseToken = sessionStorage.getItem("supabase-token");
-      
-      // Call cookie-based logout
-      const response = await fetch("/api/logout", { method: "POST" });
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-      
-      // Call session-based logout if we have a token
-      if (supabaseToken) {
-        try {
-          await fetch("/api/session/logout", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${supabaseToken}`,
-            },
-          });
-        } catch (sessionError) {
-          console.error("Failed to clear session:", sessionError);
-        }
-      }
-      
-      // Clear all tokens and session ID
       sessionStorage.removeItem("admin-auth-token");
-      sessionStorage.removeItem("supabase-token");
-      sessionStorage.removeItem("session-id");
       setAuthToken(null);
       
       pushToast({ 
@@ -370,25 +226,21 @@ const AdminContent = () => {
     }
   }, [isLoggingOut, pushToast, router]);
 
-  
-
   const handleSaveIndividual = useCallback(
     async (filename: string) => {
       try {
         setSavingImageFor(filename);
         
-        // Find the image to save
         const imageToSave = images.find(img => img.name === filename);
         if (!imageToSave) {
           throw new Error("Image not found");
         }
 
-        // Call API directly to save single image
         const response = await fetch("/api/admin/metadata", {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
           },
           body: JSON.stringify([{
             filename: imageToSave.name,
@@ -402,7 +254,6 @@ const AdminContent = () => {
           throw new Error(await response.text());
         }
 
-        // Reset the "original" values so changes are no longer dirty
         resetMetadataDraft(filename);
         
         pushToast({
@@ -410,7 +261,6 @@ const AdminContent = () => {
           description: `Successfully saved changes for "${filename}"`,
         });
         
-        // Refresh to get updated data from server
         await refresh();
       } catch (error) {
         console.error("Save individual error:", error);
@@ -431,7 +281,6 @@ const AdminContent = () => {
       const extension = extensionIndex >= 0 ? filename.slice(extensionIndex) : "";
       const currentBase = extensionIndex >= 0 ? filename.slice(0, extensionIndex) : filename;
 
-      // Open custom rename dialog
       setRenameInput(currentBase);
       setRenameDialog({ filename });
     },
@@ -495,7 +344,7 @@ const AdminContent = () => {
       const response = await fetch('/api/admin/cleanup-videos', {
         method: 'POST',
         headers: {
-          ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
       });
       const data = await response.json();
@@ -527,7 +376,6 @@ const AdminContent = () => {
       });
       setDeleteVideoConfirm(null);
       
-      // Refresh to show updated state
       await refresh();
     } catch (error) {
       pushToast({
@@ -549,7 +397,7 @@ const AdminContent = () => {
 
       const response = await fetch("/api/admin/cleanup-corrupt-videos", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
       });
 
       if (!response.ok) {
@@ -588,7 +436,6 @@ const AdminContent = () => {
         description: message.trim()
       });
       
-      // Refresh gallery to reflect changes
       await refresh();
     } catch (error) {
       console.error("Cleanup corrupt videos error:", error);
@@ -599,7 +446,7 @@ const AdminContent = () => {
     } finally {
       setIsCleaningCorrupt(false);
     }
-  }, [isCleaningCorrupt, pushToast, refresh]);
+  }, [isCleaningCorrupt, pushToast, refresh, authToken]);
 
   const handleForceRefresh = useCallback(async () => {
     if (isForceRefreshing) return;
@@ -609,6 +456,7 @@ const AdminContent = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
       });
       
@@ -631,12 +479,9 @@ const AdminContent = () => {
     } finally {
       setIsForceRefreshing(false);
     }
-  }, [isForceRefreshing, pushToast]);
-
-  
+  }, [isForceRefreshing, pushToast, authToken]);
 
   const handleMergeVideo = useCallback(async () => {
-    // Get gallery-visible images that have non-zero duration (same as main page gallery)
     const visibleImages = images.filter(img => !img.hidden && !img.isVideo && img.durationSeconds !== 0);
     
     if (visibleImages.length < 1) {
@@ -653,13 +498,12 @@ const AdminContent = () => {
       
       const response = await fetch("/api/admin/merge-video", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
         body: JSON.stringify({
           images: visibleImages.map(img => ({
             filename: img.name,
             durationSeconds: img.durationSeconds || 10,
           })),
-          // No outputFilename needed anymore - always dashboard
         }),
       });
 
@@ -678,7 +522,6 @@ const AdminContent = () => {
         description: `Dashboard video created successfully!` 
       });
       
-      // Refresh images to show the new merged video
       await refresh();
       
       setMergeVideoDialog(false);
@@ -693,7 +536,7 @@ const AdminContent = () => {
       setIsMerging(false);
       setMergeProgress("");
     }
-  }, [images, pushToast, refresh]);
+  }, [images, pushToast, refresh, authToken]);
 
   const handleDragStart = useCallback((index: number) => {
     setDraggedIndex(index);
@@ -726,7 +569,6 @@ const AdminContent = () => {
     setFullscreenImage(null);
   }, []);
 
-  // Close fullscreen with Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && fullscreenImage) {
@@ -749,14 +591,11 @@ const AdminContent = () => {
 
   return (
     <div className="relative w-full min-h-screen bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
-      {/* Animated background gradient */}
       <div className="pointer-events-none fixed -top-32 -right-24 h-96 w-96 rounded-full bg-sky-500/20 blur-3xl"></div>
       <div className="pointer-events-none fixed -bottom-36 -left-20 h-[500px] w-[500px] rounded-full bg-violet-500/15 blur-3xl"></div>
       
-      {/* Main container */}
       <div className="relative z-10 mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-8 lg:px-8">
         
-        {/* Header */}
         <header className="flex flex-col gap-6 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-col gap-3">
@@ -824,7 +663,6 @@ const AdminContent = () => {
             </div>
           </div>
 
-          {/* Stats bar */}
           <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
             <div className="flex items-center gap-2 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-4 py-2">
               <span className="text-sm font-semibold text-emerald-200">{galleryStats.total} Images</span>
@@ -835,13 +673,10 @@ const AdminContent = () => {
           </div>
         </header>
 
-        {/* Main content grid */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           
-          {/* Left sidebar - Upload & Actions */}
           <aside className="flex flex-col gap-6 lg:col-span-4 xl:col-span-3">
             
-            {/* Upload section */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg">
               <h2 className="mb-4 text-lg font-semibold text-white">Upload Images or PDF</h2>
               <UploadBox 
@@ -852,7 +687,6 @@ const AdminContent = () => {
               />
             </div>
 
-            {/* Quick stats */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg">
               <h3 className="mb-4 text-sm font-semibold text-white/90">Quick Stats</h3>
               <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -875,7 +709,6 @@ const AdminContent = () => {
               </div>
             </div>
 
-            {/* Generated Videos Section */}
             <div className="rounded-2xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-pink-500/10 p-6 shadow-glass backdrop-blur-lg">
               <div className="mb-4">
                 <h3 className="text-sm font-semibold text-purple-200">Generated Videos</h3>
@@ -939,7 +772,6 @@ const AdminContent = () => {
             </div>
           </aside>
 
-          {/* Main gallery area */}
           <main className="lg:col-span-8 xl:col-span-9">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg sm:p-8">
               <div className="mb-6 flex flex-col gap-4">
@@ -1046,7 +878,6 @@ const AdminContent = () => {
         </div>
       </div>
 
-      {/* Confirm delete modal */}
       <ConfirmModal
         open={Boolean(confirmTarget)}
         title="Delete this image?"
@@ -1063,7 +894,6 @@ const AdminContent = () => {
         }}
       />
 
-      {/* Rename dialog */}
       {renameDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
           <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => {
@@ -1116,7 +946,6 @@ const AdminContent = () => {
         </div>
       )}
 
-      {/* Cleanup videos confirm dialog */}
       <ConfirmModal
         open={cleanupConfirm}
         title="Cleanup orphaned videos?"
@@ -1126,7 +955,6 @@ const AdminContent = () => {
         onConfirm={handleCleanupVideos}
       />
 
-      {/* Delete video confirm dialog */}
       <ConfirmModal
         open={Boolean(deleteVideoConfirm)}
         title="Delete video?"
@@ -1136,7 +964,6 @@ const AdminContent = () => {
         onConfirm={handleDeleteVideoConfirm}
       />
 
-      {/* Merge video dialog */}
       <MergeVideoDialog
         isOpen={mergeVideoDialog}
         onClose={() => !isMerging && setMergeVideoDialog(false)}
@@ -1146,7 +973,6 @@ const AdminContent = () => {
         progress={mergeProgress}
       />
 
-      {/* Bulk edit dialog */}
       <BulkEditDialog
         isOpen={bulkEditDialog}
         onClose={() => !isSavingMetadata && setBulkEditDialog(false)}
@@ -1157,12 +983,6 @@ const AdminContent = () => {
         isSaving={isSavingMetadata}
       />
 
-      {/* DISABLED: Login attempt dialog (feature has bugs) */}
-      {/* {loginAttempt && (
-        <LoginAttemptDialog ... />
-      )} */}
-
-      {/* Fullscreen preview modal */}
       {fullscreenImage && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm"
@@ -1193,59 +1013,17 @@ const AdminContent = () => {
   );
 };
 
-export default function AdminPage() {
+import withAuth from "../lib/withAuth";
+
+const AdminPage = () => {
   return (
     <ToastProvider>
       <Head>
         <title>Admin Dashboard · Slideshow</title>
-        {SUPABASE_ORIGIN && (
-          <>
-            <link rel="preconnect" href={SUPABASE_ORIGIN} crossOrigin="anonymous" />
-            <link rel="dns-prefetch" href={SUPABASE_ORIGIN} />
-          </>
-        )}
       </Head>
       <AdminContent />
     </ToastProvider>
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  try {
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    if (!adminPassword) {
-      const redirect = context.query.redirect as string | undefined;
-      const destination = redirect ? `/login?redirect=${redirect}` : "/login";
-      return {
-        redirect: { destination, permanent: false },
-      };
-    }
-
-    const expectedToken = getExpectedAdminToken(adminPassword);
-    const cookieName = getAdminAuthCookieName();
-    const cookieToken = context.req.cookies?.[cookieName];
-
-    if (!cookieToken || cookieToken !== expectedToken) {
-      const redirect = context.query.redirect as string | undefined;
-      const destination = redirect ? `/login?redirect=${redirect}` : "/login";
-      return {
-        redirect: {
-          destination,
-          permanent: false,
-        },
-      };
-    }
-
-    return { props: {} };
-  } catch (error) {
-    console.error("Error checking admin auth:", error);
-    const redirect = context.query.redirect as string | undefined;
-    const destination = redirect ? `/login?redirect=${redirect}` : "/login";
-    return {
-      redirect: {
-        destination,
-        permanent: false,
-      },
-    };
-  }
-};
+export default withAuth(AdminPage);

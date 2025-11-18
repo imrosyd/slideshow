@@ -1,15 +1,12 @@
 /**
  * Storage Abstraction Layer
  * 
- * Automatic fallback between different storage providers:
- * 1. Filesystem (local)
- * 2. S3-compatible (Cloudflare R2, AWS S3, etc)
- * 3. Supabase Storage (original)
+ * This file provides a consistent interface for file storage operations,
+ * using the local filesystem as the storage provider.
  */
 
 import fs from 'fs';
 import path from 'path';
-import { createClient } from '@supabase/supabase-js';
 
 // Storage adapter interface
 export interface StorageAdapter {
@@ -21,7 +18,9 @@ export interface StorageAdapter {
   listVideos(): Promise<string[]>;
   getImageUrl(filename: string): string;
   getVideoUrl(filename: string): string;
-  getAdapterType(): 'filesystem' | 's3' | 'supabase';
+  getAdapterType(): 'filesystem';
+  getImagePath(filename: string): string;
+  getVideoPath(filename: string): string;
 }
 
 // Filesystem Storage Adapter
@@ -45,7 +44,7 @@ class FilesystemStorageAdapter implements StorageAdapter {
     });
   }
 
-  getAdapterType(): 'filesystem' | 's3' | 'supabase' {
+  getAdapterType(): 'filesystem' {
     return 'filesystem';
   }
 
@@ -113,142 +112,5 @@ class FilesystemStorageAdapter implements StorageAdapter {
   }
 }
 
-// Supabase Storage Adapter (original)
-class SupabaseStorageAdapter implements StorageAdapter {
-  private supabase: any;
-  private bucket: string;
-
-  constructor() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    this.bucket = process.env.SUPABASE_STORAGE_BUCKET || 'slideshow-images';
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase credentials not configured');
-    }
-
-    this.supabase = createClient(supabaseUrl, supabaseKey);
-  }
-
-  getAdapterType(): 'filesystem' | 's3' | 'supabase' {
-    return 'supabase';
-  }
-
-  async uploadImage(filename: string, buffer: Buffer): Promise<string> {
-    const { data, error } = await this.supabase.storage
-      .from(this.bucket)
-      .upload(filename, buffer, {
-        contentType: 'image/jpeg',
-        upsert: true,
-      });
-
-    if (error) throw error;
-
-    const { data: urlData } = this.supabase.storage
-      .from(this.bucket)
-      .getPublicUrl(filename);
-
-    return urlData.publicUrl;
-  }
-
-  async uploadVideo(filename: string, buffer: Buffer): Promise<string> {
-    const videoBucket = 'slideshow-videos';
-    const { data, error } = await this.supabase.storage
-      .from(videoBucket)
-      .upload(filename, buffer, {
-        contentType: 'video/mp4',
-        upsert: true,
-      });
-
-    if (error) throw error;
-
-    const { data: urlData } = this.supabase.storage
-      .from(videoBucket)
-      .getPublicUrl(filename);
-
-    return urlData.publicUrl;
-  }
-
-  async deleteImage(filename: string): Promise<void> {
-    const { error } = await this.supabase.storage
-      .from(this.bucket)
-      .remove([filename]);
-
-    if (error) throw error;
-  }
-
-  async deleteVideo(filename: string): Promise<void> {
-    const videoBucket = 'slideshow-videos';
-    const { error } = await this.supabase.storage
-      .from(videoBucket)
-      .remove([filename]);
-
-    if (error) throw error;
-  }
-
-  async listImages(): Promise<string[]> {
-    const { data, error } = await this.supabase.storage
-      .from(this.bucket)
-      .list('', { limit: 1000 });
-
-    if (error) throw error;
-
-    return data?.map((file: any) => file.name) || [];
-  }
-
-  async listVideos(): Promise<string[]> {
-    const videoBucket = 'slideshow-videos';
-    const { data, error } = await this.supabase.storage
-      .from(videoBucket)
-      .list('', { limit: 1000 });
-
-    if (error) throw error;
-
-    return data?.map((file: any) => file.name) || [];
-  }
-
-  getImageUrl(filename: string): string {
-    const { data } = this.supabase.storage
-      .from(this.bucket)
-      .getPublicUrl(filename);
-
-    return data.publicUrl;
-  }
-
-  getVideoUrl(filename: string): string {
-    const videoBucket = 'slideshow-videos';
-    const { data } = this.supabase.storage
-      .from(videoBucket)
-      .getPublicUrl(filename);
-
-    return data.publicUrl;
-  }
-}
-
-// Auto-detect and create appropriate adapter
-function createStorageAdapter(): StorageAdapter {
-  // Check if filesystem storage is enabled
-  if (process.env.USE_FILESYSTEM_STORAGE === 'true') {
-    console.log('[Storage] Using Filesystem adapter');
-    return new FilesystemStorageAdapter();
-  }
-
-  // Try Supabase (default for backward compatibility)
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (supabaseUrl && supabaseKey) {
-    console.log('[Storage] Using Supabase adapter');
-    return new SupabaseStorageAdapter();
-  }
-
-  // Fallback to filesystem if no Supabase credentials
-  console.log('[Storage] No Supabase credentials, falling back to Filesystem adapter');
-  return new FilesystemStorageAdapter();
-}
-
 // Export singleton instance
-export const storage: StorageAdapter = createStorageAdapter();
-
-// Export classes for testing or custom instantiation
-export { FilesystemStorageAdapter, SupabaseStorageAdapter };
+export const storage: StorageAdapter = new FilesystemStorageAdapter();

@@ -15,6 +15,7 @@
 const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
+const { initWebSocketServer } = require('./lib/websocket');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -29,7 +30,7 @@ console.log('[Server] Environment:', dev ? 'development' : 'production');
 console.log('[Server] Port:', port);
 
 app.prepare().then(() => {
-  createServer(async (req, res) => {
+  const server = createServer(async (req, res) => {
     try {
       // Parse URL
       const parsedUrl = parse(req.url, true);
@@ -53,6 +54,10 @@ app.prepare().then(() => {
   .on('error', (err) => {
     console.error('[Server] Server error:', err);
   });
+
+  // Initialize WebSocket server
+  initWebSocketServer(server);
+
 }).catch((err) => {
   console.error('[Server] Failed to prepare app:', err);
   process.exit(1);

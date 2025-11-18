@@ -3,13 +3,11 @@ import { spawn } from "child_process";
 import path from "path";
 import fs from "fs/promises";
 import os from "os";
-import { createClient } from "@supabase/supabase-js";
+import { db } from "../../../lib/db";
+import { storage } from "../../../lib/storage-adapter";
+import { broadcast } from "../../../lib/websocket";
 // @ts-ignore
 import ffmpegPath from "@ffmpeg-installer/ffmpeg";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 type ImageInput = {
   filename: string;
@@ -18,7 +16,6 @@ type ImageInput = {
 
 type RequestBody = {
   images: ImageInput[];
-  // outputFilename is no longer needed, we'll use fixed names
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -32,7 +29,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: "At least 1 image required" });
   }
 
-  // Fixed filenames for simplicity
   const videoFilename = "dashboard.mp4";
   const placeholderImageName = "dashboard.jpg";
 
@@ -42,101 +38,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     console.log(`[Merge Video] Starting merge of ${images.length} images`);
 
-    // Download all images from Supabase
     for (let i = 0; i < images.length; i++) {
       const img = images[i];
-      const { data, error } = await supabase.storage
-        .from("slideshow-images")
-        .download(img.filename);
-
-      if (error || !data) {
-        throw new Error(`Failed to download ${img.filename}: ${error?.message}`);
-      }
-
-      const buffer = Buffer.from(await data.arrayBuffer());
+      const imagePath = (storage as any).getImagePath(img.filename);
       const tempImagePath = path.join(tempDir, `image_${i}.jpg`);
-      await fs.writeFile(tempImagePath, buffer);
+      await fs.copyFile(imagePath, tempImagePath);
       tempFiles.push(tempImagePath);
-      console.log(`[Merge Video] Downloaded ${img.filename} (${img.durationSeconds}s)`);
+      console.log(`[Merge Video] Copied ${img.filename} (${img.durationSeconds}s)`);
     }
 
-    // Create FFmpeg concat file
     const concatFilePath = path.join(tempDir, "concat.txt");
-    
-    // Build concat content properly for FFmpeg
-    // For FFmpeg concat demuxer, each file (except the last) needs a duration
-    // The last file should not have a duration to prevent extra time
     const concatLines: string[] = [];
-    
     for (let i = 0; i < images.length; i++) {
       const tempImagePath = path.join(tempDir, `image_${i}.jpg`);
-      
-      // Add file entry
       concatLines.push(`file '${tempImagePath}'`);
-      
-      // Add duration for all images except the last one
       if (i < images.length - 1) {
         concatLines.push(`duration ${images[i].durationSeconds}`);
       }
     }
-    
     const finalConcatContent = concatLines.join("\n");
     await fs.writeFile(concatFilePath, finalConcatContent);
     console.log(`[Merge Video] Concat file created with ${images.length} images`);
 
-    // Get encoding settings from database (same as generate-video)
+    const settings = await db.getSettings();
+    const settingsMap = new Map(settings.map(s => [s.key, s.value]));
+    
     const defaultEnc = {
-      fps: 30,
-      gop: 60,
-      profile: 'high' as 'baseline' | 'main' | 'high',
-      level: '4.0',
-      preset: 'medium' as 'ultrafast' | 'superfast' | 'veryfast' | 'faster' | 'fast' | 'medium' | 'slow' | 'slower' | 'veryslow',
-      crf: 23,
-      width: 1920,
-      height: 1080,
+      fps: parseInt(settingsMap.get('video_fps') || '30', 10),
+      gop: parseInt(settingsMap.get('video_gop') || '60', 10),
+      profile: (settingsMap.get('video_profile') || 'high') as 'baseline' | 'main' | 'high',
+      level: settingsMap.get('video_level') || '4.0',
+      preset: (settingsMap.get('video_preset') || 'medium') as 'ultrafast' | 'superfast' | 'veryfast' | 'faster' | 'fast' | 'medium' | 'slow' | 'slower' | 'veryslow',
+      crf: parseInt(settingsMap.get('video_crf') || '23', 10),
+      width: parseInt(settingsMap.get('video_width') || '1920', 10),
+      height: parseInt(settingsMap.get('video_height') || '1080', 10),
     };
 
-    try {
-      const { data: encRows, error: encErr } = await supabase
-        .from('slideshow_settings')
-        .select('key,value')
-        .in('key', [
-          'video_fps',
-          'video_gop',
-          'video_profile',
-          'video_level',
-          'video_preset',
-          'video_crf',
-          'video_width',
-          'video_height',
-        ]);
-
-      if (!encErr && encRows && encRows.length > 0) {
-        const map = new Map<string, string>(encRows.map(r => [r.key, r.value]));
-        const fps = parseInt(map.get('video_fps') || '', 10);
-        if (!Number.isNaN(fps) && fps >= 15 && fps <= 60) defaultEnc.fps = fps;
-        const gop = parseInt(map.get('video_gop') || '', 10);
-        if (!Number.isNaN(gop) && gop >= defaultEnc.fps && gop <= defaultEnc.fps * 10) defaultEnc.gop = gop;
-        const profile = (map.get('video_profile') || '').toLowerCase();
-        if (['baseline','main','high'].includes(profile)) defaultEnc.profile = profile as any;
-        const level = map.get('video_level') || '';
-        if (/^\d(\.\d)?$/.test(level)) defaultEnc.level = level;
-        const preset = (map.get('video_preset') || '').toLowerCase();
-        if (['ultrafast','superfast','veryfast','faster','fast','medium','slow','slower','veryslow'].includes(preset)) defaultEnc.preset = preset as any;
-        const crf = parseInt(map.get('video_crf') || '', 10);
-        if (!Number.isNaN(crf) && crf >= 15 && crf <= 35) defaultEnc.crf = crf;
-        const width = parseInt(map.get('video_width') || '', 10);
-        if (!Number.isNaN(width) && width >= 320 && width <= 3840) defaultEnc.width = width;
-        const height = parseInt(map.get('video_height') || '', 10);
-        if (!Number.isNaN(height) && height >= 240 && height <= 2160) defaultEnc.height = height;
-        if (!map.get('video_gop')) defaultEnc.gop = defaultEnc.fps * 2;
-      }
-      console.log(`[Merge Video] Encoder config -> fps=${defaultEnc.fps}, gop=${defaultEnc.gop}, profile=${defaultEnc.profile}, level=${defaultEnc.level}, preset=${defaultEnc.preset}, crf=${defaultEnc.crf}, scale=${defaultEnc.width}x${defaultEnc.height}`);
-    } catch (e) {
-      console.log(`[Merge Video] Using default encoder config: ${e}`);
-    }
-
-    // Generate merged video
     const outputPath = path.join(tempDir, "output.mp4");
 
     await new Promise<void>((resolve, reject) => {
@@ -159,289 +96,105 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         outputPath
       ];
 
-      console.log(`[Merge Video] FFmpeg command: ${ffmpegPath.path} ${args.join(" ")}`);
-
       const ffmpeg = spawn(ffmpegPath.path, args);
       let stderr = "";
-
-      ffmpeg.stderr.on("data", (data) => {
-        stderr += data.toString();
-      });
-
+      ffmpeg.stderr.on("data", (data) => { stderr += data.toString(); });
       ffmpeg.on("close", (code) => {
         if (code === 0) {
-          console.log(`[Merge Video] Video created successfully`);
           resolve();
         } else {
           console.error(`[Merge Video] FFmpeg error:\n${stderr}`);
           reject(new Error(`FFmpeg exited with code ${code}`));
         }
       });
-
-      ffmpeg.on("error", (err) => {
-        console.error(`[Merge Video] Spawn error:`, err);
-        reject(err);
-      });
+      ffmpeg.on("error", (err) => reject(err));
     });
 
-    // Delete old video first to ensure clean overwrite
-    console.log(`[Merge Video] Deleting old video ${videoFilename} if exists...`);
-    try {
-      await supabase.storage
-        .from("slideshow-videos")
-        .remove([videoFilename]);
-      console.log(`[Merge Video] Old video deleted successfully`);
-    } catch (deleteErr) {
-      console.log(`[Merge Video] No old video to delete (this is fine)`);
-    }
-
-    // Upload merged video to Supabase (always use dashboard.mp4)
+    await storage.deleteVideo(videoFilename);
     const videoBuffer = await fs.readFile(outputPath);
-
-    const { error: uploadError } = await supabase.storage
-      .from("slideshow-videos")
-      .upload(videoFilename, videoBuffer, {
-        contentType: "video/mp4",
-        upsert: true,
-      });
-
-    if (uploadError) {
-      throw new Error(`Failed to upload video: ${uploadError.message}`);
-    }
-
+    const videoUrl = await storage.uploadVideo(videoFilename, videoBuffer);
     console.log(`[Merge Video] Uploaded ${videoFilename} successfully`);
 
-    // Get public URL for the video
-    const { data: videoPublicData } = supabase.storage
-      .from("slideshow-videos")
-      .getPublicUrl(videoFilename);
-
-    const videoUrl = videoPublicData.publicUrl;
-    console.log(`[Merge Video] Video URL: ${videoUrl}`);
-
-    // DELETE individual videos before merge
-    console.log(`[Merge Video] Deleting ${images.length} individual videos before merge...`);
     for (const image of images) {
-      try {
-        // Find database entry for this image
-        const { data: existingData } = await supabase
-          .from("image_durations")
-          .select('filename, video_url')
-          .eq('filename', image.filename)
-          .single();
-
-        if (existingData?.video_url) {
-          // Delete video from storage
-          const videoStoragePath = existingData.video_url.replace(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-videos/`, '');
-          const { error: deleteError } = await supabase.storage
-            .from('slideshow-videos')
-            .remove([videoStoragePath]);
-
-          if (deleteError) {
-            console.warn(`[Merge Video] Failed to delete video for ${image.filename}:`, deleteError.message);
-          } else {
-            console.log(`[Merge Video] Deleted individual video: ${image.filename}`);
-          }
-
-          // Update database to remove video metadata
-          const { error: updateError } = await supabase
-            .from('image_durations')
-            .update({ 
-              filename: image.filename,
-              video_url: null,
-              video_generated_at: null,
-              video_duration_seconds: null
-            })
-            .eq('filename', image.filename);
-
-          if (updateError) {
-            console.warn(`[Merge Video] Failed to update database for ${image.filename}:`, updateError.message);
-          } else {
-            console.log(`[Merge Video] Removed video metadata for ${image.filename}`);
-          }
-        }
-      } catch (error) {
-        console.error(`[Merge Video] Error deleting video for ${image.filename}:`, error);
-        continue; // Continue with next image
+      const existingData = await db.getImageDurationByFilename(image.filename);
+      if (existingData?.video_url) {
+        const videoStoragePath = existingData.video_url.split('/').pop()!;
+        await storage.deleteVideo(videoStoragePath);
+        await db.updateImageDuration(image.filename, { video_url: null, video_duration_ms: null });
       }
     }
 
-    // Calculate total duration
     const totalDuration = images.reduce((sum, img) => sum + img.durationSeconds, 0);
-
-    // Create a placeholder black image for the gallery
-    // Use video filename directly without extension change to avoid confusion
-    const placeholderImageName = videoFilename;
-    
-    // Generate a simple black placeholder image using FFmpeg
-    // Keep .jpg extension for the actual image file since it's a JPEG
     const placeholderPath = path.join(tempDir, 'placeholder.jpg');
     await new Promise<void>((resolve, reject) => {
-      const args = [
-        '-f', 'lavfi',
-        '-i', 'color=c=black:s=1920x1080:d=1',
-        '-frames:v', '1',
-        '-y',
-        placeholderPath
-      ];
-
-      const ffmpeg = spawn(ffmpegPath.path, args);
-      
-      ffmpeg.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`FFmpeg placeholder failed with code ${code}`));
-        }
-      });
-
+      const ffmpeg = spawn(ffmpegPath.path, ['-f', 'lavfi', '-i', 'color=c=black:s=1920x1080:d=1', '-frames:v', '1', '-y', placeholderPath]);
+      ffmpeg.on('close', (code) => code === 0 ? resolve() : reject(new Error(`FFmpeg placeholder failed with code ${code}`)));
       ffmpeg.on('error', reject);
     });
 
-    // Upload placeholder image to storage to maintain consistency
-    // For storage, keep .jpg extension since it's an image file
-    const storagePlaceholderName = videoFilename.replace('.mp4', '.jpg');
-    console.log(`[Merge Video] Uploading placeholder image: ${storagePlaceholderName}`);
-    
-    // Delete old placeholder image first to ensure clean overwrite
-    console.log(`[Merge Video] Deleting old placeholder ${storagePlaceholderName} if exists...`);
-    try {
-      await supabase.storage
-        .from("slideshow-images")
-        .remove([storagePlaceholderName]);
-      console.log(`[Merge Video] Old placeholder deleted successfully`);
-    } catch (deleteErr) {
-      console.log(`[Merge Video] No old placeholder to delete (this is fine)`);
-    }
-    
-    // Read the generated placeholder image
+    await storage.deleteImage(placeholderImageName);
     const placeholderBuffer = await fs.readFile(placeholderPath);
-    
-    // Upload to slideshow-images bucket
-    const { error: placeholderUploadError } = await supabase.storage
-      .from("slideshow-images")
-      .upload(storagePlaceholderName, placeholderBuffer, {
-        contentType: "image/jpeg",
-        cacheControl: "3600",
-        upsert: true,
-      });
+    await storage.uploadImage(placeholderImageName, placeholderBuffer);
 
-    if (placeholderUploadError) {
-      console.error(`[Merge Video] Failed to upload placeholder image:`, placeholderUploadError);
-      throw new Error(`Failed to upload placeholder image: ${placeholderUploadError.message}`);
-    }
-    
-    // Get public URL for the placeholder
-    const { data: placeholderPublicData } = supabase.storage
-      .from("slideshow-images")
-      .getPublicUrl(storagePlaceholderName);
-    
-    const placeholderUrl = placeholderPublicData.publicUrl;
-    console.log(`[Merge Video] Placeholder image uploaded: ${placeholderUrl}`);
-
-    // Create metadata entry for the merged video
-    // Store as dashboard.mp4 in database to be consistent
     const generatedAt = new Date().toISOString();
     const cacheBustTimestamp = Date.now();
     
     const metadataData = {
-      filename: videoFilename, // dashboard.mp4 - consistent naming
+      filename: videoFilename,
       duration_ms: totalDuration * 1000,
       caption: `Merged: ${images.length} images (${totalDuration}s)`,
-      order_index: 999999, // Put at end
-      hidden: false, // Show in gallery so admin can see the dashboard
-      is_video: true, // Mark as video entry
-      video_url: `${videoUrl}?t=${cacheBustTimestamp}`, // Link to the actual MP4 file with cache busting
-      video_generated_at: generatedAt,
-      video_duration_seconds: totalDuration,
+      order_index: 999999,
+      hidden: false,
+      is_video: true,
+      video_url: `${videoUrl}?t=${cacheBustTimestamp}`,
+      video_duration_ms: totalDuration * 1000,
     };
     
-    // Also save metadata for the placeholder image (dashboard.jpg) with same video info
+    await db.upsertImageDuration(metadataData);
+
     const placeholderMetadataData = {
-      filename: storagePlaceholderName, // dashboard.jpg
+      filename: placeholderImageName,
       duration_ms: totalDuration * 1000,
       caption: `Merged: ${images.length} images (${totalDuration}s)`,
-      order_index: 999999, // Put at end
-      hidden: false, // Show in gallery so admin can see the dashboard
-      is_video: true, // Mark as video entry
-      video_url: `${videoUrl}?t=${cacheBustTimestamp}`, // Link to the actual MP4 file with cache busting
-      video_generated_at: generatedAt,
-      video_duration_seconds: totalDuration,
+      order_index: 999999,
+      hidden: false,
+      is_video: true,
+      video_url: `${videoUrl}?t=${cacheBustTimestamp}`,
+      video_duration_ms: totalDuration * 1000,
     };
-    
-    const { error: metadataError } = await supabase
-      .from("image_durations")
-      .upsert(metadataData, {
-        onConflict: "filename"
-      });
+    await db.upsertImageDuration(placeholderMetadataData);
 
-    // Also save metadata for placeholder image
-    const { error: placeholderMetadataError } = await supabase
-      .from("image_durations")
-      .upsert(placeholderMetadataData, {
-        onConflict: "filename"
-      });
-
-    if (metadataError) {
-      console.error(`[Merge Video] Failed to create metadata:`, metadataError);
-      // Don't fail the whole operation, video is already uploaded
-    } else {
-      console.log(`[Merge Video] Metadata created for ${videoFilename}`);
-    }
-
-    if (placeholderMetadataError) {
-      console.error(`[Merge Video] Failed to create placeholder metadata:`, placeholderMetadataError);
-      // Don't fail the whole operation, video is already uploaded
-    } else {
-      console.log(`[Merge Video] Placeholder metadata created for ${storagePlaceholderName}`);
-    }
-
-    // Broadcast video update to all main page viewers
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-
-      const channel = supabase.channel('video-updates');
-      await channel.send({
-        type: 'broadcast',
+      broadcast(JSON.stringify({
         event: 'video-updated',
         payload: {
-          slideName: videoFilename, // dashboard.mp4 for identification
+          slideName: videoFilename,
           videoUrl: videoUrl,
           videoDurationSeconds: totalDuration,
           action: 'created'
         }
-      }, { httpSend: true, compress: true });
-      
+      }));
       console.log(`[Merge Video] Broadcast: Created merged video to main pages - dashboard.mp4`);
     } catch (broadcastError) {
       console.warn('[Merge Video] Failed to broadcast video update:', broadcastError);
     }
 
-    // Clean up temp files
     await fs.rm(tempDir, { recursive: true, force: true });
 
-    const result = {
+    return res.status(200).json({
       success: true,
-      filename: "dashboard.mp4", // Always dashboard.mp4
+      filename: "dashboard.mp4",
       imageCount: images.length,
-      mainPage: true, // Indicate this will display on main page
+      mainPage: true,
       totalDuration,
       deletedVideos: images.length,
-    };
-
-    return res.status(200).json(result);
+    });
 
   } catch (error) {
     console.error("[Merge Video] Error:", error);
-    
-    // Clean up on error
     try {
       await fs.rm(tempDir, { recursive: true, force: true });
     } catch {}
-
     return res.status(500).json({
       error: error instanceof Error ? error.message : "Failed to merge video"
     });

@@ -1,15 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getSupabaseServiceRoleClient } from "./supabase";
+import jwt from 'jsonwebtoken';
 
-/**
- * Simple authentication check for admin and remote pages
- * No role checks, no permissions - just verify user is logged in
- * Ultra-lightweight for bandwidth savings
- */
 export async function verifyAuth(
   req: NextApiRequest,
   res: NextApiResponse
-): Promise<{ authenticated: boolean; userId?: string; email?: string }> {
+): Promise<{ authenticated: boolean; userId?: string; email?: string, role?: string }> {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -19,17 +14,12 @@ export async function verifyAuth(
   const token = authHeader.replace("Bearer ", "");
 
   try {
-    const supabase = getSupabaseServiceRoleClient();
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-      return { authenticated: false };
-    }
-
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-default-secret') as { userId: string, email: string, role: string };
     return {
       authenticated: true,
-      userId: user.id,
-      email: user.email,
+      userId: decoded.userId,
+      email: decoded.email,
+      role: decoded.role,
     };
   } catch (error) {
     console.error("Auth verification error:", error);
@@ -37,17 +27,6 @@ export async function verifyAuth(
   }
 }
 
-/**
- * Middleware wrapper for protected API routes
- * Usage:
- * 
- * export default async function handler(req, res) {
- *   const auth = await requireAuth(req, res);
- *   if (!auth) return; // Already sent 401 response
- *   
- *   // Your protected route logic here
- * }
- */
 export async function requireAuth(
   req: NextApiRequest,
   res: NextApiResponse

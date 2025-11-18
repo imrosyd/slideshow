@@ -1,19 +1,14 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import https from 'https';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import { db } from '../../../lib/db';
+import { storage } from '../../../lib/storage-adapter';
 
 const execAsync = promisify(exec);
 const ffmpegPath = ffmpegInstaller.path;
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 interface VideoImageData {
   filename: string;
@@ -21,39 +16,10 @@ interface VideoImageData {
 }
 
 interface GenerateVideoRequest {
-  filenames?: string[]; // For batch generation (legacy)
-  filename?: string;    // For single file (backward compat)
-  durationSeconds?: number; // For batch generation (legacy)
-  videoData?: VideoImageData[]; // New: per-image durations
-}
-
-/**
- * Download file from URL
- */
-function downloadFile(url: string, filepath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(filepath);
-    https
-      .get(url, (response) => {
-        if (response.statusCode === 301 || response.statusCode === 302) {
-          const redirectUrl = response.headers.location;
-          if (redirectUrl) {
-            downloadFile(redirectUrl, filepath).then(resolve).catch(reject);
-            return;
-          }
-        }
-        response.pipe(file);
-        file.on('finish', () => {
-          file.close();
-          resolve();
-        });
-        file.on('error', (err) => {
-          fs.unlink(filepath, () => {});
-          reject(err);
-        });
-      })
-      .on('error', reject);
-  });
+  filenames?: string[];
+  filename?: string;
+  durationSeconds?: number;
+  videoData?: VideoImageData[];
 }
 
 export default async function handler(
@@ -66,28 +32,23 @@ export default async function handler(
 
   const { filenames, filename, durationSeconds, videoData } = req.body as GenerateVideoRequest;
   
-  // Handle new format: per-image durations
   let imagesToProcess: string[] = [];
   let imageDurations: Map<string, number> = new Map();
   let totalDurationSeconds: number = 0;
 
   if (videoData && Array.isArray(videoData) && videoData.length > 0) {
-    // New format: per-image durations
     imagesToProcess = videoData.map(v => v.filename);
     videoData.forEach(v => {
       imageDurations.set(v.filename, v.durationSeconds);
       totalDurationSeconds += v.durationSeconds;
     });
-    console.log(`[Video Gen] Using per-image durations for ${imagesToProcess.length} images, total: ${totalDurationSeconds}s`);
   } else {
-    // Legacy format: filenames array or single filename
     imagesToProcess = filenames && filenames.length > 0 ? filenames : (filename ? [filename] : []);
     
     if (imagesToProcess.length === 0 || !durationSeconds) {
-      return res.status(400).json({ error: 'Missing required fields: (videoData) OR (filenames/filename + durationSeconds)' });
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Legacy: distribute total duration evenly
     const durationPerImage = Math.max(1, Math.floor(durationSeconds! / imagesToProcess.length));
     const remainder = durationSeconds! - (durationPerImage * imagesToProcess.length);
     
@@ -96,164 +57,41 @@ export default async function handler(
       imageDurations.set(img, duration);
     });
     totalDurationSeconds = durationSeconds!;
-    console.log(`[Video Gen] Using legacy format: distributing ${totalDurationSeconds}s among ${imagesToProcess.length} images`);
   }
 
   if (imagesToProcess.length === 0) {
     return res.status(400).json({ error: 'No images to process' });
   }
 
-  console.log(`[Video Gen] Starting video generation for ${imagesToProcess.length} image(s) with total duration ${totalDurationSeconds}s`);
-
   try {
-    // Load optional encoding settings from database (with safe defaults)
+    const settings = await db.getSettings();
+    const settingsMap = new Map(settings.map(s => [s.key, s.value]));
+    
     const defaultEnc = {
-      fps: 24,
-      gop: 48,
-      profile: 'high',
-      level: '4.0',
-      preset: 'veryfast',
-      crf: 22,
-      width: 1920,
-      height: 1080,
+      fps: parseInt(settingsMap.get('video_fps') || '24', 10),
+      gop: parseInt(settingsMap.get('video_gop') || '48', 10),
+      profile: (settingsMap.get('video_profile') || 'high') as 'baseline' | 'main' | 'high',
+      level: settingsMap.get('video_level') || '4.0',
+      preset: (settingsMap.get('video_preset') || 'veryfast') as 'ultrafast' | 'superfast' | 'veryfast' | 'faster' | 'fast' | 'medium' | 'slow' | 'slower' | 'veryslow',
+      crf: parseInt(settingsMap.get('video_crf') || '22', 10),
+      width: parseInt(settingsMap.get('video_width') || '1920', 10),
+      height: parseInt(settingsMap.get('video_height') || '1080', 10),
     };
 
-    try {
-      const { data: encRows, error: encErr } = await supabase
-        .from('slideshow_settings')
-        .select('key,value')
-        .in('key', [
-          'video_fps',
-          'video_gop',
-          'video_profile',
-          'video_level',
-          'video_preset',
-          'video_crf',
-          'video_width',
-          'video_height',
-        ]);
-
-      if (!encErr && encRows && encRows.length > 0) {
-        const map = new Map<string, string>(encRows.map(r => [r.key, r.value]));
-        const fps = parseInt(map.get('video_fps') || '', 10);
-        if (!Number.isNaN(fps) && fps >= 15 && fps <= 60) defaultEnc.fps = fps;
-        const gop = parseInt(map.get('video_gop') || '', 10);
-        if (!Number.isNaN(gop) && gop >= defaultEnc.fps && gop <= defaultEnc.fps * 10) defaultEnc.gop = gop;
-        const profile = (map.get('video_profile') || '').toLowerCase();
-        if (['baseline','main','high'].includes(profile)) defaultEnc.profile = profile as any;
-        const level = map.get('video_level') || '';
-        if (/^\d(\.\d)?$/.test(level)) defaultEnc.level = level;
-        const preset = (map.get('video_preset') || '').toLowerCase();
-        if (['ultrafast','superfast','veryfast','faster','fast','medium','slow','slower','veryslow'].includes(preset)) defaultEnc.preset = preset as any;
-        const crf = parseInt(map.get('video_crf') || '', 10);
-        if (!Number.isNaN(crf) && crf >= 15 && crf <= 35) defaultEnc.crf = crf;
-        const width = parseInt(map.get('video_width') || '', 10);
-        if (!Number.isNaN(width) && width >= 320 && width <= 3840) defaultEnc.width = width;
-        const height = parseInt(map.get('video_height') || '', 10);
-        if (!Number.isNaN(height) && height >= 240 && height <= 2160) defaultEnc.height = height;
-        // If gop not explicitly set, derive as 2x fps
-        if (!map.get('video_gop')) defaultEnc.gop = defaultEnc.fps * 2;
-      }
-      console.log(`[Video Gen] Encoder config -> fps=${defaultEnc.fps}, gop=${defaultEnc.gop}, profile=${defaultEnc.profile}, level=${defaultEnc.level}, preset=${defaultEnc.preset}, crf=${defaultEnc.crf}, scale=${defaultEnc.width}x${defaultEnc.height}`);
-    } catch (e) {
-      console.log(`[Video Gen] Using default encoder config (db fetch failed or not set): ${e}`);
-    }
-
-    // Check if video already exists for single image generation
-    if (imagesToProcess.length === 1) {
-      const imageName = imagesToProcess[0];
-      const videoFileName = imageName.replace(/\.[^/.]+$/, '.mp4');
-      
-      // Check database first
-      const { data: existingData, error: checkError } = await supabase
-        .from('image_durations')
-        .select('is_video, video_url')
-        .eq('filename', imageName)
-        .single();
-
-      // Also check if video file exists in storage
-      const { data: existingFiles } = await supabase
-        .storage
-        .from('slideshow-videos')
-        .list('', { search: videoFileName });
-
-      const videoExists = existingFiles && existingFiles.length > 0;
-
-      if (!checkError && existingData && existingData.is_video && existingData.video_url) {
-        console.log(`[Video Gen] Video already exists in database for ${imageName}, skipping generation`);
-        return res.status(200).json({
-          success: true,
-          videoUrl: existingData.video_url,
-          message: 'Video already exists in database',
-          alreadyExists: true,
-        });
-      }
-
-      if (videoExists) {
-        console.log(`[Video Gen] Video file already exists in storage for ${imageName}, will overwrite with upsert`);
-      }
-    }
-
-    // Create temp directory
     const tempDir = path.join('/tmp', 'slideshow-video-gen-' + Date.now());
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
+    await fs.mkdir(tempDir, { recursive: true });
 
-    // Log duration info
-    console.log(`[Video Gen] Total images: ${imagesToProcess.length}`);
-    console.log(`[Video Gen] Total video duration: ${totalDurationSeconds}s`);
-    
-    imagesToProcess.forEach((img, idx) => {
-      const imgDuration = imageDurations.get(img) || 0;
-      console.log(`[Video Gen] Image ${idx + 1}: ${img} (${imgDuration}s)`);
-    });
-
-    // 1. Download all images
-    console.log(`[Video Gen] Downloading ${imagesToProcess.length} image(s)...`);
     const imagePaths: string[] = [];
-    
     for (let i = 0; i < imagesToProcess.length; i++) {
       const imgFilename = imagesToProcess[i];
       const tempImagePath = path.join(tempDir, `image-${i}.jpg`);
-      
-      try {
-        const { data: publicData } = supabase
-          .storage
-          .from('slideshow-images')
-          .getPublicUrl(imgFilename);
-
-        const imageUrl = publicData.publicUrl;
-        console.log(`[Video Gen] Image ${i + 1}/${imagesToProcess.length}: ${imgFilename}`);
-        
-        await downloadFile(imageUrl, tempImagePath);
-
-        if (!fs.existsSync(tempImagePath)) {
-          throw new Error(`Failed to download image ${i}: ${imgFilename}`);
-        }
-
-        const imageSize = fs.statSync(tempImagePath).size;
-        console.log(`[Video Gen]   Downloaded: ${(imageSize / 1024).toFixed(2)} KB`);
-        imagePaths.push(tempImagePath);
-      } catch (err) {
-        console.error(`[Video Gen] Error downloading image ${i}:`, err);
-        throw err;
-      }
+      const imagePath = (storage as any).getImagePath(imgFilename);
+      await fs.copyFile(imagePath, tempImagePath);
+      imagePaths.push(tempImagePath);
     }
 
-  // 2. Build FFmpeg command with looped images for each duration
     const tempVideoPath = path.join(tempDir, `video-${Date.now()}.mp4`);
-    console.log(`[Video Gen] Running FFmpeg with looped images...`);
-    
-    // Build input commands for all images with loop and framerate
-    // -loop 1: Loop the image
-    // -framerate 24: 24 fps
-    // -t <duration>: Display for this many seconds
     let ffmpegCmd = `"${ffmpegPath}"`;
-    
-    console.log(`[Video Gen] Using FFmpeg from: ${ffmpegPath}`);
-    
-    // Compute effective total duration with clamping (>=1s per image)
     let totalDurationEffective = 0;
 
     for (let i = 0; i < imagePaths.length; i++) {
@@ -261,150 +99,52 @@ export default async function handler(
       const imageDurationRaw = imageDurations.get(imgFilename) || 0;
       const imageDuration = Math.max(1, Math.floor(imageDurationRaw));
       ffmpegCmd += ` -loop 1 -framerate ${defaultEnc.fps} -t ${imageDuration} -i "${imagePaths[i]}"`;
-      console.log(`[Video Gen] FFmpeg Input ${i + 1}: ${imageDuration}s`);
       totalDurationEffective += imageDuration;
     }
     
-    // Concat all videos and apply scale filter
     const inputCount = imagePaths.length;
     let filterComplex = '';
     
     for (let i = 0; i < inputCount; i++) {
-      // Scale down to fit 1920x1080 preserving aspect ratio, then pad to exactly 1920x1080 (even dimensions)
-      // Also ensure 4:2:0 pixel format for broad device compatibility
-      filterComplex += `[${i}:v]scale=${defaultEnc.width}:${defaultEnc.height}:force_original_aspect_ratio=decrease:eval=frame,` +
-        `pad=${defaultEnc.width}:${defaultEnc.height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p[v${i}];`;
+      filterComplex += `[${i}:v]scale=${defaultEnc.width}:${defaultEnc.height}:force_original_aspect_ratio=decrease:eval=frame,pad=${defaultEnc.width}:${defaultEnc.height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p[v${i}];`;
     }
 
     filterComplex += inputCount === 1
       ? `[v0]null[out]`
       : Array.from({ length: inputCount }, (_, i) => `[v${i}]`).join('') + `concat=n=${inputCount}:v=1:a=0,format=yuv420p[out]`;
 
-    // Encoding tuned for webOS playback stability and progressive start
-    // -movflags +faststart to move moov atom to the beginning for quicker start
-    // CRF for quality/size balance, preset for speed, yuv420p for compatibility
-    ffmpegCmd += ` -filter_complex "${filterComplex}" -map "[out]" ` +
-      `-c:v libx264 -r ${defaultEnc.fps} -g ${defaultEnc.gop} -profile:v ${defaultEnc.profile} -level ${defaultEnc.level} -preset ${defaultEnc.preset} -crf ${defaultEnc.crf} -pix_fmt yuv420p ` +
-      `-movflags +faststart -tune stillimage "${tempVideoPath}" 2>&1`;
+    ffmpegCmd += ` -filter_complex "${filterComplex}" -map "[out]" -c:v libx264 -r ${defaultEnc.fps} -g ${defaultEnc.gop} -profile:v ${defaultEnc.profile} -level ${defaultEnc.level} -preset ${defaultEnc.preset} -crf ${defaultEnc.crf} -pix_fmt yuv420p -movflags +faststart -tune stillimage "${tempVideoPath}" 2>&1`;
 
-    console.log(`[Video Gen] FFmpeg Command: ${ffmpegCmd.substring(0, 300)}...`);
+    await execAsync(ffmpegCmd, { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
 
-    const { stdout, stderr } = await execAsync(ffmpegCmd, {
-      timeout: 600000, // 10 minutes for batch
-      maxBuffer: 50 * 1024 * 1024,
-    });
-
-    console.log(`[Video Gen] FFmpeg output: ${stdout.substring(0, 1500)}`);
-
-    if (!fs.existsSync(tempVideoPath)) {
-      throw new Error('FFmpeg failed to create video file');
-    }
-
-    const videoSize = fs.statSync(tempVideoPath).size;
-  console.log(`[Video Gen] Video created: ${(videoSize / 1024 / 1024).toFixed(2)} MB`);
-  console.log(`[Video Gen] Effective total duration: ${totalDurationEffective}s`);
-
-    // 4. Upload video to Supabase Storage
-    // Use image name as video name (without timestamp) to prevent duplicates
     const firstImageName = imagesToProcess[0];
-    const videoFileName = firstImageName.replace(/\.[^/.]+$/, '.mp4'); // Replace image extension with .mp4
-    console.log(`[Video Gen] Uploading video to storage: ${videoFileName}`);
+    const videoFileName = firstImageName.replace(/\.[^/.]+$/, '.mp4');
+    const videoBuffer = await fs.readFile(tempVideoPath);
+    const videoUrl = await storage.uploadVideo(videoFileName, videoBuffer);
 
-    const videoBuffer = fs.readFileSync(tempVideoPath);
-    const { data: uploadData, error: uploadError } = await supabase
-      .storage
-      .from('slideshow-videos')
-      .upload(videoFileName, videoBuffer, {
-        contentType: 'video/mp4',
-        cacheControl: '3600',
-        upsert: true, // Replace existing video if it exists
-      });
-
-    if (uploadError) {
-      throw new Error(`Upload failed: ${uploadError.message}`);
-    }
-
-    console.log(`[Video Gen] Video uploaded: ${videoFileName}`);
-
-    // 5. Get public video URL
-    const { data: videoPublicData } = supabase
-      .storage
-      .from('slideshow-videos')
-      .getPublicUrl(videoFileName);
-
-    const videoUrl = videoPublicData.publicUrl;
-    console.log(`[Video Gen] Video URL: ${videoUrl}`);
-
-    // 6. Update database for all processed images
-    console.log(`[Video Gen] Updating database for ${imagesToProcess.length} image(s)...`);
-
-    // For single image: only update that specific image
-    // For batch: update all images in the batch (they share one concatenated video)
-    const imagesToUpdate = imagesToProcess.length === 1 
-      ? [imagesToProcess[0]] // Only update the single image
-      : imagesToProcess; // Update all images in batch
+    const imagesToUpdate = imagesToProcess.length === 1 ? [imagesToProcess[0]] : imagesToProcess;
 
     for (const imgFilename of imagesToUpdate) {
       const durationSecondsForImage = imageDurations.get(imgFilename) ?? 20;
       const durationMs = Math.max(1, Math.round(durationSecondsForImage)) * 1000;
       const timestamp = new Date().toISOString();
 
-      const { data: updatedRows, error: updateError } = await supabase
-        .from('image_durations')
-        .update({
-          is_video: true,
-          video_url: videoUrl,
-          video_duration_seconds: totalDurationEffective,
-          video_generated_at: timestamp,
-          updated_at: timestamp,
-        })
-        .eq('filename', imgFilename)
-        .select('filename');
-
-      if (updateError) {
-        console.error(`[Video Gen] Database update error for ${imgFilename}:`, updateError);
-        throw new Error(`Database update failed for ${imgFilename}: ${updateError.message}`);
-      }
-
-      if (!updatedRows || updatedRows.length === 0) {
-        console.log(`[Video Gen] No existing metadata for ${imgFilename}, inserting new row.`);
-        const { error: insertError } = await supabase
-          .from('image_durations')
-          .insert({
-            filename: imgFilename,
-            duration_ms: durationMs,
-            caption: null,
-            order_index: imagesToProcess.indexOf(imgFilename),
-            hidden: true, // Hide placeholder image, only show video
-            is_video: true,
-            video_url: videoUrl,
-            video_duration_seconds: totalDurationEffective,
-            video_generated_at: timestamp,
-            updated_at: timestamp,
-          });
-
-        if (insertError) {
-          console.error(`[Video Gen] Database insert error for ${imgFilename}:`, insertError);
-          throw new Error(`Database insert failed for ${imgFilename}: ${insertError.message}`);
-        }
-      }
+      await db.upsertImageDuration({
+        filename: imgFilename,
+        duration_ms: durationMs,
+        is_video: true,
+        video_url: videoUrl,
+        video_duration_ms: totalDurationEffective * 1000,
+      });
     }
 
-    // 7. Cleanup temp files
-    console.log(`[Video Gen] Cleaning up temp files...`);
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch (e) {
-      console.log(`[Video Gen] Cleanup warning: ${e}`);
-    }
-
-    console.log(`[Video Gen] ✅ Batch video generation complete!`);
+    await fs.rm(tempDir, { recursive: true, force: true });
 
     return res.status(200).json({
       success: true,
       videoUrl,
       videoFileName,
-  duration: totalDurationEffective,
+      duration: totalDurationEffective,
       imageCount: imagesToProcess.length,
       message: `Batch video generated successfully for ${imagesToProcess.length} image(s)`,
     });

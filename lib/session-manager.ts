@@ -11,7 +11,6 @@ const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
 export interface ActiveSession {
   id: string;
   user_id: string;
-  email: string;
   created_at: string | Date;
   last_seen: string | Date;
   page: "admin" | "remote";
@@ -109,10 +108,9 @@ export async function createOrUpdateSession(
       }
     }
     
-    // Create new session with sessionId and browserId
+    // Create new session with sessionId and browserId (DB does not store email)
     await db.createActiveSession({
       user_id: userId,
-      email: email,
       last_seen: new Date().toISOString(),
       page: page,
       session_id: sessionId,
