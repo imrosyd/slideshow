@@ -50,10 +50,21 @@ export default function RemoteControl() {
         }
         
         if (!accessToken) {
-          // Not logged in, redirect to login
-          console.log("[Remote] No valid token, redirecting to login");
-          router.push("/login?redirect=remote");
-          return;
+          // Not logged in — do not force a redirect. Allow the remote page
+          // to render and receive status updates (read-only) while unauthenticated.
+          console.log("[Remote] No valid token — continuing in read-only mode");
+          if (mounted) {
+            setIsCheckingAuth(false);
+            setIsAuthenticated(false);
+          }
+        } else {
+          // Success - authenticated with local token
+          if (mounted) {
+            console.log('[Remote] Authentication successful');
+            setIsAuthenticated(true);
+            setIsCheckingAuth(false);
+            setSessionError(null);
+          }
         }
 
         // For local auth, we just need to verify the token exists
@@ -142,9 +153,9 @@ export default function RemoteControl() {
     };
   }, [router]);
 
-  // Remote control logic (only runs if authenticated)
+  // Remote control logic (runs on mount). Subscribing early allows the
+  // remote page to show connection status even before the user authenticates.
   useEffect(() => {
-    if (!isAuthenticated) return;
     console.log('📱 Setting up remote control channels');
     
     // Subscribe to slideshow status on ALL channels
@@ -188,6 +199,26 @@ export default function RemoteControl() {
       })
       .subscribe();
 
+    // Also listen for the legacy/initial-status channel used by the main page
+    // (it sends an initial one-off status on `remote-control-status-init`).
+    const initStatusChannel = supabase
+      .channel('remote-control-status-init')
+      .on('broadcast', { event: 'slideshow-status' }, (payload) => {
+        console.log('Status update (init status channel):', payload);
+        if (payload.payload) {
+          setSlideCount(payload.payload.total || 0);
+          setCurrentSlide(payload.payload.current || 0);
+          setIsPaused(payload.payload.paused || false);
+          setCurrentImageName(payload.payload.currentImage || "");
+          // mark main page loading/ready state when initial status arrives
+          const hasContent = payload.payload.total > 0;
+          setIsMainPageLoading(false);
+          setIsMainPageReady(hasContent);
+          setIsConnected(true);
+        }
+      })
+      .subscribe();
+
     const heartbeatChannel = supabase
       .channel('remote-control-heartbeat')
       .on('broadcast', { event: 'slideshow-status' }, (payload) => {
@@ -204,6 +235,8 @@ export default function RemoteControl() {
 
     setChannel(commandChannel);
 
+    // no-op: debug logging removed
+
     // Listen for image close notifications from main page
     const notificationChannel = supabase
       .channel('remote-control-notifications')
@@ -212,6 +245,11 @@ export default function RemoteControl() {
         setLiveImage(null); // Clear live indicator
       })
       .subscribe();
+    // attach simple logging subscriptions
+    commandChannel.subscribe && commandChannel.subscribe();
+    statusChannel.subscribe && statusChannel.subscribe();
+    heartbeatChannel.subscribe && heartbeatChannel.subscribe();
+    notificationChannel.subscribe && notificationChannel.subscribe();
 
     // Request initial status
     setTimeout(() => {
@@ -236,51 +274,41 @@ export default function RemoteControl() {
       clearInterval(statusInterval);
       supabase.removeChannel(commandChannel);
       supabase.removeChannel(statusChannel);
+      supabase.removeChannel(initStatusChannel);
       supabase.removeChannel(heartbeatChannel);
       supabase.removeChannel(notificationChannel);
     };
-  }, [isAuthenticated]);
+  }, []);
 
-  // Fetch images for gallery with proper metadata including hidden flags
+  // Fetch images for gallery (use the public `api/gallery-images` endpoint
+  // which returns image URLs suitable for the gallery view).
   useEffect(() => {
-    if (!isAuthenticated) return;
     const fetchImages = async () => {
       try {
-        // Use gallery images API which shows all visible images (excluding dashboard.jpg)
-        const response = await fetch('/api/gallery-images');
-        const data = await response.json();
-        
-        if (data.images) {
-          // The gallery-images API already filters to show only visible images
-          setImages(data.images);
-          console.log('🖼️ Loaded gallery images:', data.images.length);
-          console.log('📝 Available images:', data.images.map((img: { name: string }) => img.name));
+        const cacheBuster = `?_t=${Date.now()}`;
+        const response = await fetch(`/api/gallery-images${cacheBuster}`, { cache: 'no-store' });
+        if (!response.ok) {
+          console.warn('Failed to fetch gallery images:', response.statusText);
+          setImages([]);
+          return;
         }
-      } catch (error) {
-        console.error('Failed to fetch images:', error);
-        
-        // Fallback to basic filtering without hidden data
-        try {
-          console.log('Trying fallback to public API...');
-          const publicResponse = await fetch('/api/images');
-          const publicData = await publicResponse.json();
-          
-          if (publicData.images) {
-            const availableImages = publicData.images
-              .filter((item: any) => !item.isVideo)
-              .map((item: any) => ({
-                name: item.name,
-                url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slideshow-images/${item.name}`
-              }));
 
-            setImages(availableImages);
-            console.log('🖼️ Using fallback images (no hidden data):', availableImages.length);
-          }
-        } catch (fallbackError) {
-          console.error('Fallback also failed:', fallbackError);
+        const data = await response.json();
+        if (!data || !Array.isArray(data.images)) {
+          console.warn('Gallery images returned invalid payload');
+          setImages([]);
+          return;
         }
+
+        // The API already returns { name, url } entries for images
+        setImages(data.images.map((i: any) => ({ name: i.name, url: i.url })));
+        console.log('🖼️ Loaded gallery images:', data.images.length);
+      } catch (err) {
+        console.error('Error fetching gallery images:', err);
+        setImages([]);
       }
     };
+
     fetchImages();
   }, []);
 
@@ -497,6 +525,8 @@ export default function RemoteControl() {
             </p>
           </div>
         )}
+
+        {/* Debug panel removed */}
 
         {/* Playback Controls */}
         <div className="mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-8 shadow-2xl backdrop-blur-xl">
