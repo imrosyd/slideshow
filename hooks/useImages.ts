@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "../lib/supabase-mock";
 
 export type UploadStatus = "pending" | "uploading" | "success" | "error";
 
@@ -630,6 +631,24 @@ export const useImages = (authToken: string | null) => {
         );
 
         console.log(`[useImages] Video deleted for: ${filename}`);
+
+        // Notify other open tabs (main/remote pages) via BroadcastChannel (supabase shim)
+        try {
+          const channel = supabase.channel('video-updates');
+          channel.send({ type: 'broadcast', event: 'video-updated', payload: {
+            slideName: filename,
+            action: 'deleted',
+            videoUrl: null,
+            videoDurationSeconds: null,
+            isVideo: false,
+          }}).catch((e: any) => {
+            // non-fatal
+            console.warn('[useImages] Failed to send video-updated via supabase shim', e);
+          });
+        } catch (e) {
+          // Ignore if BroadcastChannel not available
+          console.warn('[useImages] Broadcast notify failed', e);
+        }
         return { success: true };
       } catch (error) {
         console.error("[useImages] Delete video failed:", error);
@@ -657,10 +676,11 @@ export const useImages = (authToken: string | null) => {
         const pdfjsLib = await import('pdfjs-dist');
         console.log('[useImages] PDF.js library imported successfully');
         
-        // Set worker path - prefer `NEXT_PUBLIC_PDFJS_WORKER_URL` env var,
-        // otherwise fall back to the matching version on unpkg so worker
-        // code matches the installed `pdfjs-dist` package.
-        const workerUrl = process.env.NEXT_PUBLIC_PDFJS_WORKER_URL || 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.js';
+        // Set worker path - prefer `NEXT_PUBLIC_PDFJS_WORKER_URL` env var.
+        // If not provided, prefer the local copy in `/public/pdf.worker.min.js`
+        // to avoid cross-origin (CORS) failures when running on localhost.
+        const workerUrl =
+          process.env.NEXT_PUBLIC_PDFJS_WORKER_URL || '/pdf.worker.min.mjs';
         pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
         console.log('[useImages] Worker path set to', workerUrl);
         

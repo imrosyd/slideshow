@@ -7,7 +7,8 @@
     "build:server": "tsc -p tsconfig.server.json",
     "build": "next build && npm run build:server",
     "start": "node dist/server.js",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "cp ./node_modules/pdfjs-dist/build/pdf.worker.min.mjs ./public/pdf.worker.min.mjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

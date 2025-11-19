@@ -519,78 +519,54 @@ export default function Home() {
     }
   }, []);
 
-  // Fetch slides from API
+  // Fetch slides from API -- prefer admin-controlled `dashboard.mp4`.
   const fetchSlides = useCallback(async (isAutoRefresh = false) => {
     try {
-      if (!isAutoRefresh) setLoading(true);
-
-      const cacheBuster = `?t=${Date.now()}`;
-      const response = await fetch(`/api/remote-images${cacheBuster}`, {
-        cache: "no-store",
+      // Check the admin dashboard status endpoint first.
+      const checkRes = await fetch(`/api/check-dashboard?_t=${Date.now()}`, {
+        cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
         },
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to load: ${response.statusText}`);
+      if (!checkRes.ok) {
+        // If check fails, treat as missing dashboard to be safe
+        console.warn('[fetchSlides] /api/check-dashboard returned error, treating as no dashboard');
+        setSlides([]);
+        setError(null);
+        setLoading(true);
+        return null;
       }
 
-      const payload: {
-        images: Array<{ name: string; isVideo?: boolean; videoUrl?: string; videoDurationSeconds?: number }>;
-        durations?: Record<string, number | null>;
-      } = await response.json();
+      const checkPayload: { exists: boolean; videoUrl?: string | undefined } = await checkRes.json();
 
-      let imageDurations: Record<string, number> = {};
-      if (payload.durations) {
-        Object.entries(payload.durations).forEach(([key, value]) => {
-          if (typeof value === "number" && !Number.isNaN(value)) {
-            imageDurations[key] = value;
-          }
-        });
+      if (checkPayload.exists && checkPayload.videoUrl) {
+        // Use the dashboard video as the single slide
+        const durationSeconds = DEFAULT_SLIDE_DURATION_SECONDS;
+        const dashboardSlide: Slide = {
+          name: 'dashboard.mp4',
+          url: checkPayload.videoUrl,
+          durationSeconds,
+          isVideo: true,
+          videoUrl: checkPayload.videoUrl,
+          videoDurationSeconds: undefined,
+        };
+
+        console.log('[fetchSlides] Using dashboard video from admin:', dashboardSlide.url);
+        setSlides([dashboardSlide]);
+        setError(null);
+        setLoading(false);
+        return [dashboardSlide];
       }
 
-      const fetchedSlides = payload.images
-        .filter((item) => item.isVideo && item.videoUrl) // Only include videos
-        .map((item) => {
-          // For videos, the duration should come from the video_duration_seconds field
-          // not from the regular durationMs field which is for the source image
-          const durationMs = imageDurations[item.name];
-          const durationSeconds = item.videoDurationSeconds ?? (
-            typeof durationMs === "number" && durationMs > 0
-              ? Math.max(1, Math.round(durationMs / 1000))
-              : DEFAULT_SLIDE_DURATION_SECONDS
-          );
-
-          console.log(`[Slide Debug] ${item.name}:`, {
-            isVideo: item.isVideo,
-            videoUrl: item.videoUrl,
-            videoDurationSeconds: item.videoDurationSeconds,
-            durationMs: imageDurations[item.name],
-            finalDurationSeconds: durationSeconds
-          });
-
-          return {
-            name: item.name,
-            url: item.videoUrl || "",
-            durationSeconds,
-            isVideo: item.isVideo,
-            videoUrl: item.videoUrl,
-            videoDurationSeconds: item.videoDurationSeconds,
-          } as Slide;
-        });
-
-      console.log(`✅ Fetched ${fetchedSlides.length} video slides`);
-      if (fetchedSlides.length > 0) {
-        console.log(`📹 First video:`, fetchedSlides[0]);
-      } else {
-        console.log(`⚠️ No videos found in response`);
-      }
-      setSlides(fetchedSlides);
+      // If dashboard does not exist, clear slides and show loading state
+      console.log('[fetchSlides] No dashboard video available; entering loading state');
+      setSlides([]);
       setError(null);
-
-      return fetchedSlides;
+      setLoading(true);
+      return null;
     } catch (err) {
       console.error("❌ Error fetching slides:", err);
       if (!isAutoRefresh) {
@@ -598,7 +574,7 @@ export default function Home() {
       }
       return null;
     } finally {
-      if (!isAutoRefresh) setLoading(false);
+      // Keep loading state as-is: we explicitly set loading when dashboard missing
     }
   }, []);
 
