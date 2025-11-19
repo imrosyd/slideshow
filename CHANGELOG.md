@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2025-11-19
+
+### ⚠️ Breaking Changes
+
+- **Main slideshow behavior changed**: The main page now uses the admin-controlled `dashboard.mp4` as the single primary slide. If `dashboard.mp4` is absent the main page will show the loading screen. This replaces the previous behavior that automatically composed slides from multiple image/video entries — update any remote clients that depended on the old behavior.
+- **PDF.js worker served same-origin**: The app uses the installed `pdfjs-dist` worker (`pdf.worker.min.mjs`) served from `/public`. The `postinstall` script copies the matching worker into `public/`. This avoids CORS and API/worker version mismatch issues but requires that `npm install` is run during deployment.
+- **Client-side Broadcast updates**: Admin-side video deletions now notify other same-origin tabs via a BroadcastChannel shim so main/remote pages refresh immediately. Server-side WebSocket broadcasting remains available for cross-device notifications.
+
+### 🧭 Migration Notes
+
+- Run `npm install` after pulling this release to ensure `pdf.worker.min.mjs` is copied into `public/` by the `postinstall` script.
+- If you have integrations that query `/api/remote-images` to populate the main slideshow, update them to call `/api/check-dashboard` or adapt to the new dashboard-first workflow.
+- If you host the worker on a CDN, set `NEXT_PUBLIC_PDFJS_WORKER_URL` to the desired URL (must match the installed `pdfjs-dist` version).
+
+### 🐛 Fixes & Improvements
+
+- PDF worker CORS / Version mismatch fixed by using same-origin worker.
+- Main page dashboard behavior consolidated to rely on admin `dashboard.mp4`.
+- Immediate UI refresh on admin video deletion via BroadcastChannel.
+
+---
+
+## [2.5.1] - 2025-11-19
+
+### 🐛 Bugfixes & Stability
+
+#### Fixed
+- **PDF.js Worker CORS / Version mismatch**: The app no longer loads the worker from unpkg by default. The installed `pdfjs-dist` worker is copied into `public/` (via `postinstall`) and the client prefers a same-origin worker (`/pdf.worker.min.mjs`) to avoid CORS failures and API/worker version mismatches.
+- **Main page dashboard behavior**: The main slideshow now uses the admin-controlled `dashboard.mp4` when available. If `dashboard.mp4` is not present, the main page shows the loading screen rather than displaying stale video content.
+- **Immediate UI updates for deletions**: Deleting a video from the admin panel now notifies other same-origin tabs (BroadcastChannel shim) so the main/remote pages refresh immediately.
+
+#### Changed
+- Removed obsolete worker files from `public/` and kept the single matching `.mjs` worker.
+
 ## [2.5.0] - 2025-11-13
 
 ### 🚀 Multiple Deployment Options & Comprehensive Documentation
