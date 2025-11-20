@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2025-11-21
+
+### 🚀 Features & Improvements
+
+#### Added
+- **Superadmin Auto-Creation**: New `prisma/seed.ts` script to automatically create a superadmin user (`admin`/`admin`) if one doesn't exist.
+  - Run via `npx prisma db seed`.
+  - Useful for fresh installations to ensure immediate access.
+- **Nginx Configuration**: Added default `nginx.conf` in root directory for easier VPS setup.
+- **Cleanup**: Removed unused files (`vercel.json`, `dummy.txt`) and organized scripts into `scripts/` directory.
+
+#### Changed
+- **Login Page**: Removed placeholder text and default credentials for a cleaner UI.
+- **Documentation**: Updated README with comprehensive installation and structure details.
+
+---
+
 ## [3.0.0] - 2025-11-19
 
 ### ⚠️ Breaking Changes

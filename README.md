@@ -1,6 +1,6 @@
 # 📺 Slideshow Display System
 
-[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
+[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
@@ -26,11 +26,9 @@
 - [Tech Stack](#tech-stack)
 - [Deployment Options](#deployment-options)
   - [Quick Comparison](#quick-comparison)
-  - [1. Supabase Only (Cloud)](#1-supabase-only-cloud)
-  - [2. VPS/Server (Self-Hosted)](#2-vpsserver-self-hosted)
-  - [3. Docker (Container)](#3-docker-container)
-  - [4. Shared Hosting (cPanel)](#4-shared-hosting-cpanel)
-  - [5. Local Development](#5-local-development)
+  - [1. VPS/Server (Self-Hosted)](#1-vpsserver-self-hosted)
+  - [2. Docker (Container)](#2-docker-container)
+  - [3. Local Development](#3-local-development)
 - [Configuration](#configuration)
 - [Usage Guide](#usage-guide)
 - [API Documentation](#api-documentation)
@@ -136,144 +134,39 @@ Slideshow is a Next.js 14 + TypeScript application for managing always-on TV con
 
 ---
 
+## Project Structure
+
+```
+├── components/        # React components
+├── hooks/             # Custom React hooks
+├── lib/               # Utilities (DB, Storage, Auth)
+├── pages/             # Next.js pages & API routes
+│   ├── api/           # Backend API endpoints
+│   ├── admin.tsx      # Admin dashboard
+│   ├── index.tsx      # Main slideshow player
+│   └── login.tsx      # Authentication page
+├── prisma/            # Database schema & seed
+├── public/            # Static assets
+├── scripts/           # Maintenance scripts
+├── storage/           # Local file storage (if enabled)
+└── styles/            # Global styles & Tailwind
+```
+
+---
+
 ## Deployment Options
 
 ### Quick Comparison
 
 | Option | Setup Time | Cost/Month | Best For | Control |
 |--------|------------|------------|----------|---------|
-| **Supabase Only** | 5 min | $0-25 | Quick start, prototype | Low |
 | **VPS** | 20 min | $5-20 | Production, full control | High |
 | **Docker** | 10 min | $5-20 | Portability, easy scaling | Medium |
-| **Shared Hosting** | 30 min | $2-10 | Existing hosting, budget | Low |
 | **Local** | 5 min | $0 | Development, testing | High |
 
 ---
 
-### 1. Supabase Only (Cloud)
-
-**Best for:** Quick deployment, no server management
-
-#### Prerequisites
-- Supabase account (free tier available)
-- Vercel account (optional, for hosting)
-
-#### Step 1: Setup Supabase
-
-```bash
-# 1. Create Supabase project at https://supabase.com
-# 2. Go to Project Settings → Database → Connection String
-# 3. Run SQL migration in SQL Editor:
-```
-
-```sql
--- Run this in Supabase SQL Editor
--- Create tables
-CREATE TABLE IF NOT EXISTS image_durations (
-  id SERIAL PRIMARY KEY,
-  filename TEXT NOT NULL UNIQUE,
-  duration_ms INTEGER DEFAULT 5000,
-  caption TEXT,
-  order_index INTEGER DEFAULT 0,
-  hidden BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  video_url TEXT,
-  video_duration_ms INTEGER,
-  video_status TEXT DEFAULT 'none',
-  is_video BOOLEAN DEFAULT FALSE
-);
-
-CREATE TABLE IF NOT EXISTS slideshow_settings (
-  id SERIAL PRIMARY KEY,
-  key TEXT NOT NULL UNIQUE,
-  value TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS active_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  email TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  last_seen TIMESTAMPTZ DEFAULT NOW(),
-  page TEXT NOT NULL,
-  session_id TEXT NOT NULL,
-  browser_id TEXT
-);
-
--- Insert default settings
-INSERT INTO slideshow_settings (key, value) VALUES 
-  ('transition_type', 'fade'),
-  ('transition_duration', '1000')
-ON CONFLICT (key) DO NOTHING;
-```
-
-#### Step 2: Setup Storage
-
-```bash
-# In Supabase Dashboard:
-# 1. Go to Storage → Create bucket "slideshow-images"
-# 2. Create bucket "slideshow-videos"
-# 3. Make both buckets public (Settings → Public bucket)
-```
-
-#### Step 3: Deploy Application
-
-**Option A: Vercel (Recommended)**
-
-```bash
-# Clone repository
-git clone https://github.com/your-repo/slideshow.git
-cd slideshow
-
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel
-
-# Add environment variables in Vercel Dashboard:
-```
-
-```env
-# Supabase credentials
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
-SUPABASE_SERVICE_ROLE_KEY=eyJxxx...
-SUPABASE_STORAGE_BUCKET=slideshow-images
-
-# Admin password
-ADMIN_PASSWORD=your_secure_password
-```
-
-**Option B: Local with Supabase**
-
-```bash
-# Clone and install
-git clone https://github.com/your-repo/slideshow.git
-cd slideshow
-npm install
-
-# Create .env.local
-cat > .env.local << EOF
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
-SUPABASE_SERVICE_ROLE_KEY=eyJxxx...
-SUPABASE_STORAGE_BUCKET=slideshow-images
-ADMIN_PASSWORD=your_password
-EOF
-
-# Run
-npm run dev
-```
-
-✅ **Done!** Access at http://localhost:3000
-
----
-
-### 2. VPS/Server (Self-Hosted)
+### 1. VPS/Server (Self-Hosted)
 
 **Best for:** Production, full control, no vendor lock-in
 
@@ -358,6 +251,9 @@ PORT=3000
 # Setup database schema
 sudo npx prisma db push
 
+# Create superadmin user
+sudo npx prisma db seed
+
 # Build application
 sudo npm run build
 
@@ -374,6 +270,7 @@ pm2 startup
 #### Step 4: Configure Nginx
 
 ```bash
+sudo cp nginx.conf /etc/nginx/sites-available/slideshow
 sudo nano /etc/nginx/sites-available/slideshow
 ```
 
@@ -445,7 +342,7 @@ psql -U slideshow_user slideshow_db < backup.sql
 
 ---
 
-### 3. Docker (Container)
+### 2. Docker (Container)
 
 **Best for:** Portability, easy deployment, consistent environment
 
@@ -584,209 +481,7 @@ docker-compose restart
 
 ---
 
-### 4. Shared Hosting (cPanel)
-
-**Best for:** Existing hosting, budget-friendly, limited resources
-
-⚠️ **Important Limitations:**
-- Shared hosting has strict resource limits
-- FFmpeg video processing may not work or be very slow
-- Long-running processes are often restricted
-- Node.js version may be limited
-
-#### Prerequisites
-- Shared hosting with Node.js support (cPanel/Plesk)
-- MySQL or PostgreSQL database access
-- SSH access (optional but helpful)
-
-#### Compatible Providers
-These providers support Node.js on shared hosting:
-- **Hostinger** (Node.js selector in cPanel)
-- **Namecheap** (Node.js available on higher plans)
-- **A2 Hosting** (Node.js with cPanel)
-- **DreamHost** (Node.js support)
-
-#### Option A: cPanel with Node.js Selector
-
-**Step 1: Setup Database**
-
-Most shared hosting provides MySQL. We'll use MySQL instead of PostgreSQL:
-
-1. Login to cPanel → MySQL Databases
-2. Create database: `username_slideshow`
-3. Create user: `username_slide` with strong password
-4. Add user to database with ALL PRIVILEGES
-
-**Step 2: Setup Application**
-
-```bash
-# SSH into your hosting (or use File Manager + Terminal in cPanel)
-cd ~/public_html/slideshow  # or your desired directory
-
-# Upload files (via FTP or git)
-# If git is available:
-git clone https://github.com/your-repo/slideshow.git .
-
-# Or upload via FTP/cPanel File Manager
-
-# Install dependencies (use cPanel Node.js selector)
-npm install --production
-
-# Generate Prisma client
-npx prisma generate
-```
-
-**Step 3: Configure Environment**
-
-Create `.env.production`:
-```env
-# Database - Use MySQL if PostgreSQL not available
-DATABASE_URL=mysql://username_slide:password@localhost:3306/username_slideshow
-
-# Or if PostgreSQL is available
-# DATABASE_URL=postgresql://username:password@localhost:5432/dbname
-
-# Storage - Use filesystem (limited space on shared hosting)
-USE_FILESYSTEM_STORAGE=true
-STORAGE_PATH=./storage
-STORAGE_PUBLIC_URL=/api/storage
-
-# Admin password
-ADMIN_PASSWORD=your_secure_password
-
-# App config
-NODE_ENV=production
-PORT=3000  # cPanel will assign port automatically
-```
-
-**Step 4: Setup Database Schema**
-
-```bash
-# Push Prisma schema to database
-npx prisma db push
-
-# If using MySQL, Prisma will auto-convert
-```
-
-**Step 5: Build Application**
-
-```bash
-npm run build
-```
-
-**Step 6: Configure Node.js App in cPanel**
-
-1. Go to cPanel → Setup Node.js App
-2. Click "Create Application"
-3. Configure:
-   - **Node.js version**: 20.x (or highest available)
-   - **Application mode**: Production
-   - **Application root**: `/home/username/public_html/slideshow`
-   - **Application URL**: `yourdomain.com` or subdomain
-   - **Application startup file**: `server.js`
-   - **Environment variables**: Add from .env.production
-
-4. Create `server.js` in root:
-```javascript
-const { createServer } = require('http');
-const { parse } = require('url');
-const next = require('next');
-
-const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
-const port = process.env.PORT || 3000;
-
-const app = next({ dev, hostname, port });
-const handle = app.getRequestHandler();
-
-app.prepare().then(() => {
-  createServer(async (req, res) => {
-    try {
-      const parsedUrl = parse(req.url, true);
-      await handle(req, res, parsedUrl);
-    } catch (err) {
-      console.error('Error occurred handling', req.url, err);
-      res.statusCode = 500;
-      res.end('internal server error');
-    }
-  }).listen(port, (err) => {
-    if (err) throw err;
-    console.log(`> Ready on http://${hostname}:${port}`);
-  });
-});
-```
-
-5. Click "Start App"
-
-**Step 7: Setup .htaccess (if using subdirectory)**
-
-Create `.htaccess` in public_html:
-```apache
-RewriteEngine On
-RewriteRule ^slideshow(.*)$ http://127.0.0.1:3000$1 [P,L]
-```
-
-✅ **Done!** Access at `https://yourdomain.com/slideshow`
-
-#### Option B: Shared Hosting WITHOUT Node.js
-
-If your hosting doesn't support Node.js, you have alternatives:
-
-**1. Use External Backend (Hybrid)**
-
-- Host static files on shared hosting
-- Use Vercel/Railway for Next.js backend
-- Use shared hosting's MySQL for database
-
-```bash
-# Build static export
-npm run build
-npm run export  # Requires next.config.js modification
-
-# Upload 'out' folder to shared hosting
-```
-
-**2. Upgrade to Better Hosting**
-
-Consider these affordable options with Node.js:
-- **Railway.app**: $5/month, easy deployment
-- **DigitalOcean Droplet**: $4/month, full VPS
-- **Hostinger VPS**: $4/month, cPanel included
-- **Vercel**: Free tier, automatic deployments
-
-#### Shared Hosting Limitations
-
-❌ **What WON'T work:**
-- FFmpeg video generation (too resource-intensive)
-- Large file uploads (usually 50-100MB limit)
-- Long-running processes (timeout after 30-60s)
-- High concurrent users (resource limits)
-
-✅ **What WILL work:**
-- Image slideshow display
-- Image upload (with size limits)
-- Admin dashboard
-- Remote control
-- Basic image management
-
-#### Workarounds for Video Generation
-
-If you need video generation on shared hosting:
-
-1. **Use External Service**: Process videos on your local machine, then upload
-2. **Cloudflare Workers**: Use for video processing (paid)
-3. **Upgrade Plan**: Get VPS hosting for $5/month
-
-#### Recommended Alternative
-
-For best experience, consider:
-- **Vercel (Free)** + **Neon.tech (Free)** = $0/month
-- Better than shared hosting, easier setup
-- See "1. Supabase Only" section above
-
----
-
-### 5. Local Development
+### 3. Local Development
 
 **Best for:** Development, testing, learning
 
@@ -828,6 +523,7 @@ EOF
 # Setup database
 npx prisma generate
 npx prisma db push
+npx prisma db seed
 
 # Run development server
 npm run dev
@@ -1128,7 +824,13 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 ### Latest Releases
 
-#### v2.5.0 (2025-11-13) - Current
+#### v3.1.0 (2025-11-21) - Current
+**Superadmin & Maintenance**
+- ✅ **Superadmin Auto-Creation**: `npx prisma db seed` to create default admin
+- ✅ **Nginx Config**: Default configuration included
+- ✅ **Cleanup**: Removed unused files and placeholders
+
+#### v3.0.0 (2025-11-19)
 **Multiple Deployment Options & Code Cleanup**
 - ✅ 5 deployment options: Supabase, VPS, Docker, Shared Hosting, Local
 - ✅ Comprehensive README with all guides consolidated
