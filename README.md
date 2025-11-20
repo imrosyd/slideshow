@@ -219,7 +219,7 @@ EOF
 ```bash
 # Clone application
 cd /var/www
-sudo git clone https://github.com/your-repo/slideshow.git
+sudo git clone https://github.com/imrosyd/slideshow.git
 cd slideshow
 
 # Install dependencies
@@ -441,7 +441,7 @@ storage
 
 ```bash
 # Clone repository
-git clone https://github.com/your-repo/slideshow.git
+git clone https://github.com/imrosyd/slideshow.git
 cd slideshow
 
 # Start containers
@@ -507,7 +507,7 @@ brew services start postgresql@16
 createdb slideshow_db
 
 # Clone repository
-git clone https://github.com/your-repo/slideshow.git
+git clone https://github.com/imrosyd/slideshow.git
 cd slideshow
 npm install
 
@@ -540,7 +540,7 @@ docker run -d --name postgres \
   postgres:16-alpine
 
 # Clone and setup
-git clone https://github.com/your-repo/slideshow.git
+git clone https://github.com/imrosyd/slideshow.git
 cd slideshow
 npm install
 
@@ -558,7 +558,7 @@ Use Supabase for database but run locally:
 # Get connection string from Project Settings → Database
 
 # Clone and setup
-git clone https://github.com/your-repo/slideshow.git
+git clone https://github.com/imrosyd/slideshow.git
 cd slideshow
 npm install
 
