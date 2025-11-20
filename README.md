@@ -754,6 +754,46 @@ npx prisma studio
 npx prisma db push --force-reset
 ```
 
+### Prisma: "Environment variable not found: DATABASE_URL"
+
+If you see an error like:
+
+```
+Error: Prisma schema validation - (get-config wasm)
+Error code: P1012
+error: Environment variable not found: DATABASE_URL.
+```
+
+This means Prisma cannot find the `DATABASE_URL` environment variable. Common causes and fixes:
+
+- **Missing `.env` file or variable**: Create a `.env` (or `.env.production`) file from `.env.example` and set `DATABASE_URL`:
+
+```bash
+cp .env.example .env
+# Edit .env and set DATABASE_URL, then:
+npx prisma generate
+npx prisma db push
+```
+
+- **Don't run Prisma with `sudo`**: Running `sudo npx prisma db push` often *loses your environment variables* because the command runs as `root`. Instead run the command as the same user that owns the project:
+
+```bash
+# Recommended (no sudo)
+npx prisma db push
+
+# Or provide the value inline (temporary)
+DATABASE_URL="postgresql://user:pass@host:5432/db" npx prisma db push
+```
+
+- **If you must use `sudo`**: preserve the environment with `-E` (only when appropriate and permitted on your server):
+
+```bash
+sudo -E npx prisma db push
+```
+
+Note: the safest approach on a VPS is to create a proper `.env` (owned by the deploy user) and run `npx prisma db push` without `sudo`. Running as the deploy user avoids permission surprises and ensures Prisma reads the `.env` file.
+
+
 ### Storage Issues
 
 ```bash
