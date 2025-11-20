@@ -34,7 +34,10 @@ class FilesystemStorageAdapter implements StorageAdapter {
     this.storageDir = process.env.STORAGE_PATH || path.join(process.cwd(), 'storage');
     this.imagesDir = path.join(this.storageDir, 'images');
     this.videosDir = path.join(this.storageDir, 'videos');
-    this.publicUrl = process.env.STORAGE_PUBLIC_URL || '/api/storage';
+    // Prefer a stable, static `/storage` public URL so clients can fetch
+    // media directly from the static file server (e.g. nginx). Allow override
+    // via `STORAGE_PUBLIC_URL` for alternative deployments.
+    this.publicUrl = process.env.STORAGE_PUBLIC_URL || '/storage';
 
     // Ensure directories exist
     [this.imagesDir, this.videosDir].forEach(dir => {

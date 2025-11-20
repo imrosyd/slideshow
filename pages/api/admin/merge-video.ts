@@ -6,6 +6,7 @@ import os from "os";
 import { db } from "../../../lib/db";
 import { storage } from "../../../lib/storage-adapter";
 import { broadcast } from "../../../lib/websocket";
+import computeFileHash from '../../../lib/file-hash';
 // @ts-ignore
 import ffmpegPath from "@ffmpeg-installer/ffmpeg";
 
@@ -112,6 +113,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     await storage.deleteVideo(videoFilename);
     const videoBuffer = await fs.readFile(outputPath);
+    let videoHash: string | null = null;
+    try {
+      videoHash = await computeFileHash(outputPath);
+    } catch (e) {
+      console.warn('[Merge Video] failed to compute video hash', e);
+      videoHash = null;
+    }
+
     const videoUrl = await storage.uploadVideo(videoFilename, videoBuffer);
     console.log(`[Merge Video] Uploaded ${videoFilename} successfully`);
 
@@ -137,8 +146,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await storage.uploadImage(placeholderImageName, placeholderBuffer);
 
     const generatedAt = new Date().toISOString();
-    const cacheBustTimestamp = Date.now();
-    
     const metadataData = {
       filename: videoFilename,
       duration_ms: totalDuration * 1000,
@@ -146,7 +153,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       order_index: 999999,
       hidden: false,
       is_video: true,
-      video_url: `${videoUrl}?t=${cacheBustTimestamp}`,
+      video_url: String(videoUrl).replace('/api/storage', '/storage'),
+      video_hash: videoHash ?? undefined,
       video_duration_ms: totalDuration * 1000,
     };
     
@@ -159,7 +167,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       order_index: 999999,
       hidden: false,
       is_video: true,
-      video_url: `${videoUrl}?t=${cacheBustTimestamp}`,
+      video_url: String(videoUrl).replace('/api/storage', '/storage'),
+      video_hash: videoHash ?? undefined,
       video_duration_ms: totalDuration * 1000,
     };
     await db.upsertImageDuration(placeholderMetadataData);

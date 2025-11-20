@@ -6,6 +6,7 @@ import { promisify } from 'util';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { db } from '../../../lib/db';
 import { storage } from '../../../lib/storage-adapter';
+import computeFileHash from '../../../lib/file-hash';
 
 const execAsync = promisify(exec);
 const ffmpegPath = ffmpegInstaller.path;
@@ -120,6 +121,15 @@ export default async function handler(
     const firstImageName = imagesToProcess[0];
     const videoFileName = firstImageName.replace(/\.[^/.]+$/, '.mp4');
     const videoBuffer = await fs.readFile(tempVideoPath);
+    // Compute content hash for cache-busting decisions
+    let videoHash: string | null = null;
+    try {
+      videoHash = await computeFileHash(tempVideoPath);
+    } catch (e) {
+      console.warn('[Video Gen] failed to compute video hash', e);
+      videoHash = null;
+    }
+
     const videoUrl = await storage.uploadVideo(videoFileName, videoBuffer);
 
     const imagesToUpdate = imagesToProcess.length === 1 ? [imagesToProcess[0]] : imagesToProcess;
@@ -135,6 +145,7 @@ export default async function handler(
         is_video: true,
         video_url: videoUrl,
         video_duration_ms: totalDurationEffective * 1000,
+        video_hash: videoHash ?? undefined,
       });
     }
 

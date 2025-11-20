@@ -33,7 +33,7 @@ export function useVideoPlayer({
     if (!video || !videoUrl) return;
 
     playAttemptsRef.current = 0;
-    
+
     const attemptPlay = async (attempt = 1): Promise<void> => {
       try {
         // Only reset to beginning if explicitly requested (new video or slide change)
@@ -43,14 +43,20 @@ export function useVideoPlayer({
         await video.play();
         console.log(`✅ Play success (attempt ${attempt})${resetPosition ? ' from start' : ' resumed'}`);
         playAttemptsRef.current = 0;
-      } catch (error) {
+      } catch (error: any) {
+        // Ignore AbortError which happens when play is interrupted by a new load request
+        if (error.name === 'AbortError') {
+          console.log('ℹ️ Play interrupted by new load request (harmless)');
+          return;
+        }
+
         console.error(`❌ Play failed (attempt ${attempt}):`, error);
-        
+
         if (attempt < 3) {
           await new Promise(resolve => setTimeout(resolve, 200 * attempt));
           return attemptPlay(attempt + 1);
         }
-        
+
         throw error;
       }
     };
@@ -62,7 +68,7 @@ export function useVideoPlayer({
   const pause = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    
+
     video.pause();
     console.log('⏸️ Video paused');
   }, []);
@@ -71,7 +77,7 @@ export function useVideoPlayer({
   const seek = useCallback((time: number) => {
     const video = videoRef.current;
     if (!video) return;
-    
+
     video.currentTime = time;
   }, []);
 
@@ -86,7 +92,7 @@ export function useVideoPlayer({
       // Only reset position if video URL changed (new video)
       const isNewVideo = previousVideoUrlRef.current !== videoUrl;
       previousVideoUrlRef.current = videoUrl;
-      
+
       play(isNewVideo).catch(e => console.error('Failed to play:', e));
     }
   }, [isPaused, videoUrl, play, pause]);

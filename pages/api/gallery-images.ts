@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { db } from "../../lib/db";
 import fs from 'fs';
 import path from 'path';
+import { storage } from '../../lib/storage-adapter';
 
 type Data =
   | { images: Array<{name: string; url: string}> }
@@ -110,8 +111,7 @@ export default async function handler(
         
         return {
           name: item.filename,
-          // Use internal API route to serve images (no Supabase)
-          url: `/api/storage/images/${encodeURIComponent(imageFilename)}`,
+          url: String(storage.getImageUrl(imageFilename)).replace('/api/storage', '/storage'),
         };
       });
 
@@ -128,7 +128,7 @@ export default async function handler(
             .filter((filename) => /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(filename) && !filename.startsWith('dashboard.'))
             .map((filename) => ({
               name: filename,
-              url: `/api/storage/images/${encodeURIComponent(filename)}`,
+              url: String(storage.getImageUrl(filename)).replace('/api/storage', '/storage'),
             }));
 
           console.log(`[Gallery Images] Returning ${storageImageData.length} images from local storage`);

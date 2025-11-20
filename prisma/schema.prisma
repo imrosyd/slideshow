@@ -25,6 +25,7 @@ model ImageDuration {
   video_duration_ms Int?
   video_status    String   @default("none") // none, processing, ready, error
   is_video        Boolean  @default(false)
+  video_hash      String?  @db.Text
 
   @@index([filename])
   @@index([order_index])

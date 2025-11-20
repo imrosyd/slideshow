@@ -44,9 +44,7 @@ export function useVideoPreload({
 
     const nextIndex = (currentIndex + 1) % slides.length;
     hasTriggeredPreloadRef.current = true;
-    
-    console.log(`📥 Marking next video as ready [${nextIndex + 1}/${slides.length}]`);
-    
+
     // Just mark as ready - let the video element handle preload with preload="auto"
     setNextVideoReady(true);
 
@@ -59,7 +57,6 @@ export function useVideoPreload({
 
     const percentComplete = currentTime / duration;
     if (percentComplete >= preloadTriggerPercent) {
-      console.log(`📊 ${Math.floor(percentComplete * 100)}% reached - triggering preload`);
       preloadNextVideo();
     }
   }, [preloadTriggerPercent, preloadNextVideo]);

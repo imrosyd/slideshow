@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { db } from "../../lib/db";
 import { storage } from "../../lib/storage-adapter";
 import fs from 'fs/promises';
+import computeFileHash from '../../lib/file-hash';
 
 type Data = {
   exists: boolean;
@@ -10,6 +11,7 @@ type Data = {
   lastChecked?: string;
   error?: string;
   cachebuster?: number;
+  videoHash?: string | null;
 };
 
 export default async function handler(
@@ -30,16 +32,29 @@ export default async function handler(
     const exists = !!(videoEntry && videoEntry.video_url && videoEntry.video_url.trim() !== '');
     
     let fileExists = false;
+    let videoHash: string | null = null;
     if (exists) {
       try {
         const videoPath = (storage as any).getVideoPath("dashboard.mp4");
         await fs.access(videoPath);
         fileExists = true;
+        // Prefer stored DB hash if available
+        if (videoEntry?.video_hash) {
+          videoHash = videoEntry.video_hash;
+        } else {
+          try {
+            videoHash = await computeFileHash(videoPath);
+          } catch (e) {
+            console.warn('[Check Dashboard] failed to compute hash for dashboard.mp4', e);
+            videoHash = null;
+          }
+        }
       } catch (error) {
         fileExists = false;
         await db.updateImageDuration("dashboard.mp4", {
           video_url: null,
           video_duration_ms: null,
+          video_hash: null,
         });
         console.log("[Check Dashboard] Cleared invalid video_url for non-existent file");
       }
@@ -47,16 +62,16 @@ export default async function handler(
 
     console.log(`[Check Dashboard] Dashboard.mp4 status: exists=${videoEntry?.is_video || false}, hasUrl=${videoEntry?.video_url || null}, fileExists=${fileExists}`);
     
-    const videoUrlWithCacheBust = fileExists && videoEntry?.video_url 
-      ? `${videoEntry.video_url}?_cache=${Date.now()}` 
+    const stableVideoUrl = fileExists && videoEntry?.video_url
+      ? String(storage.getVideoUrl('dashboard.mp4')).replace('/api/storage', '/storage')
       : undefined;
-    
+
     return res.status(200).json({
       exists: fileExists && (!!(videoEntry?.is_video)),
-      videoUrl: videoUrlWithCacheBust,
+      videoUrl: stableVideoUrl,
       videoGeneratedAt: videoEntry?.created_at?.toString(),
       lastChecked: new Date().toISOString(),
-      cachebuster: Date.now()
+      videoHash,
     });
   } catch (error: any) {
     console.error("[Check Dashboard] Error:", error);

@@ -138,6 +138,7 @@ const AdminContent = () => {
             variant: "success", 
             description: `Successfully converted PDF to ${result.images.length} image${result.images.length > 1 ? "s" : ""}` 
           });
+          await refresh(); // Refresh images after successful conversion
         } else {
           pushToast({ 
             variant: "error", 

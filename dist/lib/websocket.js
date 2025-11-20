@@ -1,23 +1,23 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.broadcast = exports.initWebSocketServer = void 0;
-var ws_1 = require("ws");
-var wss;
-var initWebSocketServer = function (server) {
-    wss = new ws_1.WebSocketServer({ server: server });
-    wss.on('connection', function (ws) {
+const ws_1 = require("ws");
+let wss;
+const initWebSocketServer = (server) => {
+    wss = new ws_1.WebSocketServer({ server });
+    wss.on('connection', (ws) => {
         console.log('Client connected');
-        ws.on('close', function () { return console.log('Client disconnected'); });
+        ws.on('close', () => console.log('Client disconnected'));
     });
     console.log('WebSocket server initialized');
 };
 exports.initWebSocketServer = initWebSocketServer;
-var broadcast = function (message) {
+const broadcast = (message) => {
     if (!wss) {
         console.warn('WebSocket server not initialized');
         return;
     }
-    wss.clients.forEach(function (client) {
+    wss.clients.forEach((client) => {
         if (client.readyState === ws_1.WebSocket.OPEN) {
             client.send(message);
         }

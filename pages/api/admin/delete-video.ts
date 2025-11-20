@@ -52,6 +52,7 @@ export default async function handler(
         is_video: false,
         video_url: null,
         video_duration_ms: null,
+        video_hash: null,
       });
     }
 

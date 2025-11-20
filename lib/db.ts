@@ -23,6 +23,7 @@ export type ImageDuration = {
   video_url?: string | null;
   video_duration_ms?: number | null;
   video_status?: string | null;
+  video_hash?: string | null;
   is_video?: boolean;
 };
 
@@ -147,26 +148,27 @@ class PrismaAdapter implements DatabaseAdapter {
     if (data.order_index !== undefined && data.order_index !== null) updateData.order_index = data.order_index;
     if (data.hidden !== undefined && data.hidden !== null) updateData.hidden = data.hidden;
     if (data.video_url !== undefined) updateData.video_url = data.video_url ?? undefined;
-    if (data.video_duration_ms !== undefined) updateData.video_duration_ms = data.video_duration_ms ?? undefined;
-    if (data.video_status !== undefined) updateData.video_status = data.video_status ?? undefined;
-    if (data.is_video !== undefined && data.is_video !== null) updateData.is_video = data.is_video;
-
-    const result = await this.prisma.imageDuration.upsert({
-      where: { filename: data.filename },
-      update: updateData,
-      create: {
-        filename: data.filename,
-        duration_ms: data.duration_ms ?? 5000,
-        caption: data.caption ?? undefined,
-        order_index: data.order_index ?? 0,
-        hidden: data.hidden ?? false,
-        video_url: data.video_url ?? undefined,
-        video_duration_ms: data.video_duration_ms ?? undefined,
-        video_status: data.video_status ?? 'none',
-        is_video: data.is_video ?? false,
-      },
-    });
+        if (data.video_duration_ms !== undefined) updateData.video_duration_ms = data.video_duration_ms ?? undefined;
+        if (data.video_status !== undefined) updateData.video_status = data.video_status ?? undefined;
+        if (data.video_hash !== undefined) updateData.video_hash = data.video_hash ?? undefined;
+        if (data.is_video !== undefined && data.is_video !== null) updateData.is_video = data.is_video;
     
+        const result = await this.prisma.imageDuration.upsert({
+          where: { filename: data.filename },
+          update: updateData,
+          create: {
+            filename: data.filename,
+            duration_ms: data.duration_ms ?? 5000,
+            caption: data.caption ?? undefined,
+            order_index: data.order_index ?? 0,
+            hidden: data.hidden ?? false,
+            video_url: data.video_url ?? undefined,
+              video_duration_ms: data.video_duration_ms ?? undefined,
+              video_status: data.video_status ?? 'none',
+              video_hash: data.video_hash ?? undefined,
+            is_video: data.is_video ?? false,
+          },
+        });    
     return {
       ...result,
       created_at: result.created_at.toISOString(),
@@ -187,6 +189,7 @@ class PrismaAdapter implements DatabaseAdapter {
         if (item.video_url !== undefined) updateData.video_url = item.video_url ?? undefined;
         if (item.video_duration_ms !== undefined) updateData.video_duration_ms = item.video_duration_ms ?? undefined;
         if (item.video_status !== undefined) updateData.video_status = item.video_status ?? undefined;
+        if (item.video_hash !== undefined) updateData.video_hash = item.video_hash ?? undefined;
         if (item.is_video !== undefined && item.is_video !== null) updateData.is_video = item.is_video;
 
         return this.prisma.imageDuration.upsert({
@@ -201,6 +204,7 @@ class PrismaAdapter implements DatabaseAdapter {
             video_url: item.video_url ?? undefined,
             video_duration_ms: item.video_duration_ms ?? undefined,
             video_status: item.video_status ?? 'none',
+            video_hash: item.video_hash ?? undefined,
             is_video: item.is_video ?? false,
           },
         });
@@ -220,6 +224,7 @@ class PrismaAdapter implements DatabaseAdapter {
     if (data.video_url !== undefined) updateData.video_url = data.video_url ?? undefined;
     if (data.video_duration_ms !== undefined) updateData.video_duration_ms = data.video_duration_ms ?? undefined;
     if (data.video_status !== undefined) updateData.video_status = data.video_status ?? undefined;
+    if (data.video_hash !== undefined) updateData.video_hash = data.video_hash ?? undefined;
     if (data.is_video !== undefined && data.is_video !== null) updateData.is_video = data.is_video;
 
     const result = await this.prisma.imageDuration.update({

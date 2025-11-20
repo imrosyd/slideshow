@@ -673,7 +673,7 @@ export const useImages = (authToken: string | null) => {
         // Dynamically import PDF.js (warnings suppressed in next.config.mjs)
         console.log('[useImages] Importing PDF.js library...');
         // @ts-ignore - Dynamic import of PDF.js
-        const pdfjsLib = await import('pdfjs-dist');
+        const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
         console.log('[useImages] PDF.js library imported successfully');
         
         // Set worker path - prefer `NEXT_PUBLIC_PDFJS_WORKER_URL` env var.

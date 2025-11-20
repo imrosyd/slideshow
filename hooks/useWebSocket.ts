@@ -32,6 +32,14 @@ const useWebSocket = (onMessage: (message: any) => void) => {
       };
 
       ws.current.onerror = (error) => {
+        // Suppress errors if the socket is closing or closed, which happens frequently in dev (Strict Mode)
+        if (ws.current?.readyState === WebSocket.CLOSING || ws.current?.readyState === WebSocket.CLOSED) {
+          return;
+        }
+        // Also suppress generic "error" events during connection phase
+        if (ws.current?.readyState === WebSocket.CONNECTING) {
+          return;
+        }
         console.error('WebSocket error:', error);
         ws.current?.close();
       };
@@ -40,7 +48,24 @@ const useWebSocket = (onMessage: (message: any) => void) => {
     connect();
 
     return () => {
-      ws.current?.close();
+      if (ws.current) {
+        // Remove all listeners to prevent memory leaks and callbacks
+        ws.current.onopen = null;
+        ws.current.onmessage = null;
+        ws.current.onerror = null;
+        ws.current.onclose = null;
+
+        if (ws.current.readyState === WebSocket.CONNECTING) {
+          // Closing a CONNECTING socket triggers "WebSocket is closed before the connection is established"
+          // Workaround: Wait for it to open, then close it immediately
+          const socket = ws.current;
+          socket.onopen = () => {
+            socket.close();
+          };
+        } else {
+          ws.current.close();
+        }
+      }
     };
   }, [onMessage]);
 

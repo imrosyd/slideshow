@@ -53,6 +53,12 @@ const uploadSingleFile = async (file: FormidableFile) => {
   const fileBuffer = await fs.readFile(file.filepath);
   await storage.uploadImage(sanitizedFilename, fileBuffer);
 
+  // Create a database entry for the new image
+  await db.upsertImageDuration({
+    filename: sanitizedFilename,
+    duration_ms: 5000, // Default duration
+  });
+
   return sanitizedFilename;
 };
 
@@ -60,6 +66,7 @@ const handlePostRequest = async (
   req: NextApiRequest,
   res: NextApiResponse<SuccessResponse | ErrorResponse>
 ) => {
+  console.log('[Upload] handlePostRequest: Entered');
   const form = formidable({
     multiples: true,
     maxFileSize: 10 * 1024 * 1024,
@@ -68,6 +75,7 @@ const handlePostRequest = async (
 
   try {
     const files = await parseForm(req, form);
+    console.log('[Upload] handlePostRequest: Form parsed, files:', Object.keys(files));
 
     const uploadedFiles = Array.isArray(files.file)
       ? (files.file as FormidableFile[])
@@ -76,8 +84,10 @@ const handlePostRequest = async (
         : [];
 
     if (uploadedFiles.length === 0) {
+      console.log('[Upload] handlePostRequest: No files found');
       return res.status(400).json({ error: "Tidak ada file yang ditemukan untuk diunggah." });
     }
+    console.log(`[Upload] handlePostRequest: Found ${uploadedFiles.length} files to process`);
 
     const successfulUploads: string[] = [];
     const uploadErrors: string[] = [];
@@ -90,17 +100,18 @@ const handlePostRequest = async (
         const file = uploadedFiles[currentIndex];
         try {
           const name = await uploadSingleFile(file);
+          console.log(`[Upload] handlePostRequest: Successfully uploaded ${name}`);
           successfulUploads.push(name);
         } catch (uploadErr: any) {
           const message = uploadErr?.message || "Gagal mengunggah file.";
-          console.error(`Error processing file ${file.originalFilename}:`, uploadErr);
+          console.error(`[Upload] handlePostRequest: Error processing file ${file.originalFilename}:`, uploadErr);
           uploadErrors.push(`${file.originalFilename || "(tanpa nama)"}: ${message}`);
         } finally {
           if (file.filepath) {
             try {
               await fs.unlink(file.filepath);
             } catch (cleanupErr) {
-              console.error("Error deleting temp file:", cleanupErr);
+              console.error("[Upload] handlePostRequest: Error deleting temp file:", cleanupErr);
             }
           }
         }
@@ -110,8 +121,11 @@ const handlePostRequest = async (
     const workerCount = Math.min(MAX_CONCURRENT_UPLOADS, uploadedFiles.length);
     await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
+    console.log(`[Upload] handlePostRequest: Finished processing. Success: ${successfulUploads.length}, Errors: ${uploadErrors.length}`);
+
     if (successfulUploads.length === 0) {
       const combinedError = uploadErrors.join("; ") || "Tidak ada file yang berhasil diunggah.";
+      console.log(`[Upload] handlePostRequest: No files uploaded successfully. Errors: ${combinedError}`);
       return res.status(500).json({ error: combinedError });
     }
 
@@ -133,6 +147,7 @@ const handlePostRequest = async (
     }
 
     if (uploadErrors.length > 0) {
+      console.log(`[Upload] handlePostRequest: Partial success. ${successfulUploads.length} succeeded, ${uploadErrors.length} failed.`);
       return res.status(207).json({
         message: `${successfulUploads.length} file berhasil diunggah, tetapi ${uploadErrors.length} gagal.`,
         filenames: successfulUploads,
@@ -140,12 +155,13 @@ const handlePostRequest = async (
       });
     }
 
+    console.log(`[Upload] handlePostRequest: All files uploaded successfully.`);
     return res.status(200).json({
       message: `${successfulUploads.length} file berhasil diunggah.`,
       filenames: successfulUploads,
     });
   } catch (err) {
-    console.error("Error parsing form:", err);
+    console.error("[Upload] handlePostRequest: Error parsing form:", err);
     return res.status(500).json({ error: "Gagal memproses unggahan." });
   }
 };

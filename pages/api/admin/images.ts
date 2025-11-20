@@ -4,6 +4,7 @@ import { storage } from "../../../lib/storage-adapter";
 import { isAuthorizedAdminRequest } from "../../../lib/auth";
 import fs from 'fs/promises';
 import path from 'path';
+import computeFileHash from '../../../lib/file-hash';
 
 type AdminImage = {
   name: string;
@@ -18,6 +19,7 @@ type AdminImage = {
   videoDurationSeconds?: number | null;
   videoGeneratedAt?: string;
   previewUrl?: string;
+  videoHash?: string | null;
 };
 
 type Data =
@@ -72,6 +74,7 @@ export default async function handler(
       video_url: row.video_url ?? null,
       video_duration_seconds: row.video_duration_ms ? Math.round(row.video_duration_ms / 1000) : null,
       video_generated_at: row.video_generated_at ?? null,
+      video_hash: row.video_hash ?? null,
     }]));
 
     const fileList = await storage.listImages();
@@ -79,14 +82,24 @@ export default async function handler(
 
     const videoMap = new Map<string, { url: string; size: number; createdAt: string | null }>();
     for (const video of videoList) {
-      const videoUrl = storage.getVideoUrl(video);
       const videoPath = (storage as any).getVideoPath(video);
       const stats = await fs.stat(videoPath);
+      let videoUrl = storage.getVideoUrl(video);
+      videoUrl = videoUrl.replace('/api/storage', '/storage');
+      let videoHash: string | null = null;
+      try {
+        videoHash = await computeFileHash(videoPath);
+      } catch (e) {
+        console.warn('[admin/images] failed to compute hash for', videoPath, e);
+      }
+
       videoMap.set(video, {
         url: videoUrl,
         size: stats.size,
         createdAt: stats.birthtime.toISOString(),
-      });
+        // @ts-ignore - attach hash for internal use
+        hash: videoHash,
+      } as any);
     }
 
     let images: AdminImage[] = [];
@@ -101,7 +114,11 @@ export default async function handler(
         const videoData = videoMap.get(videoName);
         
         const hasVideo = (metadataEntry?.is_video ?? false) || videoData !== undefined;
-        const videoUrl = metadataEntry?.video_url || videoData?.url || undefined;
+        let videoUrl = metadataEntry?.video_url || videoData?.url || undefined;
+        if (videoUrl) {
+          videoUrl = String(videoUrl).replace('/api/storage', '/storage');
+        }
+        const videoHash = metadataEntry?.video_hash ?? (videoData as any)?.hash ?? null;
         
         images.push({
           name: file,
@@ -113,6 +130,7 @@ export default async function handler(
           hidden: metadataEntry?.hidden ?? false,
           isVideo: hasVideo,
           videoUrl: videoUrl,
+          videoHash: videoHash,
           videoDurationSeconds: metadataEntry?.video_duration_seconds,
           videoGeneratedAt: (metadataEntry?.video_generated_at || videoData?.createdAt) ?? undefined,
         });
@@ -136,6 +154,8 @@ export default async function handler(
       if (metadata.is_video && metadata.video_url && (metadata.hidden || filename === 'dashboard.jpg')) {
         const imageInList = images.find(img => img.name === filename);
         if (!imageInList) {
+          let videoUrl = metadata.video_url;
+          if (videoUrl) videoUrl = String(videoUrl).replace('/api/storage', '/storage');
           videoOnlyEntries.push({
             name: filename,
             size: 0,
@@ -145,7 +165,8 @@ export default async function handler(
             caption: metadata.caption,
             hidden: metadata.hidden,
             isVideo: true,
-            videoUrl: metadata.video_url,
+            videoUrl: videoUrl,
+            videoHash: null,
             videoDurationSeconds: metadata.video_duration_seconds,
             videoGeneratedAt: metadata.video_generated_at,
             previewUrl: `/api/admin/thumbnail/${filename}?video=true`,

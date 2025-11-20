@@ -1,66 +1,70 @@
-"use strict";
 /**
  * Custom Next.js Server for Shared Hosting (cPanel)
- *
+ * 
  * This server file is required for running Next.js on shared hosting
  * with cPanel Node.js selector or similar setups.
- *
+ * 
  * Usage:
  * - Set this as your "Application startup file" in cPanel Node.js App setup
  * - Make sure PORT environment variable is set (cPanel does this automatically)
- *
+ * 
  * For standard VPS/dedicated hosting, you don't need this file.
  * Just use: npm start (which runs next start)
  */
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const http_1 = require("http");
-const url_1 = require("url");
-const next_1 = __importDefault(require("next"));
-const websocket_1 = require("./lib/websocket");
+
+import { createServer } from 'http';
+import { parse } from 'url';
+import next from 'next';
+import { initWebSocketServer } from './lib/websocket';
+
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
+
 // Initialize Next.js app
-const app = (0, next_1.default)({ dev, hostname, port });
+const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
+
 console.log('[Server] Initializing Next.js application...');
 console.log('[Server] Environment:', dev ? 'development' : 'production');
 console.log('[Server] Port:', port);
+
 app.prepare().then(() => {
-    const server = (0, http_1.createServer)(async (req, res) => {
+    const server = createServer(async (req, res) => {
         try {
             // Parse URL
-            const parsedUrl = (0, url_1.parse)(req.url || '', true);
+            const parsedUrl = parse(req.url || '', true);
+
             // Handle request with Next.js
             await handle(req, res, parsedUrl);
-        }
-        catch (err) {
+        } catch (err) {
             console.error('[Server] Error occurred handling', req.url, err);
             res.statusCode = 500;
             res.end('Internal server error');
         }
     })
         .listen(port, hostname, () => {
-        console.log(`[Server] ✓ Ready on http://${hostname}:${port}`);
-        console.log('[Server] Press Ctrl+C to stop');
-    })
+            console.log(`[Server] ✓ Ready on http://${hostname}:${port}`);
+            console.log('[Server] Press Ctrl+C to stop');
+        })
         .on('error', (err) => {
-        console.error('[Server] Server error:', err);
-    });
+            console.error('[Server] Server error:', err);
+        });
+
     // Initialize WebSocket server
-    (0, websocket_1.initWebSocketServer)(server);
+    initWebSocketServer(server);
+
 }).catch((err) => {
     console.error('[Server] Failed to prepare app:', err);
     process.exit(1);
 });
+
 // Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('[Server] SIGTERM received, shutting down gracefully...');
     process.exit(0);
 });
+
 process.on('SIGINT', () => {
     console.log('[Server] SIGINT received, shutting down gracefully...');
     process.exit(0);

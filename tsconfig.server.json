@@ -3,7 +3,12 @@
   "compilerOptions": {
     "module": "commonjs",
     "noEmit": false,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "target": "es2017",
+    "downlevelIteration": true
   },
-  "include": ["lib/websocket.ts", "server.js"]
+  "include": [
+    "lib/websocket.ts",
+    "server.ts"
+  ]
 }

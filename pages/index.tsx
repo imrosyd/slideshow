@@ -8,16 +8,13 @@ import { useVideoPreload } from "../hooks/useVideoPreload";
 import { useKeepAwake } from "../hooks/useKeepAwake";
 import { useRemoteControl } from "../hooks/useRemoteControl";
 import useSingleVideoLoop from "../hooks/useSingleVideoLoop";
-
-const DEFAULT_SLIDE_DURATION_SECONDS = 20;
-const LANGUAGE_SWAP_INTERVAL_MS = 4_000;
+import useWebSocket from "../hooks/useWebSocket";
 const AUTO_REFRESH_INTERVAL_MS = 30_000; // Increase to reduce server load
 const FAST_REFRESH_INTERVAL_MS = 2_000; // Fast refresh after video updates
+const LANGUAGE_SWAP_INTERVAL_MS = 5_000;
+const DEFAULT_SLIDE_DURATION_SECONDS = 10;
+const LANGUAGE_SEQUENCE: Language[] = ["en", "id", "ko"];
 
-type Language = "en" | "ko" | "id";
-const LANGUAGE_SEQUENCE: Language[] = ["en", "ko", "id"];
-
-// Precompute Supabase origin for resource hints
 const SUPABASE_ORIGIN = (() => {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
@@ -88,6 +85,7 @@ type Slide = {
   durationSeconds: number;
   isVideo?: boolean;
   videoUrl?: string;
+  videoHash?: string | null;
   videoDurationSeconds?: number;
 };
 
@@ -178,18 +176,18 @@ const styles: Record<string, CSSProperties> = {
     color: "rgba(148, 163, 184, 0.7)",
   },
   imageGalleryBottomBar: {
-  position: "fixed" as const,
-  left: 0,
-  bottom: 0,
-  width: "100vw",
-  background: `linear-gradient(180deg, rgba(0, 7, 28, 0.88) 0%, rgba(7, 14, 39, 0.94) 60%,rgba(12, 18, 44, 0.97) 100%)`,
-  backdropFilter: "blur(18px)",
-  borderTop: "1px solid rgba(148, 163, 184, 0.12)",
-  padding: "clamp(4px, 0.5vw, 8px) clamp(8px, 1vw, 16px)",
-  zIndex: 50,
-  boxShadow: "0 -8px 32px rgba(0, 0, 0, 0.4), 0 -2px 8px rgba(0, 0, 0, 0.2)",
-  transform: "translateY(0)",
-  opacity: 1,
+    position: "fixed" as const,
+    left: 0,
+    bottom: 0,
+    width: "100vw",
+    background: `linear-gradient(180deg, rgba(0, 7, 28, 0.88) 0%, rgba(7, 14, 39, 0.94) 60%,rgba(12, 18, 44, 0.97) 100%)`,
+    backdropFilter: "blur(18px)",
+    borderTop: "1px solid rgba(148, 163, 184, 0.12)",
+    padding: "clamp(4px, 0.5vw, 8px) clamp(8px, 1vw, 16px)",
+    zIndex: 50,
+    boxShadow: "0 -8px 32px rgba(0, 0, 0, 0.4), 0 -2px 8px rgba(0, 0, 0, 0.2)",
+    transform: "translateY(0)",
+    opacity: 1,
   },
   imageGalleryBottomBarHidden: {
     transform: "translateY(calc(100% + 10px))",
@@ -388,8 +386,8 @@ export default function Home() {
   const [error, setError] = useState<AppError | null>(null);
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<Language>("en");
-  const [adminImages, setAdminImages] = useState<Array<{name: string; url: string}>>([]);
-  const [selectedImage, setSelectedImage] = useState<{name: string; url: string} | null>(null);
+  const [adminImages, setAdminImages] = useState<Array<{ name: string; url: string }>>([]);
+  const [selectedImage, setSelectedImage] = useState<{ name: string; url: string } | null>(null);
   const [wasPaused, setWasPaused] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
@@ -397,7 +395,18 @@ export default function Home() {
   const [fastRefreshTimer, setFastRefreshTimer] = useState<NodeJS.Timeout | null>(null);
   const [videoVersion, setVideoVersion] = useState<number>(0);
   const previousVideoUrlRef = useRef<string | null>(null);
+  const previousVideoBaseRef = useRef<string | null>(null);
+  const previousVideoHashRef = useRef<string | null>(null);
   const previousIndexRef = useRef<number>(-1); // Initialize with -1 to detect first change
+
+  const normalizeVideoUrl = (u: string | undefined | null) => {
+    if (!u) return '';
+    try {
+      return String(u).split('?')[0].split('#')[0];
+    } catch {
+      return String(u);
+    }
+  };
 
   // Main slideshow controller
   const {
@@ -483,7 +492,6 @@ export default function Home() {
   // Fetch admin images for gallery overlay
   const fetchAdminImages = useCallback(async () => {
     try {
-      console.log('🔄 Fetching gallery images...');
       // Use gallery images API which returns all visible images (excluding dashboard.jpg)
       const cacheBuster = `?_t=${Date.now()}`;
       const response = await fetch(`/api/gallery-images${cacheBuster}`, {
@@ -494,7 +502,7 @@ export default function Home() {
         },
       });
 
-      console.log('📡 Gallery images response status:', response.status);
+
 
       if (!response.ok) {
         console.error('❌ Gallery images fetch failed:', response.statusText);
@@ -502,12 +510,8 @@ export default function Home() {
       }
 
       const data = await response.json();
-      
+
       if (data && data.images && Array.isArray(data.images)) {
-        console.log(`✅ Fetched ${data.images.length} images for gallery overlay`);
-        if (data.images.length > 0) {
-          console.log('🖼️ Sample images:', data.images.slice(0, 3).map((img: any) => img.name).join(', '));
-        }
         setAdminImages(data.images);
       } else {
         console.warn('⚠️ No images array in response');
@@ -551,10 +555,10 @@ export default function Home() {
           durationSeconds,
           isVideo: true,
           videoUrl: checkPayload.videoUrl,
+          videoHash: (checkPayload as any).videoHash ?? null,
           videoDurationSeconds: undefined,
         };
 
-        console.log('[fetchSlides] Using dashboard video from admin:', dashboardSlide.url);
         setSlides([dashboardSlide]);
         setError(null);
         setLoading(false);
@@ -562,7 +566,6 @@ export default function Home() {
       }
 
       // If dashboard does not exist, clear slides and show loading state
-      console.log('[fetchSlides] No dashboard video available; entering loading state');
       setSlides([]);
       setError(null);
       setLoading(true);
@@ -582,15 +585,14 @@ export default function Home() {
   useEffect(() => {
     fetchSlides();
     fetchAdminImages();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array - run only once on mount
 
   // Monitor adminImages state changes
   useEffect(() => {
     if (adminImages.length > 0) {
-      console.log(`🖼️ Gallery state updated: ${adminImages.length} images`, adminImages.slice(0, 2));
     } else {
-      console.log('🖼️ Gallery state updated: empty');
+      // console.log('🖼️ Gallery state updated: empty');
     }
   }, [adminImages]);
 
@@ -604,7 +606,7 @@ export default function Home() {
       }
     } else {
       // When no slides exist, clear the video element
-      console.log("📹 No slides available, clearing video");
+      // When no slides exist, clear the video element
       const video = videoRef.current;
       if (video) {
         // Pause and clear without removing src
@@ -613,16 +615,14 @@ export default function Home() {
       }
     }
   }, [slides.length, currentIndex, goToSlide, videoRef]); // Include videoRef dependency
-
   // Auto-refresh slides
   useEffect(() => {
     const interval = setInterval(() => {
-      console.log('🔄 Auto-refresh check...');
       fetchSlides(true);
     }, AUTO_REFRESH_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Use ref-based fetch to prevent dependency issues
 
   // Language rotation
@@ -636,7 +636,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleImageClick = useCallback((image: {name: string; url: string}) => {
+  const handleImageClick = useCallback((image: { name: string; url: string }) => {
     setSelectedImage(image);
     setIsOverlayVisible(true);
     setWasPaused(isPaused); // Remember current pause state
@@ -660,7 +660,6 @@ export default function Home() {
   // Send initial status when slides are loaded
   useEffect(() => {
     if (slides.length > 0) {
-      console.log('📡 Slides loaded, broadcasting initial status');
       const channel = supabase.channel('remote-control-status-init');
       channel.send({
         type: 'broadcast',
@@ -672,7 +671,6 @@ export default function Home() {
           paused: isPaused,
         }
       }, { httpSend: true }).then(() => {
-        console.log('✅ Initial status sent');
         supabase.removeChannel(channel);
       }).catch((err: any) => {
         console.error('❌ Failed to send initial status:', err);
@@ -685,7 +683,7 @@ export default function Home() {
   // Reset preload flag when slide changes
   useEffect(() => {
     resetPreloadFlag();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]); // Remove resetPreloadFlag from deps to prevent infinite loop
 
   // Keyboard controls
@@ -712,13 +710,13 @@ export default function Home() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPaused, slideshowPause]);
 
   const handleClosePreview = useCallback(() => {
     setIsOverlayVisible(false);
     setSelectedImage(null); // Remove immediately for faster response
-    
+
     // Notify remote that image overlay is closed
     const channel = supabase.channel('remote-control-notifications');
     channel.send({
@@ -728,7 +726,7 @@ export default function Home() {
     }, { httpSend: true }).then(() => {
       supabase.removeChannel(channel);
     });
-    
+
     // Resume slideshow immediately without delay
     if (!wasPaused) {
       slideshowPlay(); // Resume if it was playing before - video will continue from where it paused
@@ -749,10 +747,10 @@ export default function Home() {
       // Show gallery if mouse is near bottom
       if (distanceFromBottom <= BOTTOM_TRIGGER_HEIGHT) {
         setShowGallery(true);
-        
+
         // Clear existing timeout
         if (hideTimeout) clearTimeout(hideTimeout);
-        
+
         // Hide gallery after 3 seconds of inactivity
         hideTimeout = setTimeout(() => {
           setShowGallery(false);
@@ -773,9 +771,9 @@ export default function Home() {
 
       if (distanceFromBottom <= BOTTOM_TRIGGER_HEIGHT) {
         setShowGallery(true);
-        
+
         if (hideTimeout) clearTimeout(hideTimeout);
-        
+
         hideTimeout = setTimeout(() => {
           setShowGallery(false);
         }, 3000);
@@ -800,7 +798,6 @@ export default function Home() {
         "postgres_changes",
         { event: "*", schema: "public", table: "image_durations" },
         () => {
-          console.log("📡 Metadata change detected");
           fetchSlides(true);
           fetchAdminImages(); // Also refresh admin images to stay in sync with remote page
         }
@@ -810,7 +807,7 @@ export default function Home() {
     return () => {
       supabase.removeChannel(channel);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Additional listener specifically for video updates
@@ -820,46 +817,34 @@ export default function Home() {
     const channel = supabase
       .channel(channelName)
       .on("broadcast", { event: 'video-updated' }, (payload: any) => {
-        console.log(`📹 Video update received on channel ${channelName}:`, payload);
-        console.log(`📹 Updated video: ${payload.slideName}, current slide: ${currentSlide?.name}`);
-        
         // Handle different video actions
         if (payload.action === 'deleted') {
-          console.log("📹 Video was deleted, forcing immediate slides refresh...");
           fetchSlides(true).then(() => {
-            console.log("✅ Slides refreshed after video deletion");
           }).catch((err: any) => {
             console.error("❌ Failed to refresh slides after video deletion:", err);
           });
         } else {
           // Handle video creation/replacement
-          console.log("📹 Video updated (created/replaced), forcing slides refresh...");
-          
           // Clear any existing fast refresh timer
           if (fastRefreshTimer) {
             clearInterval(fastRefreshTimer);
             setFastRefreshTimer(null);
           }
-          
+
           // Initial refresh
           fetchSlides(true).then(() => {
-            console.log("✅ Slides refreshed after video update");
-            
             // Set up fast refresh for the next 20 seconds (every 2 seconds)
-            console.log("⚡ Setting up fast refresh for the next 20 seconds...");
             const timer = setInterval(() => {
-              console.log("⚡ Fast refresh checking for updates...");
               fetchSlides(true);
             }, FAST_REFRESH_INTERVAL_MS);
-            
+
             setFastRefreshTimer(timer);
-            
+
             // Stop fast refresh after 20 seconds
             setTimeout(() => {
               if (timer) {
                 clearInterval(timer);
                 setFastRefreshTimer(null);
-                console.log("⚡ Fast refresh stopped, returning to normal interval");
               }
             }, 20_000);
           }).catch((err: any) => {
@@ -868,13 +853,11 @@ export default function Home() {
         }
       })
       .subscribe((status: any) => {
-        console.log(`📡 Video updates channel ${channelName} status:`, status);
       });
-    
+
     return () => {
-      console.log(`📡 Cleaning up video updates channel ${channelName}`);
       supabase.removeChannel(channel);
-      
+
       // Clean up fast refresh timer
       if (fastRefreshTimer) {
         clearInterval(fastRefreshTimer);
@@ -894,18 +877,16 @@ export default function Home() {
   useEffect(() => {
     const currentUrl = currentSlide?.videoUrl || null;
     const previousUrl = previousVideoUrlRef.current;
-    
+
     if (currentUrl && currentUrl !== previousUrl) {
-      console.log(`🔄 Video URL changed from ${previousUrl} to ${currentUrl}`);
       // Increment version to trigger video reload with cache bust
       setVideoVersion(prev => prev + 1);
       previousVideoUrlRef.current = currentUrl;
     } else if (currentUrl !== previousUrl) {
       previousVideoUrlRef.current = currentUrl;
-      
+
       // If URL became null, completely clear video element
       if (!currentUrl && previousUrl) {
-        console.log('📹 Video URL is now null, clearing video element');
         const video = videoRef.current;
         if (video) {
           video.pause();
@@ -919,11 +900,10 @@ export default function Home() {
   // Force play and reset ONLY when currentIndex actually changes (critical for webOS)
   useEffect(() => {
     const indexChanged = previousIndexRef.current !== currentIndex;
-    
+
     if (indexChanged && currentSlide?.videoUrl) {
-      console.log(`🔄 Slide changed: ${previousIndexRef.current} → ${currentIndex}`);
       previousIndexRef.current = currentIndex;
-      
+
       const video = videoRef.current;
       if (video) {
         video.currentTime = 0; // Reset to start when slide changes
@@ -940,20 +920,15 @@ export default function Home() {
     const channel = supabase
       .channel(channelName)
       .on("broadcast", { event: 'image-updated' }, (payload) => {
-        console.log(`🖼️ Image update received on channel ${channelName}:`, payload);
-        
         // When images are added, deleted, or metadata changes, refresh the gallery
-        console.log("🖼️ Images updated, refreshing gallery...");
         fetchAdminImages().catch(err => {
           console.error("❌ Failed to refresh gallery after image update:", err);
         });
       })
       .subscribe((status) => {
-        console.log(`🖼️ Image updates channel ${channelName} status:`, status);
       });
-    
+
     return () => {
-      console.log(`🖼️ Cleaning up image updates channel ${channelName}`);
       supabase.removeChannel(channel);
     };
   }, [fetchAdminImages]);
@@ -964,24 +939,18 @@ export default function Home() {
       try {
         const response = await fetch('/api/check-dashboard');
         const data = await response.json();
-        
+
         const dashboardExists = data.exists;
         const currentHasVideo = slides.length > 0 && currentSlide?.videoUrl;
-        
-        console.log(`[Dashboard Status] Dashboard exists: ${dashboardExists}, Main page has video: ${currentHasVideo}`);
-        
+
         // If admin has no dashboard but main page does, refresh main page
         if (!dashboardExists && currentHasVideo) {
-          console.log("⚠️ Mismatch detected: Admin has no dashboard but main page is showing video. Refreshing...");
           fetchSlides(true).then(() => {
-            console.log("✅ Main page refreshed to match admin dashboard status");
           });
         }
         // If admin has dashboard but main page has no video, refresh
         else if (dashboardExists && !currentHasVideo) {
-          console.log("⚠️ Mismatch detected: Admin has dashboard but main page has no video. Refreshing...");
           fetchSlides(true).then(() => {
-            console.log("✅ Main page refreshed to match admin dashboard status");
           });
         }
       } catch (error) {
@@ -991,26 +960,42 @@ export default function Home() {
 
     // Check immediately
     checkDashboardStatus();
-    
+
     // Check every 10 seconds
     const interval = setInterval(checkDashboardStatus, 10000);
-    
+
     // Also check when force-refresh is triggered
     const handleForceRefresh = () => {
       console.log("🔄 Force refresh detected, checking dashboard status...");
       setTimeout(checkDashboardStatus, 500); // Small delay to allow API to update
     };
-    
+
     // Listen for force-refresh events
     const forceRefreshChannel = supabase.channel('slideshow-control');
     forceRefreshChannel.on('broadcast', { event: 'force-refresh' }, handleForceRefresh);
     forceRefreshChannel.subscribe();
-    
+
     return () => {
       clearInterval(interval);
       supabase.removeChannel(forceRefreshChannel);
     };
   }, [slides.length, currentSlide?.videoUrl, fetchSlides]); // Include dependencies
+
+  // WebSocket integration for real-time updates
+  useWebSocket(useCallback((message: any) => {
+    console.log('📡 WebSocket message received:', message);
+
+    if (message.event === 'image-updated') {
+      console.log('🖼️ Image update detected via WebSocket, refreshing gallery...');
+      fetchAdminImages();
+    } else if (message.event === 'force-refresh') {
+      console.log('🔄 Force refresh detected via WebSocket, checking dashboard status...');
+      setTimeout(() => {
+        checkDashboardStatus();
+        fetchSlides(true);
+      }, 500);
+    }
+  }, [fetchAdminImages, fetchSlides]));
 
   // Loading state
   if (loading) {
@@ -1098,7 +1083,7 @@ export default function Home() {
     <>
       <Head>
         <title>Slideshow</title>
-          <style>{`
+        <style>{`
           /* Landscape orientation styles */
           html, body {
             margin: 0;
@@ -1107,7 +1092,7 @@ export default function Home() {
           }
           `}</style>
       </Head>
-      
+
       {/* Landscape Warning Overlay */}
       <div id="landscape-warning">
         <svg className="rotation-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -1127,7 +1112,7 @@ export default function Home() {
       </div>
 
       <Head>
-          <style>{`
+        <style>{`
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -1523,7 +1508,7 @@ export default function Home() {
                 const error = target.error;
                 console.error(`❌ Video error: ${currentSlide.name}`);
                 console.error(`   Error code: ${error?.code}, message: ${error?.message}`);
-                
+
                 // If the video fails to load, treat it as deleted
                 if (error && (error.code === 4 || error.code === 2)) {
                   console.log(`📹 Video failed to load, assuming deleted - clearing video`);
@@ -1554,7 +1539,7 @@ export default function Home() {
         </div>
 
         {/* Image Gallery Bottom Bar */}
-        <div 
+        <div
           style={{
             ...styles.imageGalleryBottomBar,
             ...(showGallery ? {} : styles.imageGalleryBottomBarHidden)
@@ -1585,10 +1570,10 @@ export default function Home() {
             ))}
           </div>
           {adminImages.length === 0 && (
-            <div style={{ 
-              color: "rgba(148, 163, 184, 0.6)", 
-              fontSize: "0.875rem", 
-              textAlign: "center", 
+            <div style={{
+              color: "rgba(148, 163, 184, 0.6)",
+              fontSize: "0.875rem",
+              textAlign: "center",
               marginTop: "16px",
               padding: "20px",
               fontStyle: "italic"
@@ -1600,7 +1585,7 @@ export default function Home() {
 
         {/* Image Preview Overlay */}
         {selectedImage && (
-          <div 
+          <div
             className="preview-image-overlay"
             style={{
               ...styles.imagePreviewOverlay,
