@@ -60,5 +60,8 @@
   "bugs": {
     "url": "https://github.com/imrosyd/slideshow/issues"
   },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
   "homepage": "https://github.com/imrosyd/slideshow#readme"
 }

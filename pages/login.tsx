@@ -5,8 +5,8 @@ import { useRouter } from "next/router";
 export const dynamic = 'force-dynamic';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("imron");
-  const [password, setPassword] = useState("password");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -30,16 +30,16 @@ export default function LoginPage() {
 
       const payload = await response.json();
       const token = payload?.token as string | undefined;
-      
+
       if (!token) {
         throw new Error("Invalid authentication token.");
       }
 
       sessionStorage.setItem("admin-auth-token", token);
-      
+
       setUsername("");
       setPassword("");
-      
+
       const redirect = router.query.redirect as string | undefined;
       if (redirect) {
         await router.push(`/${redirect}`);
@@ -86,7 +86,6 @@ export default function LoginPage() {
                   type="text"
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
-                  placeholder="imron"
                   className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-base text-white outline-none ring-0 transition focus:border-sky-400 focus:bg-slate-900/60 focus:ring-2 focus:ring-sky-500/40"
                   disabled={isLoading}
                   autoComplete="username"
@@ -100,7 +99,6 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="••••••••"
                   className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-base text-white outline-none ring-0 transition focus:border-sky-400 focus:bg-slate-900/60 focus:ring-2 focus:ring-sky-500/40"
                   disabled={isLoading}
                   autoComplete="current-password"
