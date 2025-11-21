@@ -1,7 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { db } from "../../lib/db";
-import fs from 'fs';
-import path from 'path';
+import { db, ImageDuration } from "../../lib/db";
 import { storage } from '../../lib/storage-adapter';
 
 type Data =
@@ -50,99 +48,72 @@ export default async function handler(
   }
 
   try {
-    // First, get all entries to debug
-    const allEntries = await db.getImageDurations();
-    
-    console.log(`[Gallery Images] Total entries in DB: ${allEntries?.length || 0}`);
-    if (allEntries && allEntries.length > 0) {
-      console.log(`[Gallery Images] Sample entries:`, allEntries.slice(0, 5));
-      console.log(`[Gallery Images] Hidden entries: ${allEntries.filter((e: any) => e.hidden).length}`);
-      console.log(`[Gallery Images] Video entries: ${allEntries.filter((e: any) => e.is_video).length}`);
-    }
-    
-    // Fetch metadata from local database
-    const allDbMetadata = allEntries;
+    // Step 1: Get all image files from storage as the source of truth
+    const physicalImageFiles = await storage.listImages();
+    console.log(`[Gallery Images] Found ${physicalImageFiles.length} physical files in storage.`);
 
-    if (!allDbMetadata) {
-      console.error("[Gallery Images] Database error: No data returned");
-      throw new Error("Failed to load image metadata from database.");
-    }
+    // Step 2: Fetch all image metadata from the database
+    const allDbMetadata = await db.getImageDurations();
+    console.log(`[Gallery Images] Fetched ${allDbMetadata.length} metadata entries from DB.`);
 
-    if (!allDbMetadata || allDbMetadata.length === 0) {
-      console.log("[Gallery Images] No data found in database");
-      res.status(200).json({ images: [] });
-      return;
-    }
+    // Step 3: Create a lookup map for the metadata
+    const metadataMap = new Map<string, ImageDuration>();
+    allDbMetadata.forEach(meta => metadataMap.set(meta.filename, meta));
 
-    console.log(`[Gallery Images] Loaded ${allDbMetadata.length} total entries from database`);
+    // Step 4 & 5: Iterate physical files, check metadata, and filter
+    const imageData = physicalImageFiles
+      .map(filename => {
+        // The name for lookup can be the filename itself
+        const name = filename;
+        const metadata = metadataMap.get(name);
 
-    // Build image data with internal API URLs (serve via Prisma/local storage)
-    const imageData = allDbMetadata
-      .filter((item: any) => {
+        // If metadata exists for a .mp4 file, it's a video entry. We might want to represent it with a .jpg thumbnail.
+        const isVideo = metadata?.is_video || name.endsWith('.mp4');
+        const representativeFilename = isVideo ? name.replace(/\.mp4$/, '.jpg') : name;
+        
+        // If the representative file isn't in our physical list (e.g., DB has video entry but no JPG thumbnail), skip it.
+        if (isVideo && !physicalImageFiles.includes(representativeFilename)) {
+          console.log(`[Gallery Images] Skipping video entry '${name}' because its thumbnail '${representativeFilename}' is missing.`);
+          return null;
+        }
+
+        return {
+          name: name, // The original name (can be .mp4)
+          url: storage.getImageUrl(representativeFilename),
+          metadata: metadata,
+        };
+      })
+      .filter((imageInfo): imageInfo is NonNullable<typeof imageInfo> => {
+        if (!imageInfo) return false;
+
+        const { name, metadata } = imageInfo;
+
         // Skip hidden images
-        if (item.hidden === true) {
-          console.log(`[Gallery Images] Skipping hidden: ${item.filename}`);
+        if (metadata?.hidden === true) {
+          console.log(`[Gallery Images] Skipping hidden: ${name}`);
           return false;
         }
         
         // Skip dashboard files
-        if (item.filename === 'dashboard.jpg' || 
-            item.filename === 'dashboard.png' || 
-            item.filename === 'dashboard.mp4') {
-          console.log(`[Gallery Images] Skipping dashboard: ${item.filename}`);
+        if (name.startsWith('dashboard.')) {
+          console.log(`[Gallery Images] Skipping dashboard: ${name}`);
           return false;
         }
-        
-        // Skip video-only entries (is_video true and filename ends with .mp4)
-        if (item.is_video === true && item.filename.endsWith('.mp4')) {
-          console.log(`[Gallery Images] Skipping video-only: ${item.filename}`);
-          return false;
+
+        // We only want to show images in the gallery, not video placeholders
+        if (name.endsWith('.mp4')) {
+            console.log(`[Gallery Images] Skipping video placeholder: ${name}`);
+            return false;
         }
         
         return true;
       })
-      .map((item: any) => {
-        // For items with .jpg/.png extension, use the image file
-        // Even if they have video versions, we want to show the thumbnail from the image
-        const filename = item.filename;
-        const imageFilename = filename.endsWith('.mp4') 
-          ? filename.replace('.mp4', '.jpg') 
-          : filename;
-        
-        return {
-          name: item.filename,
-          url: String(storage.getImageUrl(imageFilename)).replace('/api/storage', '/storage'),
-        };
-      });
+      .map(({ name, url }) => ({ name, url }));
 
-    console.log(`[Gallery Images] ${imageData.length} images returned for gallery`);
-
-    // If no images from database, try to list files from local storage dir
-    if (imageData.length === 0) {
-      console.log("[Gallery Images] No images from DB, checking local storage directory...");
-      try {
-        const storageDir = process.env.STORAGE_PATH || path.join(process.cwd(), 'storage', 'images');
-        if (fs.existsSync(storageDir)) {
-          const files = fs.readdirSync(storageDir);
-          const storageImageData = files
-            .filter((filename) => /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(filename) && !filename.startsWith('dashboard.'))
-            .map((filename) => ({
-              name: filename,
-              url: String(storage.getImageUrl(filename)).replace('/api/storage', '/storage'),
-            }));
-
-          console.log(`[Gallery Images] Returning ${storageImageData.length} images from local storage`);
-          res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600"); // 5min browser, 10min CDN
-          res.setHeader("ETag", JSON.stringify(storageImageData.map((i: any) => i.name)).slice(0, 32)); // Simple ETag
-          return res.status(200).json({ images: storageImageData });
-        }
-      } catch (err) {
-        console.error('[Gallery Images] Error reading local storage directory:', err);
-      }
-    }
+    console.log(`[Gallery Images] Returning ${imageData.length} images for gallery.`);
 
     res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600"); // 5min browser, 10min CDN
-    res.setHeader("ETag", JSON.stringify(imageData.map((i: any) => i.name)).slice(0, 32)); // Simple ETag
+    res.setHeader("ETag", `W/"${imageData.length}-${Date.now()}"`); // Simple ETag
     res.status(200).json({ images: imageData });
     
   } catch (error: any) {

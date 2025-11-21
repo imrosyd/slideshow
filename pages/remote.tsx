@@ -6,79 +6,110 @@ const HEARTBEAT_INTERVAL_MS = 300; // 0.3 seconds
 
 export default function RemoteControl() {
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
-  const [images, setImages] = useState<Array<{name: string; url: string}>>([]);
-  const [currentActiveImage, setCurrentActiveImage] = useState<ActiveImageInfo>(null); // New state for active image
-  const [deviceInput, setDeviceInput] = useState<string>(''); // State for the input field
+
+  const [images, setImages] = useState<Array<{ name: string; url: string }>>([]);
+  const [currentActiveImage, setCurrentActiveImage] = useState<ActiveImageInfo>(null);
+  const [deviceInput, setDeviceInput] = useState<string>('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
 
   // Fetch gallery images on mount
   useEffect(() => {
     const fetchImages = async () => {
       try {
-        const response = await fetch('/api/gallery-images');
+        const cacheBuster = `?_t=${Date.now()}`;
+        const response = await fetch(`/api/gallery-images${cacheBuster}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+          },
+        });
+
         if (!response.ok) {
           console.error('Failed to fetch gallery images:', response.statusText);
           return;
         }
         const data = await response.json();
-        if (data.images) {
+        if (data && data.images && Array.isArray(data.images)) {
           setImages(data.images);
+          console.log(`[Remote] Loaded ${data.images.length} images from gallery.`);
+        } else {
+          console.warn('[Remote] No images array in response');
+          setImages([]);
         }
       } catch (error) {
         console.error('Error fetching gallery images:', error);
+        setImages([]);
       }
     };
     fetchImages();
   }, []);
 
-  // Fetch active image status for selected device
+  // Poll for active image status
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | undefined;
+    if (!selectedDevice) return;
 
-    const fetchActiveImageStatus = async () => {
-      if (!selectedDevice) {
-        setCurrentActiveImage(null);
-        console.log(`[Remote] No selected device, clearing active image status.`);
-        return;
-      }
+    const checkStatus = async () => {
       try {
-        const response = await fetch(`/api/active-image-status?deviceId=${selectedDevice}`);
-        if (!response.ok) {
-          console.warn(`[Remote] Failed to fetch active image status for ${selectedDevice}:`, response.statusText);
+        const response = await fetch(`/api/verify-device?deviceId=${selectedDevice}`);
+        const data = await response.json();
+
+        if (data.valid) {
+          setCurrentActiveImage(data.activeImage);
+        } else {
+          // Device went offline?
+          // For now, just clear active image
           setCurrentActiveImage(null);
-          return;
         }
-        const data: ActiveImageInfo = await response.json();
-        setCurrentActiveImage(data);
-        console.log(`[Remote] Fetched active image status for ${selectedDevice}:`, data?.name || 'none');
       } catch (error) {
-        console.error(`❌ [Remote] Error fetching active image status for ${selectedDevice}:`, error);
-        setCurrentActiveImage(null);
+        console.error('Error checking device status:', error);
       }
     };
 
-    // Initial fetch
-    fetchActiveImageStatus();
+    // Check immediately
+    checkStatus();
 
-    // Poll for updates
-    intervalId = setInterval(fetchActiveImageStatus, HEARTBEAT_INTERVAL_MS);
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
+    // Poll every 1 second
+    const interval = setInterval(checkStatus, 1000);
+    return () => clearInterval(interval);
   }, [selectedDevice]);
 
-  const handleDeviceInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.toUpperCase(); // Ensure uppercase for device IDs
+
+
+  const handleDeviceInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.toUpperCase();
     setDeviceInput(value);
-    console.log(`[Remote] Device input changed: "${value}", length: ${value.length}`);
-    if (value.length === 8) { // Only set selectedDevice if 8 characters are entered
-      setSelectedDevice(value);
-      console.log(`[Remote] Selected device set to: ${value}`);
+    setVerificationError(null);
+
+    if (value.length === 8) {
+      setIsVerifying(true);
+      setSelectedDevice(null); // Don't select yet
+
+      try {
+        const response = await fetch(`/api/verify-device?deviceId=${value}`);
+        const data = await response.json();
+
+        if (data.valid) {
+          setSelectedDevice(value);
+          setVerificationError(null);
+        } else {
+          setSelectedDevice(null);
+          setVerificationError("Device not found or offline");
+        }
+      } catch (error) {
+        console.error("Verification error:", error);
+        setVerificationError("Error verifying device");
+        setSelectedDevice(null);
+      } finally {
+        setIsVerifying(false);
+      }
     } else {
       setSelectedDevice(null);
-      console.log(`[Remote] Selected device cleared (input not 8 chars).`);
+      setIsVerifying(false);
+      if (value.length > 0) {
+        setVerificationError(null); // Clear error while typing
+      }
     }
   };
 
@@ -119,7 +150,7 @@ export default function RemoteControl() {
   const handleImageClick = useCallback((image: { name: string, url: string }) => {
     sendCommand('show-image', { name: image.name, url: image.url });
   }, [sendCommand]);
-  
+
   // Authenticated - show remote control
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
@@ -136,17 +167,17 @@ export default function RemoteControl() {
               <div className={`h-3 w-3 rounded-full ${selectedDevice ? 'bg-emerald-400' : 'bg-red-500'} ${selectedDevice ? 'animate-pulse' : ''}`} />
               {selectedDevice ? (
                 <>
-                <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-sm font-medium">Controlling: {selectedDevice}</span>
+                  <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm font-medium">Controlling: {selectedDevice}</span>
                 </>
               ) : (
                 <>
-                <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                <span className="text-sm font-medium">No device selected</span>
+                  <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span className="text-sm font-medium">No device selected</span>
                 </>
               )}
             </div>
@@ -176,21 +207,45 @@ export default function RemoteControl() {
         <div className="mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-8 shadow-2xl backdrop-blur-xl">
           <h2 className="mb-6 text-xs font-bold uppercase tracking-widest text-white/70">Target Device</h2>
           <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="text"
-              maxLength={8}
-              value={deviceInput}
-              onChange={handleDeviceInputChange}
-              placeholder="Enter 8-digit device code"
-              className="flex-grow rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/50 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
-            />
+            <div className="flex-grow relative">
+              <input
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={8}
+                value={deviceInput}
+                onChange={(e) => {
+                  // Only allow numeric input
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  handleDeviceInputChange({ ...e, target: { ...e.target, value: val } });
+                }}
+                placeholder="Enter 8-digit device code"
+                className={`w-full rounded-xl border bg-white/5 px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-1 ${verificationError
+                  ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                  : 'border-white/10 focus:border-sky-400 focus:ring-sky-400'
+                  }`}
+              />
+              {isVerifying && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-sky-400" />
+                </div>
+              )}
+            </div>
           </div>
+          {verificationError && (
+            <p className="mt-2 text-sm text-red-400 flex items-center gap-2">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {verificationError}
+            </p>
+          )}
         </div>
 
         {/* Image Gallery */}
         {selectedDevice && (
           <div className="mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-8 shadow-2xl backdrop-blur-xl">
-            
+
             <div className="grid grid-cols-3 items-center mb-6">
               {/* Judul kiri */}
               <h2 className="text-xs font-bold uppercase tracking-widest text-white/70">
@@ -221,15 +276,15 @@ export default function RemoteControl() {
                     <div
                       key={image.name}
                       onClick={() => handleImageClick(image)}
-                      className={`group relative aspect-video rounded-lg overflow-hidden cursor-pointer bg-white/5 border ${
-                        isActive ? 'border-sky-400 ring-2 ring-sky-400' : 'border-white/10'
-                      } hover:border-sky-400/50 transition-all duration-200 hover:scale-105 active:scale-95`}
+                      className={`group relative aspect-video rounded-lg overflow-hidden cursor-pointer bg-white/5 border ${isActive ? 'border-sky-400 ring-2 ring-sky-400' : 'border-white/10'
+                        } hover:border-sky-400/50 transition-all duration-200 hover:scale-105 active:scale-95`}
                     >
                       <img
                         src={image.url}
                         alt={image.name}
                         className="absolute inset-0 w-full h-full object-cover"
                       />
+
                       {isActive && (
                         <span className="absolute top-2 left-2 rounded-full bg-sky-500 px-2 py-1 text-xs font-bold text-white z-10">
                           LIVE
@@ -240,7 +295,12 @@ export default function RemoteControl() {
                 })}
               </div>
             ) : (
-              <p className="text-center text-white/50 italic">Loading gallery...</p>
+              <div className="text-center py-12">
+                <p className="text-white/50 italic mb-4">
+                  {images.length === 0 ? "No images found in gallery" : "Loading gallery..."}
+                </p>
+
+              </div>
             )}
           </div>
         )}

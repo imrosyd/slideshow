@@ -685,6 +685,7 @@ export default function Home() {
   }, [isPaused, slideshowPause]);
 
   const handleClosePreview = useCallback(() => {
+    console.log('!!!!!! handleClosePreview was called! Stack trace:', new Error().stack);
     setIsOverlayVisible(false);
     setSelectedImage(null); // Remove immediately for faster response
 
