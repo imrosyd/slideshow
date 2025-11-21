@@ -1,6 +1,6 @@
 # 📺 Slideshow Display System
 
-[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
+[![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
@@ -864,7 +864,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 ### Latest Releases
 
-#### v3.1.0 (2025-11-21) - Current
+#### v3.2.0 (2025-11-21) - Current
 **Superadmin & Maintenance**
 - ✅ **Superadmin Auto-Creation**: `npx prisma db seed` to create default admin
 - ✅ **Nginx Config**: Default configuration included
