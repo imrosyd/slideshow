@@ -153,7 +153,7 @@ const AdminContent = () => {
         });
       }
     },
-    [pushToast, convertPdfToImages]
+    [pushToast, convertPdfToImages, refresh]
   );
 
   const handleDelete = useCallback(

@@ -976,7 +976,7 @@ export default function Home() {
         console.warn(`⚠️ [Index] Unknown remote command type: ${type}`);
         break;
     }
-  }, [fetchAdminImages, fetchSlides, goToPrevious, goToNext, togglePause, goToSlide, handleImageClick, handleClosePreview]), isOverlayVisible ? selectedImage : null);
+  }, [deviceId, fetchAdminImages, fetchSlides, goToPrevious, goToNext, togglePause, goToSlide, handleImageClick, handleClosePreview]), isOverlayVisible ? selectedImage : null);
 
   // Log activeImage status being sent by useHeartbeat (triggered when dependencies change)
   useEffect(() => {
@@ -1606,28 +1606,7 @@ export default function Home() {
               }
             }}
           >
-            <button
-              onClick={handleClosePreview}
-              style={{
-                position: 'absolute',
-                top: '20px',
-                right: '20px',
-                background: 'rgba(0,0,0,0.5)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50%',
-                width: '40px',
-                height: '40px',
-                cursor: 'pointer',
-                fontSize: '24px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 201,
-              }}
-            >
-              &times;
-            </button>
+
             <img
               src={selectedImage.url}
               alt={selectedImage.name}

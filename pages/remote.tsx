@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import Head from "next/head";
 import type { ActiveImageInfo } from "../lib/state-manager"; // Import the type
 
-const HEARTBEAT_INTERVAL_MS = 3000; // Same as in useHeartbeat for consistency
+const HEARTBEAT_INTERVAL_MS = 300; // 0.3 seconds
 
 export default function RemoteControl() {
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
@@ -156,7 +156,7 @@ export default function RemoteControl() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span>
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-sky-500"></span>
                 </span>
-                <span>Live: {currentActiveImage.name.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '')}</span>
+                <span>Live</span>
               </div>
             )}
           </div>
@@ -190,17 +190,29 @@ export default function RemoteControl() {
         {/* Image Gallery */}
         {selectedDevice && (
           <div className="mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-8 shadow-2xl backdrop-blur-xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="mb-6 text-xs font-bold uppercase tracking-widest text-white/70">Image Gallery</h2>
-              {currentActiveImage && ( // Conditionally render Close Image button
-                <button
-                  onClick={() => sendCommand('hide-image')}
-                  className="rounded-lg bg-red-600/80 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-red-600"
-                >
-                  Close Image
-                </button>
-              )}
+            
+            <div className="grid grid-cols-3 items-center mb-6">
+              {/* Judul kiri */}
+              <h2 className="text-xs font-bold uppercase tracking-widest text-white/70">
+                Image Gallery
+              </h2>
+
+              {/* Kolom tengah kosong agar simetris */}
+              <div></div>
+
+              {/* Tombol kanan */}
+              <div className="flex justify-end">
+                {currentActiveImage && (
+                  <button
+                    onClick={() => sendCommand('hide-image')}
+                    className="rounded-lg bg-red-600/80 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-red-600"
+                  >
+                    Close Image
+                  </button>
+                )}
+              </div>
             </div>
+
             {images.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {images.map((image) => {

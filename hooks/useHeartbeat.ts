@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import type { Command, ActiveImageInfo } from '../lib/state-manager'; // Import ActiveImageInfo
 
-const HEARTBEAT_INTERVAL_MS = 3000; // 3 seconds
+const HEARTBEAT_INTERVAL_MS = 300; // 0.3 seconds
 
 interface HeartbeatResponse {
   commands: Command[];
