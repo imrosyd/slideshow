@@ -1069,6 +1069,28 @@ export default function Home() {
           `}</style>
       </Head>
 
+      {/* Device ID Display (Top Right) */}
+      {showGallery && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          zIndex: 100,
+          backgroundColor: 'rgba(15, 23, 42, 0.8)',
+          padding: '8px 12px',
+          borderRadius: '8px',
+          color: 'rgba(248, 250, 252, 0.95)',
+          fontSize: '1rem',
+          fontWeight: 'bold',
+          letterSpacing: '0.05em',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(148, 163, 184, 0.25)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+        }}>
+          DEVICE ID: {deviceId}
+        </div>
+      )}
+
       {/* Landscape Warning Overlay */}
       <div id="landscape-warning">
         <svg className="rotation-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">

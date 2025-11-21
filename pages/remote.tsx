@@ -5,10 +5,10 @@ import type { ActiveImageInfo } from "../lib/state-manager"; // Import the type
 const HEARTBEAT_INTERVAL_MS = 3000; // Same as in useHeartbeat for consistency
 
 export default function RemoteControl() {
-  const [devices, setDevices] = useState<string[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
   const [images, setImages] = useState<Array<{name: string; url: string}>>([]);
   const [currentActiveImage, setCurrentActiveImage] = useState<ActiveImageInfo>(null); // New state for active image
+  const [deviceInput, setDeviceInput] = useState<string>(''); // State for the input field
 
   // Fetch gallery images on mount
   useEffect(() => {
@@ -29,40 +29,6 @@ export default function RemoteControl() {
     };
     fetchImages();
   }, []);
-
-  // Fetch devices
-  useEffect(() => {
-    const fetchDevices = async () => {
-      try {
-        const response = await fetch('/api/clients');
-        if (!response.ok) {
-          console.warn('Failed to fetch devices:', response.statusText);
-          setDevices([]);
-          return;
-        }
-        const data = await response.json();
-        const clientIds = data.clients || [];
-        console.log('Fetched devices:', clientIds);
-        setDevices(clientIds);
-
-        // If a selected device is no longer in the list, reset the selection
-        if (selectedDevice && !clientIds.includes(selectedDevice)) {
-          console.log(`Selected device ${selectedDevice} disconnected.`);
-          setSelectedDevice(null);
-          setCurrentActiveImage(null); // Clear active image if device disconnects
-        }
-
-      } catch (err) {
-        console.error('Error fetching devices:', err);
-        setDevices([]);
-      }
-    };
-
-    fetchDevices(); // Initial fetch
-    const interval = setInterval(fetchDevices, 5000); // Poll every 5 seconds
-
-    return () => clearInterval(interval);
-  }, [selectedDevice]);
 
   // Fetch active image status for selected device
   useEffect(() => {
@@ -101,10 +67,14 @@ export default function RemoteControl() {
     };
   }, [selectedDevice]);
 
-  const handleDeviceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newDevice = e.target.value || null;
-    console.log('Selected device:', newDevice);
-    setSelectedDevice(newDevice);
+  const handleDeviceInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.toUpperCase(); // Ensure uppercase for device IDs
+    setDeviceInput(value);
+    if (value.length === 8) { // Only set selectedDevice if 8 characters are entered
+      setSelectedDevice(value);
+    } else {
+      setSelectedDevice(null);
+    }
   };
 
   const sendCommand = useCallback(async (command: string, data?: any) => {
@@ -164,7 +134,7 @@ export default function RemoteControl() {
                 <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-sm font-medium">Controlling: {selectedDevice.substring(0, 8)}...</span>
+                <span className="text-sm font-medium">Controlling: {selectedDevice}</span>
                 </>
               ) : (
                 <>
@@ -201,20 +171,14 @@ export default function RemoteControl() {
         <div className="mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-8 shadow-2xl backdrop-blur-xl">
           <h2 className="mb-6 text-xs font-bold uppercase tracking-widest text-white/70">Target Device</h2>
           <div className="flex flex-col sm:flex-row gap-3">
-            <select
-              value={selectedDevice || ''}
-              onChange={handleDeviceChange}
-              className="flex-grow rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/50 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 disabled:opacity-40"
-            >
-              <option value="" disabled>
-                {devices.length > 0 ? 'Select a device...' : 'No devices available'}
-              </option>
-              {devices.map((id) => (
-                <option key={id} value={id}>
-                  {id}
-                </option>
-              ))}
-            </select>
+            <input
+              type="text"
+              maxLength={8}
+              value={deviceInput}
+              onChange={handleDeviceInputChange}
+              placeholder="Enter 8-digit device code"
+              className="flex-grow rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/50 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
+            />
           </div>
         </div>
 
