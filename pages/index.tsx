@@ -6,7 +6,6 @@ import { useSlideshow } from "../hooks/useSlideshow";
 import { useVideoPlayer } from "../hooks/useVideoPlayer";
 import { useVideoPreload } from "../hooks/useVideoPreload";
 import { useKeepAwake } from "../hooks/useKeepAwake";
-import { useRemoteControl } from "../hooks/useRemoteControl";
 import useSingleVideoLoop from "../hooks/useSingleVideoLoop";
 import useWebSocket from "../hooks/useWebSocket";
 const AUTO_REFRESH_INTERVAL_MS = 30_000; // Increase to reduce server load
@@ -643,42 +642,9 @@ export default function Home() {
     slideshowPause(); // Pause slideshow when preview opens
   }, [isPaused, slideshowPause]);
 
-  // Remote control integration
-  useRemoteControl({
-    slides,
-    currentIndex,
-    isPaused,
-    goToNext,
-    goToPrevious,
-    goToSlide,
-    togglePause,
-    fetchSlides,
-    adminImages,
-    handleImageClick,
-  });
 
-  // Send initial status when slides are loaded
-  useEffect(() => {
-    if (slides.length > 0) {
-      const channel = supabase.channel('remote-control-status-init');
-      channel.send({
-        type: 'broadcast',
-        event: 'slideshow-status',
-        payload: {
-          total: slides.length,
-          current: currentIndex,
-          currentImage: slides[currentIndex]?.name || '',
-          paused: isPaused,
-        }
-      }, { httpSend: true }).then(() => {
-        supabase.removeChannel(channel);
-      }).catch((err: any) => {
-        console.error('❌ Failed to send initial status:', err);
-        supabase.removeChannel(channel);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slides.length]); // Only when slides first load
+
+
 
   // Reset preload flag when slide changes
   useEffect(() => {
@@ -716,16 +682,6 @@ export default function Home() {
   const handleClosePreview = useCallback(() => {
     setIsOverlayVisible(false);
     setSelectedImage(null); // Remove immediately for faster response
-
-    // Notify remote that image overlay is closed
-    const channel = supabase.channel('remote-control-notifications');
-    channel.send({
-      type: 'broadcast',
-      event: 'image-closed',
-      payload: { timestamp: Date.now() }
-    }, { httpSend: true }).then(() => {
-      supabase.removeChannel(channel);
-    });
 
     // Resume slideshow immediately without delay
     if (!wasPaused) {
@@ -970,32 +926,85 @@ export default function Home() {
       setTimeout(checkDashboardStatus, 500); // Small delay to allow API to update
     };
 
-    // Listen for force-refresh events
-    const forceRefreshChannel = supabase.channel('slideshow-control');
-    forceRefreshChannel.on('broadcast', { event: 'force-refresh' }, handleForceRefresh);
-    forceRefreshChannel.subscribe();
-
     return () => {
       clearInterval(interval);
-      supabase.removeChannel(forceRefreshChannel);
     };
   }, [slides.length, currentSlide?.videoUrl, fetchSlides]); // Include dependencies
 
   // WebSocket integration for real-time updates
-  useWebSocket(useCallback((message: any) => {
+  const { clientId } = useWebSocket(useCallback((message: any) => {
     console.log('📡 WebSocket message received:', message);
 
-    if (message.event === 'image-updated') {
+    if (message.type === 'remote-command' && message.command) {
+      const { type, data } = message.command;
+      console.log(`⚡ Remote command received: ${type}`, data);
+
+      switch (type) {
+        case 'previous':
+          goToPrevious();
+          break;
+        case 'next':
+          goToNext();
+          break;
+        case 'toggle-pause':
+          togglePause();
+          break;
+        case 'goto':
+          if (typeof data?.index === 'number') {
+            goToSlide(data.index);
+          }
+          break;
+        case 'show-image':
+          if (data?.name && data?.url) {
+            handleImageClick({ name: data.name, url: data.url });
+          }
+          break;
+        case 'close-overlay':
+          handleClosePreview();
+          break;
+        case 'refresh':
+          fetchSlides(true);
+          fetchAdminImages();
+          break;
+        case 'request-status':
+          if (data?.remoteClientId) {
+            // Send current status back to the requesting remote control
+            fetch('/api/relay-status', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                clientId: data.remoteClientId,
+                status: {
+                  total: slides.length,
+                  current: currentIndex,
+                  currentImage: slides[currentIndex]?.name || '',
+                  paused: isPaused,
+                },
+              }),
+            }).then(response => {
+              if (!response.ok) {
+                console.error('Failed to send status to remote:', response.statusText);
+              }
+            }).catch(error => {
+              console.error('Error sending status to remote:', error);
+            });
+          }
+          break;
+        default:
+          console.warn(`Unknown remote command type: ${type}`);
+          break;
+      }
+    } else if (message.event === 'image-updated') {
       console.log('🖼️ Image update detected via WebSocket, refreshing gallery...');
       fetchAdminImages();
     } else if (message.event === 'force-refresh') {
       console.log('🔄 Force refresh detected via WebSocket, checking dashboard status...');
-      setTimeout(() => {
-        checkDashboardStatus();
-        fetchSlides(true);
-      }, 500);
+      // No longer needs checkDashboardStatus since all state is managed via this client
+      fetchSlides(true);
     }
-  }, [fetchAdminImages, fetchSlides]));
+  }, [fetchAdminImages, fetchSlides, goToPrevious, goToNext, togglePause, goToSlide, handleImageClick, handleClosePreview, slides, currentIndex, isPaused]));
 
   // Loading state
   if (loading) {
@@ -1477,9 +1486,30 @@ export default function Home() {
           }
         `}</style>
       </Head>
-      {ResourceHints}
-
       <main style={styles.container}>
+
+        {/* Client ID Display */}
+        {clientId && (
+          <div style={{
+            position: 'fixed',
+            top: 20,
+            right: 20,
+            zIndex: 1000,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: '#fff',
+            padding: '8px 16px',
+            borderRadius: '8px',
+            fontSize: '1.2rem',
+            fontWeight: 'bold',
+            letterSpacing: '0.1em',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            backdropFilter: 'blur(5px)',
+          }}>
+            ID: {clientId}
+          </div>
+        )}
+
         <div style={styles.imageWrapper}>
           {slides.length > 0 && currentSlide && currentSlide.videoUrl ? (
             <video
