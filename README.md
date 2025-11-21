@@ -5,7 +5,7 @@
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-6.19-2D3748)](https://www.prisma.io/)
-[removed Supabase badge]
+
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 > Flexible digital signage system with multiple deployment options: VPS, Docker, or localhost. Supports both cloud and self-hosted configurations.
@@ -549,20 +549,17 @@ npm install
 npm run dev
 ```
 
-#### Notes on Supabase
+#### Database Configuration (PostgreSQL)
+ 
+This project uses Prisma with PostgreSQL. You can use **any** PostgreSQL provider:
+- **Local**: Install PostgreSQL on your machine (see Option A).
+- **Docker**: Run PostgreSQL in a container (see Option B).
+- **Cloud**: Supabase, Neon, Railway, AWS RDS, etc.
 
-This project is now Prisma-first. If you host a Postgres database on Supabase you can still use it by setting `DATABASE_URL` to the Supabase Postgres connection string (so Prisma talks to it), but Supabase SDK-specific environment variables are no longer required and the repository no longer documents a Supabase-specific workflow.
+**Important for Prisma 7+**:
+The `DATABASE_URL` environment variable **must not be empty**. Even if you are just building the app, you must provide a valid connection string format (e.g., `postgresql://user:pass@localhost:5432/db`).
 
-For local development use the Prisma workflow shown in Option A/B above and set `DATABASE_URL` accordingly. Example:
-
-```bash
-# Example: use a hosted Postgres or Supabase Postgres by setting DATABASE_URL
-export DATABASE_URL="postgresql://postgres:password@db.example.com:5432/postgres"
-npx prisma generate
-npx prisma db push
-npx prisma db seed
-npm run dev
-```
+If you are using a cloud provider like Supabase, simply get the "Transaction Mode" connection string and set it as `DATABASE_URL`. No other Supabase-specific keys are required.
 
 ✅ **Done!** Access at http://localhost:3000
 
