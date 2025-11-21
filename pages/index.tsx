@@ -7,7 +7,10 @@ import { useVideoPlayer } from "../hooks/useVideoPlayer";
 import { useVideoPreload } from "../hooks/useVideoPreload";
 import { useKeepAwake } from "../hooks/useKeepAwake";
 import useSingleVideoLoop from "../hooks/useSingleVideoLoop";
-import useWebSocket from "../hooks/useWebSocket";
+import { useDeviceId } from "../hooks/useDeviceId";
+import { useHeartbeat } from "../hooks/useHeartbeat";
+import type { Command } from "../lib/state-manager";
+
 const AUTO_REFRESH_INTERVAL_MS = 30_000; // Increase to reduce server load
 const FAST_REFRESH_INTERVAL_MS = 2_000; // Fast refresh after video updates
 const LANGUAGE_SWAP_INTERVAL_MS = 5_000;
@@ -381,6 +384,7 @@ const styles: Record<string, CSSProperties> = {
 
 };
 export default function Home() {
+  const deviceId = useDeviceId();
   const [slides, setSlides] = useState<Slide[]>([]);
   const [error, setError] = useState<AppError | null>(null);
   const [loading, setLoading] = useState(true);
@@ -931,80 +935,43 @@ export default function Home() {
     };
   }, [slides.length, currentSlide?.videoUrl, fetchSlides]); // Include dependencies
 
-  // WebSocket integration for real-time updates
-  const { clientId } = useWebSocket(useCallback((message: any) => {
-    console.log('📡 WebSocket message received:', message);
+  // Heartbeat polling for remote commands
+  useHeartbeat(deviceId, useCallback((command: Command) => {
+    const { type, data } = command;
+    console.log(`⚡ Remote command received via Heartbeat: ${type}`, data);
 
-    if (message.type === 'remote-command' && message.command) {
-      const { type, data } = message.command;
-      console.log(`⚡ Remote command received: ${type}`, data);
-
-      switch (type) {
-        case 'previous':
-          goToPrevious();
-          break;
-        case 'next':
-          goToNext();
-          break;
-        case 'toggle-pause':
-          togglePause();
-          break;
-        case 'goto':
-          if (typeof data?.index === 'number') {
-            goToSlide(data.index);
-          }
-          break;
-        case 'show-image':
-          if (data?.name && data?.url) {
-            handleImageClick({ name: data.name, url: data.url });
-          }
-          break;
-        case 'close-overlay':
-          handleClosePreview();
-          break;
-        case 'refresh':
-          fetchSlides(true);
-          fetchAdminImages();
-          break;
-        case 'request-status':
-          if (data?.remoteClientId) {
-            // Send current status back to the requesting remote control
-            fetch('/api/relay-status', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                clientId: data.remoteClientId,
-                status: {
-                  total: slides.length,
-                  current: currentIndex,
-                  currentImage: slides[currentIndex]?.name || '',
-                  paused: isPaused,
-                },
-              }),
-            }).then(response => {
-              if (!response.ok) {
-                console.error('Failed to send status to remote:', response.statusText);
-              }
-            }).catch(error => {
-              console.error('Error sending status to remote:', error);
-            });
-          }
-          break;
-        default:
-          console.warn(`Unknown remote command type: ${type}`);
-          break;
-      }
-    } else if (message.event === 'image-updated') {
-      console.log('🖼️ Image update detected via WebSocket, refreshing gallery...');
-      fetchAdminImages();
-    } else if (message.event === 'force-refresh') {
-      console.log('🔄 Force refresh detected via WebSocket, checking dashboard status...');
-      // No longer needs checkDashboardStatus since all state is managed via this client
-      fetchSlides(true);
+    switch (type) {
+      case 'previous':
+        goToPrevious();
+        break;
+      case 'next':
+        goToNext();
+        break;
+      case 'toggle-pause':
+        togglePause();
+        break;
+      case 'goto':
+        if (typeof data?.index === 'number') {
+          goToSlide(data.index);
+        }
+        break;
+      case 'show-image':
+        if (data?.name && data?.url) {
+          handleImageClick({ name: data.name, url: data.url });
+        }
+        break;
+      case 'hide-image':
+        handleClosePreview();
+        break;
+      case 'refresh':
+        fetchSlides(true);
+        fetchAdminImages();
+        break;
+      default:
+        console.warn(`Unknown remote command type: ${type}`);
+        break;
     }
-  }, [fetchAdminImages, fetchSlides, goToPrevious, goToNext, togglePause, goToSlide, handleImageClick, handleClosePreview, slides, currentIndex, isPaused]));
+  }, [fetchAdminImages, fetchSlides, goToPrevious, goToNext, togglePause, goToSlide, handleImageClick, handleClosePreview]), isOverlayVisible ? selectedImage : null);
 
   // Loading state
   if (loading) {
@@ -1488,28 +1455,6 @@ export default function Home() {
       </Head>
       <main style={styles.container}>
 
-        {/* Client ID Display */}
-        {clientId && (
-          <div style={{
-            position: 'fixed',
-            top: 20,
-            right: 20,
-            zIndex: 1000,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            color: '#fff',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            fontSize: '1.2rem',
-            fontWeight: 'bold',
-            letterSpacing: '0.1em',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            backdropFilter: 'blur(5px)',
-          }}>
-            ID: {clientId}
-          </div>
-        )}
-
         <div style={styles.imageWrapper}>
           {slides.length > 0 && currentSlide && currentSlide.videoUrl ? (
             <video
@@ -1629,6 +1574,28 @@ export default function Home() {
               }
             }}
           >
+            <button
+              onClick={handleClosePreview}
+              style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                background: 'rgba(0,0,0,0.5)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                cursor: 'pointer',
+                fontSize: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 201,
+              }}
+            >
+              &times;
+            </button>
             <img
               src={selectedImage.url}
               alt={selectedImage.name}
