@@ -46,7 +46,7 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
-  "description": "[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/imrosyd/slideshow/releases) [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/) [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/) [![Prisma](https://img.shields.io/badge/Prisma-6.19-2D3748)](https://www.prisma.io/) [![Supabase](https://img.shields.io/badge/Supabase-Optional-green)](https://supabase.com/) [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)",
+  "description": "[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/imrosyd/slideshow/releases) [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/) [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/) [![Prisma](https://img.shields.io/badge/Prisma-6.19-2D3748)](https://www.prisma.io/) [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)",
   "main": "postcss.config.js",
   "directories": {
     "lib": "lib"

@@ -5,10 +5,10 @@
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-6.19-2D3748)](https://www.prisma.io/)
-[![Supabase](https://img.shields.io/badge/Supabase-Optional-green)](https://supabase.com/)
+[removed Supabase badge]
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-> Flexible digital signage system with multiple deployment options: Supabase, VPS, Docker, or localhost. Supports both cloud and self-hosted configurations.
+> Flexible digital signage system with multiple deployment options: VPS, Docker, or localhost. Supports both cloud and self-hosted configurations.
 
 🌐 **Language:** 🇺🇸 English · [🇮🇩 Indonesian](README.id.md)
 
@@ -43,8 +43,8 @@
 
 Slideshow is a Next.js 14 + TypeScript application for managing always-on TV content. Features include:
 
-- **Flexible Database**: Prisma + PostgreSQL with automatic Supabase fallback
-- **Multiple Storage Options**: Supabase Storage, Filesystem, or S3-compatible
+- **Flexible Database**: Prisma + PostgreSQL (Prisma is the recommended/primary adapter)
+- **Multiple Storage Options**: Filesystem or S3-compatible
 - **Video Processing**: FFmpeg-powered image-to-MP4 conversion
 - **Remote Control**: Mobile-friendly control interface
 - **WebOS Optimized**: Keep-awake features for LG TV displays
@@ -115,10 +115,10 @@ Slideshow is a Next.js 14 + TypeScript application for managing always-on TV con
 
 ## Tech Stack
 
-### Core
+- ### Core
 - **Framework**: Next.js 14 (React 18, TypeScript 5.3)
 - **Database**: Prisma 6.19 + PostgreSQL
-- **Storage**: Supabase Storage / Filesystem / S3
+- **Storage**: Filesystem / S3
 - **Styling**: Tailwind CSS 3.4, Glassmorphism UI
 
 ### Media Processing
@@ -549,36 +549,18 @@ npm install
 npm run dev
 ```
 
-#### Option C: With Supabase (Hybrid)
+#### Notes on Supabase
 
-Use Supabase for database but run locally:
+This project is now Prisma-first. If you host a Postgres database on Supabase you can still use it by setting `DATABASE_URL` to the Supabase Postgres connection string (so Prisma talks to it), but Supabase SDK-specific environment variables are no longer required and the repository no longer documents a Supabase-specific workflow.
+
+For local development use the Prisma workflow shown in Option A/B above and set `DATABASE_URL` accordingly. Example:
 
 ```bash
-# Create Supabase project at https://supabase.com
-# Get connection string from Project Settings → Database
-
-# Clone and setup
-git clone https://github.com/imrosyd/slideshow.git
-cd slideshow
-npm install
-
-# Create .env.local with Supabase credentials
-cat > .env.local << EOF
-# Option 1: Use Supabase Database directly
-DATABASE_URL=postgresql://postgres:[password]@db.[project].supabase.co:5432/postgres
-
-# Option 2: Use Supabase SDK (original method)
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
-SUPABASE_SERVICE_ROLE_KEY=eyJxxx...
-SUPABASE_STORAGE_BUCKET=slideshow-images
-
-ADMIN_PASSWORD=admin123
-EOF
-
-# Setup and run
+# Example: use a hosted Postgres or Supabase Postgres by setting DATABASE_URL
+export DATABASE_URL="postgresql://postgres:password@db.example.com:5432/postgres"
 npx prisma generate
-npx prisma db push  # Only if using DATABASE_URL
+npx prisma db push
+npx prisma db seed
 npm run dev
 ```
 
@@ -596,16 +578,8 @@ npm run dev
 # Authentication
 ADMIN_PASSWORD=your_secure_password
 
-# Choose ONE database option:
-
-# Option 1: Prisma + PostgreSQL (Recommended)
+# Database (Prisma + PostgreSQL)
 DATABASE_URL=postgresql://user:password@host:5432/database
-
-# Option 2: Supabase SDK (Original)
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
-SUPABASE_SERVICE_ROLE_KEY=eyJxxx...
-SUPABASE_STORAGE_BUCKET=slideshow-images
 ```
 
 #### Storage Options
@@ -616,8 +590,8 @@ USE_FILESYSTEM_STORAGE=true
 STORAGE_PATH=/path/to/storage
 STORAGE_PUBLIC_URL=/api/storage
 
-# Option 2: Supabase Storage (Cloud)
-# (Use Supabase credentials above)
+# Option 2: S3-compatible Storage (Cloud)
+# Configure S3 env vars when using S3
 
 # Option 3: S3-Compatible (Future)
 # S3_ENDPOINT=https://...
@@ -635,15 +609,12 @@ PORT=3000
 
 ### Database Priority
 
-The application automatically detects which database to use:
-
-1. **Prisma** (if `DATABASE_URL` is set) → Uses Prisma Client
-2. **Supabase** (fallback) → Uses Supabase SDK
+The application uses Prisma as the primary database adapter. Set `DATABASE_URL` to enable Prisma.
 
 ### Storage Priority
 
 1. **Filesystem** (if `USE_FILESYSTEM_STORAGE=true`)
-2. **Supabase Storage** (fallback)
+2. **S3-compatible Storage** (fallback)
 
 ---
 
@@ -873,6 +844,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 #### v3.0.0 (2025-11-19)
 **Multiple Deployment Options & Code Cleanup**
 - ✅ 5 deployment options: Supabase, VPS, Docker, Shared Hosting, Local
+ - ✅ 4 deployment options: VPS, Docker, Shared Hosting, Local
 - ✅ Comprehensive README with all guides consolidated
 - ✅ Filesystem storage adapter with auto-fallback
 - ✅ Shared hosting support (cPanel Node.js)
@@ -881,7 +853,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 #### v2.4.0 (2025-11-13)
 **Prisma Integration & Database Flexibility**
-- Prisma ORM with auto-fallback to Supabase
+- Prisma ORM (Prisma-first configuration)
 - Database abstraction layer
 - Type-safe operations
 - Support for any PostgreSQL database
@@ -896,7 +868,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 #### v2.2.1 (2025-11-11)
 **Real-time Updates**
 - Auto-refresh gallery without page reload
-- Supabase Realtime integration
+- Local realtime via BroadcastChannel (no Supabase required)
 
 ### Migration Guide
 
@@ -938,7 +910,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Acknowledgments
 
 - Next.js team for amazing framework
-- Supabase for cloud infrastructure
+- Cloud Postgres providers for hosted DB (e.g. Neon.tech, Railway)
 - FFmpeg for video processing
 - Prisma for database toolkit
 

@@ -1,12 +1,8 @@
-// Minimal supabase client shim for builds when Supabase isn't configured.
-// This provides the small subset of API the app uses so TypeScript and
-// Next.js build don't fail when a real Supabase client is not available.
-
-// Minimal supabase client shim for builds when Supabase isn't configured.
-// This provides a small subset of API the app uses so Next.js builds don't
-// fail. Additionally, when running in a browser without a real Supabase
-// client, use BroadcastChannel to allow same-origin tabs (main + remote)
-// to communicate locally for development.
+// BroadcastChannel shim used as an internal lightweight realtime layer.
+// This is NOT the Supabase client. The implementation provides a very
+// small channel-like API (`channel(name).on(...).subscribe()` and
+// `removeChannel`) so client code can communicate between same-origin
+// tabs (main + remote) without depending on the Supabase SDK.
 
 type Handler = (payload: any) => void;
 
@@ -88,7 +84,7 @@ function createBroadcastChannel(name: string) {
   return wrapper;
 }
 
-export const supabase: any = {
+const broadcastShim: any = {
   channel: (name: string) => {
     // If running in a browser with BroadcastChannel available, use it so
     // local tabs can communicate without an external Supabase instance.
@@ -129,4 +125,9 @@ export const supabase: any = {
   },
 };
 
+// Keep a `supabase` named export for backwards compatibility with existing
+// imports in the codebase (internally this is the broadcast shim, not a
+// real Supabase client). New code should import `broadcastShim` or use a
+// dedicated internal helper instead.
+export const supabase: any = broadcastShim;
 export default supabase;
