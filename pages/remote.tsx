@@ -234,19 +234,29 @@ export default function RemoteControl() {
             </div>
             {images.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {images.map((image) => (
-                  <div
-                    key={image.name}
-                    onClick={() => handleImageClick(image)}
-                    className="group relative aspect-video rounded-lg overflow-hidden cursor-pointer bg-white/5 border border-white/10 hover:border-sky-400/50 transition-all duration-200 hover:scale-105 active:scale-95"
-                  >
-                    <img
-                      src={image.url}
-                      alt={image.name}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
+                {images.map((image) => {
+                  const isActive = currentActiveImage?.name === image.name;
+                  return (
+                    <div
+                      key={image.name}
+                      onClick={() => handleImageClick(image)}
+                      className={`group relative aspect-video rounded-lg overflow-hidden cursor-pointer bg-white/5 border ${
+                        isActive ? 'border-sky-400 ring-2 ring-sky-400' : 'border-white/10'
+                      } hover:border-sky-400/50 transition-all duration-200 hover:scale-105 active:scale-95`}
+                    >
+                      <img
+                        src={image.url}
+                        alt={image.name}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                      {isActive && (
+                        <span className="absolute top-2 left-2 rounded-full bg-sky-500 px-2 py-1 text-xs font-bold text-white z-10">
+                          LIVE
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-center text-white/50 italic">Loading gallery...</p>
