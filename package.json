@@ -1,6 +1,6 @@
 {
   "name": "slideshow",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "private": true,
   "scripts": {
     "dev": "ts-node --project tsconfig.server.json server.ts",
@@ -63,7 +63,7 @@
     "url": "https://github.com/imrosyd/slideshow/issues"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "seed": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "homepage": "https://github.com/imrosyd/slideshow#readme"
 }

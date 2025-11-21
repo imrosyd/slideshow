@@ -188,6 +188,9 @@ sudo apt install -y nodejs
 # Install PostgreSQL
 sudo apt install -y postgresql postgresql-contrib
 
+# Install FFmpeg (required for video processing)
+sudo apt install -y ffmpeg
+
 # Install PM2 (process manager)
 sudo npm install -g pm2
 
@@ -196,6 +199,18 @@ sudo apt install -y nginx
 
 # Install Certbot (SSL)
 sudo apt install -y certbot python3-certbot-nginx
+
+# Setup 8GB swap (prevents out-of-memory during video merge)
+sudo fallocate -l 8G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+sudo sysctl vm.swappiness=10
+echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+
+# Verify swap is active
+free -h
 ```
 
 #### Step 2: Setup PostgreSQL
@@ -205,11 +220,16 @@ sudo apt install -y certbot python3-certbot-nginx
 sudo systemctl start postgresql
 sudo systemctl enable postgresql
 
-# Create database and user
-sudo -u postgres psql << EOF
+# Create database and user with proper permissions
+sudo -u postgres psql <<EOF
 CREATE DATABASE slideshow_db;
 CREATE USER slideshow_user WITH PASSWORD 'your_secure_password';
 GRANT ALL PRIVILEGES ON DATABASE slideshow_db TO slideshow_user;
+
+-- Connect to the database and grant schema permissions
+\c slideshow_db
+GRANT ALL ON SCHEMA public TO slideshow_user;
+ALTER DATABASE slideshow_db OWNER TO slideshow_user;
 \q
 EOF
 ```
@@ -222,12 +242,15 @@ cd /var/www
 sudo git clone https://github.com/imrosyd/slideshow.git
 cd slideshow
 
-# Install dependencies
-sudo npm install --production
-sudo npx prisma generate
+# Set proper ownership (replace 'your_user' with your username)
+sudo chown -R $USER:$USER /var/www/slideshow
 
-# Create production environment
-sudo nano .env.production
+# Install dependencies (NO sudo - important!)
+npm install --production
+npx prisma generate
+
+# Create production environment file
+nano .env
 ```
 
 ```env
@@ -245,24 +268,25 @@ ADMIN_PASSWORD=your_secure_password
 # App
 NODE_ENV=production
 PORT=3000
+HOST=0.0.0.0
 ```
 
 ```bash
-# Setup database schema
-sudo npx prisma db push
+# Setup database schema (NO sudo!)
+npx prisma db push
 
-# Create superadmin user
-sudo npx prisma db seed
+# Create superadmin user (NO sudo!)
+npx prisma db seed
 
 # Build application
-sudo npm run build
+npm run build
 
-# Create storage directory
-sudo mkdir -p storage/images storage/videos
-sudo chown -R www-data:www-data storage
+# Create storage directory with proper permissions
+mkdir -p storage/images storage/videos
+chmod -R 755 storage
 
-# Start with PM2
-pm2 start npm --name slideshow -- start
+# Start with PM2 in production mode
+NODE_ENV=production pm2 start npm --name slideshow -- start
 pm2 save
 pm2 startup
 ```
@@ -280,6 +304,12 @@ server {
     server_name your-domain.com;  # Change this
 
     client_max_body_size 100M;
+
+    # Timeout settings for long video processing operations
+    proxy_connect_timeout 3600;
+    proxy_send_timeout 3600;
+    proxy_read_timeout 3600;
+    send_timeout 3600;
 
     location / {
         proxy_pass http://localhost:3000;
@@ -801,15 +831,164 @@ npx prisma generate
 
 ### FFmpeg Issues
 
+**Error: `FFmpeg exited with code null`**
+
+This means FFmpeg is not installed or cannot be executed:
+
 ```bash
-# Check FFmpeg
+# Check if FFmpeg is installed
 ffmpeg -version
+which ffmpeg
 
-# Install (Ubuntu)
-sudo apt install ffmpeg
+# Install FFmpeg (Ubuntu/Debian)
+sudo apt update
+sudo apt install -y ffmpeg
 
-# Install (macOS)
+# Install FFmpeg (macOS)
 brew install ffmpeg
+
+# Verify installation
+ffmpeg -version
+```
+
+If FFmpeg is installed but still fails, check:
+
+```bash
+# Verify the package can find FFmpeg
+cd /var/www/slideshow
+node -e "const ffmpeg = require('@ffmpeg-installer/ffmpeg'); console.log(ffmpeg.path)"
+
+# Reinstall if needed
+npm install @ffmpeg-installer/ffmpeg --force
+```
+
+### Seed Command Errors
+
+**Error: `spawn ts-node ENOENT`**
+
+The `ts-node` command is not found. This is already fixed in `package.json` but if you encounter it:
+
+```bash
+# Verify package.json has npx ts-node
+grep "seed" package.json
+# Should show: "seed": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+
+# If not, edit package.json and add npx before ts-node
+```
+
+**Error: `Could not find a declaration file for module 'bcrypt'`**
+
+TypeScript cannot find type definitions. This is fixed in `prisma/seed.ts` by using `require` instead of `import`:
+
+```typescript
+// In prisma/seed.ts, use:
+const bcrypt = require('bcrypt');
+
+// Instead of:
+import bcrypt from 'bcrypt';
+```
+
+**Error: `Cannot find name 'process'`**
+
+Missing Node.js type definitions. Already fixed in `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    ...
+    "types": ["node"]
+  }
+}
+```
+
+### PostgreSQL Permission Errors
+
+**Error: `permission denied for schema public`**
+
+The database user doesn't have permission to create tables:
+
+```bash
+# Connect to PostgreSQL
+sudo -u postgres psql
+
+# Grant permissions
+\c slideshow_db
+GRANT ALL ON SCHEMA public TO slideshow_user;
+ALTER DATABASE slideshow_db OWNER TO slideshow_user;
+\q
+```
+
+### PM2 and Port Conflicts
+
+**Error: `EADDRINUSE: address already in use ::1:3000`**
+
+Port 3000 is already in use, usually by multiple PM2 instances:
+
+```bash
+# Stop all PM2 processes
+pm2 delete all
+
+# Kill any remaining processes on port 3000
+sudo fuser -k 3000/tcp
+
+# Or find and kill manually
+sudo lsof -i :3000
+sudo kill -9 <PID>
+
+# Start only ONE instance
+cd /var/www/slideshow
+NODE_ENV=production pm2 start npm --name slideshow -- start
+pm2 save
+```
+
+### 502 Bad Gateway
+
+**Nginx shows 502 error**
+
+This means Nginx cannot connect to the application:
+
+```bash
+# Check if application is running
+pm2 status
+
+# Check if port 3000 is listening
+sudo netstat -tulpn | grep 3000
+
+# Check PM2 logs for errors
+pm2 logs slideshow --lines 50
+
+# Common fixes:
+# 1. Application not started
+pm2 start slideshow
+
+# 2. Application crashed - check logs
+pm2 logs slideshow
+
+# 3. Wrong proxy_pass in Nginx - should be localhost:3000
+sudo nano /etc/nginx/sites-available/slideshow
+# Change to: proxy_pass http://localhost:3000;
+```
+
+### Memory and Swap Issues
+
+**Application crashes during video merge**
+
+Out of memory errors during FFmpeg processing:
+
+```bash
+# Check current memory and swap
+free -h
+
+# If swap is 0, add 8GB swap
+sudo fallocate -l 8G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# Verify swap is active
+free -h
+swapon --show
 ```
 
 ---

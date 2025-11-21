@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.2] - 2025-11-22
+
+### 🐛 Deployment & Installation Fixes
+
+#### Fixed
+- **Configuration Files**:
+  - `.env.example`: Added valid `DATABASE_URL` placeholder to prevent Prisma 7 errors
+  - `package.json`: Fixed seed script to use `npx ts-node` instead of `ts-node` (prevents ENOENT error)
+  - `tsconfig.json`: Added `"types": ["node"]` to fix `Cannot find name 'process'` error
+  - `prisma/seed.ts`: Changed bcrypt import to `require()` to bypass TypeScript type checking errors
+
+- **README.md - VPS Deployment**:
+  - **Step 1**: Added FFmpeg installation (required for video processing)
+  - **Step 1**: Added 8GB swap memory setup (prevents out-of-memory during video merge)
+  - **Step 2**: Added explicit PostgreSQL schema permissions (`GRANT ALL ON SCHEMA public`)
+  - **Step 2**: Added database ownership command (`ALTER DATABASE ... OWNER TO`)
+  - **Step 3**: Removed `sudo` from npm and Prisma commands (prevents environment variable loss)
+  - **Step 3**: Added proper file ownership setup with `chown`
+  - **Step 3**: Added `HOST=0.0.0.0` to `.env` configuration
+  - **Step 3**: Emphasized production mode with `NODE_ENV=production`
+  - **Step 4**: Nginx timeout configuration already updated (3600s for video processing)
+
+- **README.md - Troubleshooting**:
+  - Added **Seed Command Errors** section (ts-node ENOENT, bcrypt types, process not found)
+  - Added **PostgreSQL Permission Errors** section (schema public permission denied)
+  - Added **PM2 and Port Conflicts** section (EADDRINUSE, multiple instances)
+  - Added **502 Bad Gateway** section (application not running, Nginx connection issues)
+  - Expanded **FFmpeg Issues** section (installation, path detection, package verification)
+  - Added **Memory and Swap Issues** section (out-of-memory, swap configuration)
+
+#### Changed
+- Deployment instructions now emphasize running commands WITHOUT `sudo` to preserve environment variables
+- All troubleshooting sections now include actual error messages and step-by-step solutions
+- Configuration examples updated with production-ready values
+
+---
+
 -## [3.2.1] - 2025-11-21
 
 ### 🐛 Patch Release
