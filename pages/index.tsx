@@ -586,10 +586,11 @@ export default function Home() {
 
   // Initial fetch
   useEffect(() => {
+    console.log(`[Index] Device ID obtained: ${deviceId}`); // Log deviceId
     fetchSlides();
     fetchAdminImages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - run only once on mount
+  }, [deviceId]); // Add deviceId to dependencies to log when it's available
 
   // Monitor adminImages state changes
   useEffect(() => {
@@ -938,7 +939,7 @@ export default function Home() {
   // Heartbeat polling for remote commands
   useHeartbeat(deviceId, useCallback((command: Command) => {
     const { type, data } = command;
-    console.log(`⚡ Remote command received via Heartbeat: ${type}`, data);
+    console.log(`⚡ [Index] Remote command received via Heartbeat: ${type} for device ${deviceId} with data:`, data);
 
     switch (type) {
       case 'previous':
@@ -952,26 +953,35 @@ export default function Home() {
         break;
       case 'goto':
         if (typeof data?.index === 'number') {
+          console.log(`[Index] Command: goto index ${data.index}.`);
           goToSlide(data.index);
         }
         break;
       case 'show-image':
         if (data?.name && data?.url) {
+          console.log(`[Index] Command: show-image "${data.name}".`);
           handleImageClick({ name: data.name, url: data.url });
         }
         break;
       case 'hide-image':
+        console.log(`[Index] Command: hide-image.`);
         handleClosePreview();
         break;
       case 'refresh':
+        console.log(`[Index] Command: refresh. Fetching slides and images.`);
         fetchSlides(true);
         fetchAdminImages();
         break;
       default:
-        console.warn(`Unknown remote command type: ${type}`);
+        console.warn(`⚠️ [Index] Unknown remote command type: ${type}`);
         break;
     }
   }, [fetchAdminImages, fetchSlides, goToPrevious, goToNext, togglePause, goToSlide, handleImageClick, handleClosePreview]), isOverlayVisible ? selectedImage : null);
+
+  // Log activeImage status being sent by useHeartbeat (triggered when dependencies change)
+  useEffect(() => {
+    console.log(`⬆️ [Index] Heartbeat sending activeImage status for ${deviceId}: ${isOverlayVisible ? selectedImage?.name || 'none' : 'none'}. isOverlayVisible: ${isOverlayVisible}`);
+  }, [deviceId, isOverlayVisible, selectedImage]);
 
   // Loading state
   if (loading) {

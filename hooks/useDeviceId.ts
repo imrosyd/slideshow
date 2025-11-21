@@ -6,8 +6,16 @@ const getDeviceId = (): string => {
     return '';
   }
   let deviceId = localStorage.getItem('deviceId');
-  if (!deviceId) {
-    // Generate a full UUID and take the first 8 characters
+
+  if (deviceId) {
+    // If an ID exists and is longer than 8 characters (likely a full UUID),
+    // truncate it and update localStorage.
+    if (deviceId.length > 8) {
+      deviceId = deviceId.substring(0, 8);
+      localStorage.setItem('deviceId', deviceId); // Update stored ID
+    }
+  } else {
+    // If no ID exists, generate a new 8-character one.
     deviceId = uuidv4().substring(0, 8);
     localStorage.setItem('deviceId', deviceId);
   }

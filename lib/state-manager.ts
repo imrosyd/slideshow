@@ -49,6 +49,8 @@ export function garbageCollectClients() {
       liveClients.delete(deviceId);
       // Also clear any commands for the timed-out client
       commandQueue.delete(deviceId);
+      // *** NEW: Also clear activeImage for the timed-out client ***
+      activeImages.delete(deviceId);
       console.log(`[State Manager] Garbage collected stale client: ${deviceId}`);
     }
   }

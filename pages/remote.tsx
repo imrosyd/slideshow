@@ -37,19 +37,21 @@ export default function RemoteControl() {
     const fetchActiveImageStatus = async () => {
       if (!selectedDevice) {
         setCurrentActiveImage(null);
+        console.log(`[Remote] No selected device, clearing active image status.`);
         return;
       }
       try {
         const response = await fetch(`/api/active-image-status?deviceId=${selectedDevice}`);
         if (!response.ok) {
-          console.warn('Failed to fetch active image status:', response.statusText);
+          console.warn(`[Remote] Failed to fetch active image status for ${selectedDevice}:`, response.statusText);
           setCurrentActiveImage(null);
           return;
         }
         const data: ActiveImageInfo = await response.json();
         setCurrentActiveImage(data);
+        console.log(`[Remote] Fetched active image status for ${selectedDevice}:`, data?.name || 'none');
       } catch (error) {
-        console.error('Error fetching active image status:', error);
+        console.error(`❌ [Remote] Error fetching active image status for ${selectedDevice}:`, error);
         setCurrentActiveImage(null);
       }
     };
@@ -70,10 +72,13 @@ export default function RemoteControl() {
   const handleDeviceInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toUpperCase(); // Ensure uppercase for device IDs
     setDeviceInput(value);
+    console.log(`[Remote] Device input changed: "${value}", length: ${value.length}`);
     if (value.length === 8) { // Only set selectedDevice if 8 characters are entered
       setSelectedDevice(value);
+      console.log(`[Remote] Selected device set to: ${value}`);
     } else {
       setSelectedDevice(null);
+      console.log(`[Remote] Selected device cleared (input not 8 chars).`);
     }
   };
 

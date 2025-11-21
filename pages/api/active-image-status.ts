@@ -8,16 +8,19 @@ export default function handler(
 ) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
+    console.warn(`[API /active-image-status] Method ${req.method} Not Allowed`);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
   const { deviceId } = req.query;
 
   if (typeof deviceId !== 'string' || !deviceId) {
+    console.error(`❌ [API /active-image-status] Device ID is required as a query parameter.`);
     return res.status(400).json({ error: 'Device ID is required' });
   }
 
   const activeImage = activeImages.get(deviceId) || null;
+  console.log(`[API /active-image-status] Request for device: ${deviceId}. Active image found: ${activeImage ? activeImage.name : 'none'}`);
 
   return res.status(200).json(activeImage);
 }
