@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2025-11-22
+
+### ⚡ Video Caching & Performance
+
+#### Added
+- **Smart Video Caching**: Implemented cache-busting for video URLs
+  - Appends timestamp parameter (`?t=...`) to video URLs based on generation time
+  - Ensures clients always receive the latest video version after updates
+  - Prevents stale content caching in browsers and webviews
+- **Video Hash Verification**: Added video hash to dashboard slide URLs
+  - Improves reliability of video updates on remote displays
+
+#### Changed
+- **Video Element Source**: Dynamically appends version parameter to `<source>` tags
+  - Forces video reload when content changes on the server
+
+---
 ## [3.3.1] - 2025-11-22
 
 ### 🔐 Interactive Database Seeding
