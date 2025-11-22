@@ -130,7 +130,7 @@ Slideshow is a Next.js 14 + TypeScript application for managing always-on TV con
 - **Serverless**: Vercel / Netlify
 - **Self-Hosted**: VPS (PM2 + Nginx)
 - **Container**: Docker + Docker Compose
-- **Database**: PostgreSQL / Supabase / Neon.tech / Railway
+- **Database**: Prisma + PostgreSQL (hosted Postgres providers: Neon.tech, Railway, Supabase)
 
 ---
 
@@ -832,8 +832,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 #### v3.0.0 (2025-11-19)
 **Multiple Deployment Options & Code Cleanup**
-- ✅ 5 deployment options: Supabase, VPS, Docker, Shared Hosting, Local
- - ✅ 4 deployment options: VPS, Docker, Shared Hosting, Local
+- ✅ 4 deployment options: VPS, Docker, Shared Hosting, Local
 - ✅ Comprehensive README with all guides consolidated
 - ✅ Filesystem storage adapter with auto-fallback
 - ✅ Shared hosting support (cPanel Node.js)
@@ -857,7 +856,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 #### v2.2.1 (2025-11-11)
 **Real-time Updates**
 - Auto-refresh gallery without page reload
-- Local realtime via BroadcastChannel (no Supabase required)
+- Local realtime via BroadcastChannel (no hosted realtime service required)
 
 ### Migration Guide
 
