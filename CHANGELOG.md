@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.1] - 2025-11-22
+
+### 🔐 Interactive Database Seeding
+
+#### Added
+- **Interactive Seed Prompts**: Custom username and password input during first-time setup
+  - `npx prisma db seed` now prompts for credentials instead of using hardcoded defaults
+  - Hidden password input (displayed as `*`) for security
+  - Password confirmation to prevent typos
+  - Automatic validation:
+    - Username minimum 3 characters
+    - Password minimum 4 characters
+    - Duplicate username check
+    - Password match verification
+  - Default values (admin/admin) if no input provided
+  - Skip seeding if admin already exists
+  - Beautiful formatted output with emojis and separators
+
+- **Enhanced Security**: No more hardcoded credentials in source code
+  - Passwords never visible during input
+  - Bcrypt hashing (10 rounds) before storage
+  - Custom credentials from the start
+  - Production-ready security by default
+
+- **Documentation**: Comprehensive guides for interactive seeding
+  - `docs/interactive-seeding.md` - Complete feature documentation
+  - `docs/QUICK_START_SEEDING.md` - Quick start guide
+  - `docs/interactive-seed-demo.sh` - Demo script showing workflow
+  - Updated README.md with interactive seeding examples
+
+#### Changed
+- **prisma/seed.ts**: Complete rewrite with interactive prompts
+  - Uses Node.js `readline` for terminal input
+  - Custom `questionPassword()` function with hidden input
+  - Raw mode terminal handling for secure password entry
+  - Comprehensive error handling and validation
+  - User-friendly messages and visual feedback
+
+- **README.md**: Updated deployment instructions
+  - Added interactive seeding example session
+  - Documented prompt workflow
+  - Explained default value behavior
+
+#### Developer Experience
+- More secure initial setup (no default credentials exposure)
+- Better UX with visual feedback and validation
+- Prevents common mistakes with confirmation prompts
+- Production-ready from first deployment
+- No need to edit code for custom credentials
+
+#### Security Improvements
+- ✅ No hardcoded credentials in source code
+- ✅ Password hidden during input (raw mode)
+- ✅ Confirmation prevents typos
+- ✅ Minimum length requirements enforced
+- ✅ Bcrypt hashing before storage
+- ✅ Duplicate username prevention
+
+---
+
 ## [3.3.0] - 2025-11-22
 
 ### 🚀 User Management CLI Tools
