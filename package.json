@@ -8,7 +8,12 @@
     "build": "next build && npm run build:server",
     "start": "node dist/server.js",
     "lint": "next lint",
-    "postinstall": "cp ./node_modules/pdfjs-dist/build/pdf.worker.min.mjs ./public/pdf.worker.min.mjs"
+    "postinstall": "cp ./node_modules/pdfjs-dist/build/pdf.worker.min.mjs ./public/pdf.worker.min.mjs",
+    "add-user": "npx ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} scripts/add-user.ts",
+    "list-users": "npx ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} scripts/list-users.ts",
+    "delete-user": "npx ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} scripts/delete-user.ts",
+    "update-role": "npx ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} scripts/update-role.ts",
+    "check-role": "npx ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} scripts/check-role.ts"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
