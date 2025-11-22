@@ -374,121 +374,13 @@ psql -U slideshow_user slideshow_db < backup.sql
 
 ### 2. Docker (Container)
 
-**Best for:** Portability, easy deployment, consistent environment
+Follow the same production steps as the `VPS/Server` installation above — the Docker deployment uses the same app build and runtime expectations. In practice this means:
 
-#### Prerequisites
-- Docker 20.10+
-- Docker Compose 2.0+
+- Build and install dependencies exactly as in the `VPS/Server` section (`npm install`, `npx prisma generate`, `npm run build`).
+- Provide the same `DATABASE_URL`, `ADMIN_PASSWORD`, and storage environment variables to the container (set via `docker-compose` or environment file).
+- Ensure FFmpeg and any system-level dependencies required for video processing are available in the container image (the VPS instructions install `ffmpeg` system-wide).
 
-#### Step 1: Create Configuration Files
-
-**docker-compose.yml**
-```yaml
-version: '3.8'
-
-services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: slideshow-postgres
-    environment:
-      POSTGRES_DB: slideshow_db
-      POSTGRES_USER: slideshow_user
-      POSTGRES_PASSWORD: your_secure_password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - slideshow-network
-    restart: unless-stopped
-
-  app:
-    build: .
-    container_name: slideshow-app
-    ports:
-      - "3000:3000"
-    environment:
-      DATABASE_URL: postgresql://slideshow_user:your_secure_password@postgres:5432/slideshow_db
-      ADMIN_PASSWORD: your_admin_password
-      USE_FILESYSTEM_STORAGE: "true"
-      STORAGE_PATH: /app/storage
-      NODE_ENV: production
-    volumes:
-      - ./storage:/app/storage
-    depends_on:
-      - postgres
-    networks:
-      - slideshow-network
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-
-networks:
-  slideshow-network:
-```
-
-**Dockerfile**
-```dockerfile
-FROM node:20-alpine AS base
-
-# Install dependencies for Sharp and FFmpeg
-RUN apk add --no-cache libc6-compat ffmpeg
-
-WORKDIR /app
-
-# Install dependencies
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy application
-COPY . .
-
-# Generate Prisma client
-RUN npx prisma generate
-
-# Build application
-RUN npm run build
-
-# Create storage directory
-RUN mkdir -p storage/images storage/videos
-
-EXPOSE 3000
-
-# Start command
-CMD ["sh", "-c", "npx prisma db push --skip-generate && npm start"]
-```
-
-**.dockerignore**
-```
-node_modules
-.next
-.git
-.env*
-storage
-*.md
-```
-
-#### Step 2: Deploy
-
-```bash
-# Clone repository
-git clone https://github.com/imrosyd/slideshow.git
-cd slideshow
-
-# Start containers
-docker-compose up -d
-
-# View logs
-docker-compose logs -f app
-
-# Stop containers
-docker-compose down
-
-# Update application
-git pull
-docker-compose up -d --build
-```
-
-✅ **Done!** Access at http://localhost:3000
+A minimal Docker workflow is still available if you prefer containers, but the canonical deployment steps and environment are identical to the VPS instructions — follow `### 1. VPS/Server (Self-Hosted)` and adapt only the process manager/packaging (PM2 → container runtime).
 
 #### Docker Management
 
@@ -529,108 +421,29 @@ sudo apt install postgresql
 # macOS:
 brew install postgresql@16
 brew services start postgresql@16
+### 3. Local Development
 
-# Windows:
-# Download from https://www.postgresql.org/download/windows/
+Follow the `VPS/Server` installation steps for a consistent, production-like local setup. The only differences for local development are:
 
-# Create database
-createdb slideshow_db
+- Use a local Postgres instance (or Dockerized Postgres) and set `DATABASE_URL` to point to it.
+- You can run the app with the development script (`npm run dev`) instead of a production process manager. The build, Prisma client generation, and seed steps are the same.
 
-# Clone repository
+Quick local checklist:
+
+```bash
+# 1) Ensure local Postgres is running and accessible
+# 2) Clone & install (same as VPS)
 git clone https://github.com/imrosyd/slideshow.git
 cd slideshow
 npm install
-
-# Create .env.local
-cat > .env.local << EOF
-DATABASE_URL=postgresql://postgres:password@localhost:5432/slideshow_db
-ADMIN_PASSWORD=admin123
-USE_FILESYSTEM_STORAGE=true
-STORAGE_PATH=./storage
-STORAGE_PUBLIC_URL=/api/storage
-EOF
-
-# Setup database
 npx prisma generate
 npx prisma db push
 npx prisma db seed
-
-# Run development server
+# 3) Run dev server
 npm run dev
 ```
 
-#### Option B: With Docker PostgreSQL
-
-```bash
-# Start PostgreSQL in Docker
-docker run -d --name postgres \
-  -e POSTGRES_DB=slideshow_db \
-  -e POSTGRES_PASSWORD=password \
-  -p 5432:5432 \
-  postgres:16-alpine
-
-# Clone and setup
-git clone https://github.com/imrosyd/slideshow.git
-cd slideshow
-npm install
-
-# Create .env.local (same as above)
-# Run
-npm run dev
-```
-
-#### Database Configuration (PostgreSQL)
- 
-This project uses Prisma with PostgreSQL. You can use **any** PostgreSQL provider:
-- **Local**: Install PostgreSQL on your machine (see Option A).
-- **Docker**: Run PostgreSQL in a container (see Option B).
-- **Cloud**: Supabase, Neon, Railway, AWS RDS, etc.
-
-**Important for Prisma 7+**:
-The `DATABASE_URL` environment variable **must not be empty**. Even if you are just building the app, you must provide a valid connection string format (e.g., `postgresql://user:pass@localhost:5432/db`).
-
-If you are using a cloud provider like Supabase, simply get the "Transaction Mode" connection string and set it as `DATABASE_URL`. No other Supabase-specific keys are required.
-
-✅ **Done!** Access at http://localhost:3000
-
----
-
-## Configuration
-
-### Environment Variables
-
-#### Required
-
-```env
-# Authentication
-ADMIN_PASSWORD=your_secure_password
-
-# Database (Prisma + PostgreSQL)
-DATABASE_URL=postgresql://user:password@host:5432/database
-```
-
-#### Storage Options
-
-```env
-# Option 1: Filesystem (Self-hosted)
-USE_FILESYSTEM_STORAGE=true
-STORAGE_PATH=/path/to/storage
-STORAGE_PUBLIC_URL=/api/storage
-
-# Option 2: S3-compatible Storage (Cloud)
-# Configure S3 env vars when using S3
-
-# Option 3: S3-Compatible (Future)
-# S3_ENDPOINT=https://...
-# S3_BUCKET_NAME=slideshow
-# S3_ACCESS_KEY_ID=xxx
-# S3_SECRET_ACCESS_KEY=xxx
-```
-
-#### Optional
-
-```env
-NODE_ENV=production
+This keeps one canonical set of installation steps (VPS/server) as the source of truth; apply them locally with environment-specific adjustments (database host, storage paths, ports).
 PORT=3000
 ```
 
