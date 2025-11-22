@@ -104,7 +104,7 @@ async function main() {
         }
 
         // Validate username
-        if (username.length < 3) {
+        if (username.length < 2) {
             console.log('❌ Username must be at least 3 characters long');
             rl.close();
             process.exit(1);
