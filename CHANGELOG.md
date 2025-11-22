@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2025-11-22
+
+### 🚀 User Management CLI Tools
+
+#### Added
+- **User Management Scripts**: Easy-to-use CLI tools for managing users
+  - `npm run add-user <username> <password> [role]` - Add new users (admin or viewer)
+  - `npm run list-users` - Display all users with formatted output
+  - New scripts in `scripts/` directory:
+    - `scripts/add-user.ts` - Interactive user creation with validation
+    - `scripts/list-users.ts` - Pretty-printed user listing
+  - Automatic password hashing with bcrypt
+  - Username uniqueness validation
+  - Role validation (admin/viewer)
+  - Informative success/error messages with emojis
+
+- **User Management Documentation**: Comprehensive guides in Indonesian
+  - `docs/USER_MANAGEMENT.md` - Complete user management guide
+    - Detailed command reference
+    - Step-by-step examples
+    - Role differences explained
+    - Troubleshooting section
+    - Backup and restore instructions
+  - `docs/QUICK_ADD_USER.md` - Quick reference guide
+    - Fast command examples
+    - Common use cases
+    - Quick troubleshooting
+
+- **README Updates**: User Management section added
+  - Quick commands reference
+  - Practical examples with output
+  - User roles explanation
+  - Links to detailed documentation
+  - Added to Table of Contents
+
+#### Changed
+- **package.json**: Added npm scripts for user management
+  - `add-user` - Create new users
+  - `list-users` - View all users
+  - `delete-user` - Remove users (existing)
+  - `update-role` - Change user roles (existing)
+  - `check-role` - Check user role (existing)
+  - All scripts use consistent ts-node configuration
+
+#### Developer Experience
+- Simplified user creation workflow (no manual database queries needed)
+- Clear, formatted output with visual indicators (👑 Admin, 👤 Viewer)
+- Bilingual documentation (English README, Indonesian detailed guides)
+- Type-safe operations using Prisma Client
+- Consistent error handling across all scripts
+
+---
+
 ## [3.2.2] - 2025-11-22
 
 ### 🐛 Docs & Platform Configuration
