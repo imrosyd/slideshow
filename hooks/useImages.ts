@@ -97,7 +97,7 @@ export const useImages = (authToken: string | null) => {
       const fetched = (payload?.images ?? []).map((item: any) => {
         const durationSeconds = toSeconds(item.durationMs);
         const caption = item.caption ?? null; // Keep as null if empty
-        
+
         // Add cache-busting timestamp to preview URL for videos or recently updated files
         let previewUrl = buildPreviewUrl(item.name);
         try {
@@ -118,7 +118,7 @@ export const useImages = (authToken: string | null) => {
           // If timestamp parsing fails, just use URL without cache buster
           console.warn('Failed to parse timestamp for', item.name, e);
         }
-        
+
         return {
           name: item.name,
           size: item.size ?? 0,
@@ -130,7 +130,20 @@ export const useImages = (authToken: string | null) => {
           originalCaption: caption,
           previewUrl,
           isVideo: Boolean(item.isVideo && item.videoUrl),
-          videoUrl: item.videoUrl ?? undefined,
+          videoUrl: (() => {
+            if (!item.videoUrl) return undefined;
+            try {
+              if (item.videoGeneratedAt) {
+                const timestamp = new Date(item.videoGeneratedAt).getTime();
+                if (!isNaN(timestamp)) {
+                  return `${item.videoUrl}?t=${timestamp}`;
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to append timestamp to videoUrl', e);
+            }
+            return item.videoUrl;
+          })(),
           videoGeneratedAt: item.videoGeneratedAt ?? undefined,
           videoDurationSeconds:
             typeof item.videoDurationSeconds === "number"
@@ -156,9 +169,9 @@ export const useImages = (authToken: string | null) => {
       prev.map((task) =>
         task.id === id
           ? {
-              ...task,
-              ...patch,
-            }
+            ...task,
+            ...patch,
+          }
           : task
       )
     );
@@ -269,7 +282,7 @@ export const useImages = (authToken: string | null) => {
         }
 
         console.log("[useImages] Delete successful:", responseData);
-        
+
         setImagesState((prev) =>
           prev.filter((image) => !filenames.includes(image.name))
         );
@@ -288,9 +301,9 @@ export const useImages = (authToken: string | null) => {
         prev.map((image) =>
           image.name === filename
             ? {
-                ...image,
-                ...patch,
-              }
+              ...image,
+              ...patch,
+            }
             : image
         )
       );
@@ -304,10 +317,10 @@ export const useImages = (authToken: string | null) => {
         prev.map((image) =>
           filenames.includes(image.name)
             ? {
-                ...image,
-                ...(updates.durationSeconds !== undefined && { durationSeconds: updates.durationSeconds }),
-                ...(updates.caption !== undefined && { caption: updates.caption }),
-              }
+              ...image,
+              ...(updates.durationSeconds !== undefined && { durationSeconds: updates.durationSeconds }),
+              ...(updates.caption !== undefined && { caption: updates.caption }),
+            }
             : image
         )
       );
@@ -320,10 +333,10 @@ export const useImages = (authToken: string | null) => {
       prev.map((image) =>
         image.name === filename
           ? {
-              ...image,
-              durationSeconds: image.originalDurationSeconds,
-              caption: image.originalCaption,
-            }
+            ...image,
+            durationSeconds: image.originalDurationSeconds,
+            caption: image.originalCaption,
+          }
           : image
       )
     );
@@ -426,10 +439,10 @@ export const useImages = (authToken: string | null) => {
         prev.map((image) =>
           image.name === oldName
             ? {
-                ...image,
-                name: trimmedNewName,
-                previewUrl: buildPreviewUrl(trimmedNewName),
-              }
+              ...image,
+              name: trimmedNewName,
+              previewUrl: buildPreviewUrl(trimmedNewName),
+            }
             : image
         )
       );
@@ -443,11 +456,11 @@ export const useImages = (authToken: string | null) => {
     async (filename: string, durationSeconds: number) => {
       try {
         console.log(`[useImages] Generating video for ${filename}, duration: ${durationSeconds}s`);
-        
+
         if (!filename || !durationSeconds || durationSeconds <= 0) {
           throw new Error(`Invalid parameters: filename="${filename}", duration=${durationSeconds}`);
         }
-        
+
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
         };
@@ -459,7 +472,7 @@ export const useImages = (authToken: string | null) => {
           filename,
           durationSeconds,
         };
-        
+
         console.log(`[useImages] Sending request with payload:`, payload);
 
         const response = await fetch("/api/admin/generate-video", {
@@ -484,12 +497,12 @@ export const useImages = (authToken: string | null) => {
           prev.map((img) =>
             img.name === filename
               ? {
-                  ...img,
-                  isVideo: true,
-                  videoUrl: data.videoUrl,
-                  videoGeneratedAt: new Date().toISOString(),
-                  videoDurationSeconds: durationSeconds,
-                }
+                ...img,
+                isVideo: true,
+                videoUrl: data.videoUrl,
+                videoGeneratedAt: new Date().toISOString(),
+                videoDurationSeconds: durationSeconds,
+              }
               : img
           )
         );
@@ -564,12 +577,12 @@ export const useImages = (authToken: string | null) => {
           prev.map((img) =>
             imagesToUpdate.includes(img.name)
               ? {
-                  ...img,
-                  isVideo: true,
-                  videoUrl: data.videoUrl,
-                  videoGeneratedAt: new Date().toISOString(),
-                  videoDurationSeconds: videoDuration,
-                }
+                ...img,
+                isVideo: true,
+                videoUrl: data.videoUrl,
+                videoGeneratedAt: new Date().toISOString(),
+                videoDurationSeconds: videoDuration,
+              }
               : img
           )
         );
@@ -586,7 +599,7 @@ export const useImages = (authToken: string | null) => {
   const deleteVideo = useCallback(
     async (filename: string) => {
       console.log(`[useImages] Deleting video for: ${filename}`);
-      
+
       // Find the image to get videoUrl
       const image = imagesRef.current.find(img => img.name === filename);
       if (!image || !image.videoUrl) {
@@ -620,12 +633,12 @@ export const useImages = (authToken: string | null) => {
           prev.map((img) =>
             img.name === filename
               ? {
-                  ...img,
-                  isVideo: false,
-                  videoUrl: undefined,
-                  videoGeneratedAt: undefined,
-                  videoDurationSeconds: undefined,
-                }
+                ...img,
+                isVideo: false,
+                videoUrl: undefined,
+                videoGeneratedAt: undefined,
+                videoDurationSeconds: undefined,
+              }
               : img
           )
         );
@@ -635,13 +648,15 @@ export const useImages = (authToken: string | null) => {
         // Notify other open tabs (main/remote pages) via BroadcastChannel (supabase shim)
         try {
           const channel = supabase.channel('video-updates');
-          channel.send({ type: 'broadcast', event: 'video-updated', payload: {
-            slideName: filename,
-            action: 'deleted',
-            videoUrl: null,
-            videoDurationSeconds: null,
-            isVideo: false,
-          }}).catch((e: any) => {
+          channel.send({
+            type: 'broadcast', event: 'video-updated', payload: {
+              slideName: filename,
+              action: 'deleted',
+              videoUrl: null,
+              videoDurationSeconds: null,
+              isVideo: false,
+            }
+          }).catch((e: any) => {
             // non-fatal
             console.warn('[useImages] Failed to send video-updated via supabase shim', e);
           });
@@ -664,18 +679,18 @@ export const useImages = (authToken: string | null) => {
     async (file: File) => {
       try {
         console.log(`[useImages] Converting PDF: ${file.name}`);
-        
+
         // Check if we're in the browser
         if (typeof window === 'undefined') {
           throw new Error('PDF conversion can only run in browser');
         }
-        
+
         // Dynamically import PDF.js (warnings suppressed in next.config.mjs)
         console.log('[useImages] Importing PDF.js library...');
         // @ts-ignore - Dynamic import of PDF.js
         const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
         console.log('[useImages] PDF.js library imported successfully');
-        
+
         // Set worker path - prefer `NEXT_PUBLIC_PDFJS_WORKER_URL` env var.
         // If not provided, prefer the local copy in `/public/pdf.worker.min.js`
         // to avoid cross-origin (CORS) failures when running on localhost.
@@ -683,49 +698,49 @@ export const useImages = (authToken: string | null) => {
           process.env.NEXT_PUBLIC_PDFJS_WORKER_URL || '/pdf.worker.min.mjs';
         pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
         console.log('[useImages] Worker path set to', workerUrl);
-        
+
         // Ensure window is defined (client-side)
         if (typeof window !== 'undefined') {
           (window as any).pdfjsLib = pdfjsLib;
         }
-        
+
         // Read PDF file
         const arrayBuffer = await file.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
-        
+
         // Load PDF document
         const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
         const pdfDoc = await loadingTask.promise;
         const pageCount = pdfDoc.numPages;
-        
+
         console.log(`[useImages] PDF has ${pageCount} page(s)`);
-        
+
         const baseFilename = file.name.replace(/\.pdf$/i, '');
         const uploadedImages: File[] = [];
-        
+
         // Convert each page to image
         for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
           console.log(`[useImages] Rendering page ${pageNum}/${pageCount}`);
-          
+
           const page = await pdfDoc.getPage(pageNum);
           const viewport = page.getViewport({ scale: 2.0 }); // High quality
-          
+
           // Create canvas
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d', { willReadFrequently: true } as any) as CanvasRenderingContext2D | null;
           if (!context) {
             throw new Error('Could not get canvas context');
           }
-          
+
           canvas.width = viewport.width;
           canvas.height = viewport.height;
-          
+
           // Render page to canvas
           await page.render({
             canvasContext: context,
             viewport: viewport,
           }).promise;
-          
+
           // Convert canvas to blob
           const blob = await new Promise<Blob>((resolve, reject) => {
             canvas.toBlob((b) => {
@@ -733,28 +748,28 @@ export const useImages = (authToken: string | null) => {
               else reject(new Error('Failed to create blob'));
             }, 'image/png');
           });
-          
+
           // Create filename
-          const imageFilename = pageCount > 1 
+          const imageFilename = pageCount > 1
             ? `${baseFilename}-page-${pageNum}.png`
             : `${baseFilename}.png`;
-          
+
           // Create File object
           const imageFile = new File([blob], imageFilename, { type: 'image/png' });
           uploadedImages.push(imageFile);
         }
-        
+
         console.log(`[useImages] Converted ${uploadedImages.length} pages, uploading...`);
-        
+
         // Upload all images
         const uploadResult = await uploadImages(uploadedImages);
-        
+
         return {
           success: uploadResult.success,
           images: uploadedImages.map(f => f.name),
           pageCount: pageCount,
         };
-        
+
       } catch (error) {
         console.error("[useImages] PDF conversion failed:", error);
         throw error;
@@ -802,10 +817,10 @@ export const useImages = (authToken: string | null) => {
           prev.map((image) =>
             filenames.includes(image.name)
               ? {
-                  ...image,
-                  originalCaption: image.caption,
-                  originalDurationSeconds: image.durationSeconds,
-                }
+                ...image,
+                originalCaption: image.caption,
+                originalDurationSeconds: image.durationSeconds,
+              }
               : image
           )
         );
