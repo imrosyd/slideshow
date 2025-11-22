@@ -1,6 +1,6 @@
 # 📺 Slideshow Display System
 
-[![Version](https://img.shields.io/badge/version-3.3.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
+[![Version](https://img.shields.io/badge/version-3.2.1-blue.svg)](https://github.com/imrosyd/slideshow/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
@@ -12,7 +12,7 @@
 
 🌐 **Language:** 🇺🇸 English · [🇮🇩 Indonesian](README.id.md)
 
-**Last Updated:** November 22, 2025 · **Status:** ✅ Production Ready
+**Last Updated:** November 21, 2025 · **Status:** ✅ Production Ready
 
 [![GitHub Release](https://img.shields.io/github/v/release/imrosyd/slideshow)](https://github.com/imrosyd/slideshow/releases)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/imrosyd/slideshow)
@@ -31,7 +31,6 @@
   - [3. Local Development](#3-local-development)
 - [Configuration](#configuration)
 - [Usage Guide](#usage-guide)
-- [User Management](#user-management)
 - [API Documentation](#api-documentation)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
@@ -295,7 +294,6 @@ pm2 startup
 #### Step 4: Configure Nginx
 
 ```bash
-sudo cp nginx.conf /etc/nginx/sites-available/slideshow
 sudo nano /etc/nginx/sites-available/slideshow
 ```
 
@@ -482,78 +480,6 @@ The application uses Prisma as the primary database adapter. Set `DATABASE_URL` 
 1. Open on mobile: `https://your-domain.com/remote`
 2. Login with admin password
 3. Control slideshow remotely
-
----
-
-## User Management
-
-### Quick Commands
-
-```bash
-# Add new user (viewer)
-npm run add-user <username> <password>
-
-# Add new admin
-npm run add-user <username> <password> admin
-
-# List all users
-npm run list-users
-
-# Delete user (edit scripts/delete-user.ts first)
-npm run delete-user
-
-# Update user role (edit scripts/update-role.ts first)
-npm run update-role
-```
-
-### Examples
-
-**Add a viewer user:**
-```bash
-npm run add-user john password123
-```
-
-**Add an admin user:**
-```bash
-npm run add-user superadmin admin123 admin
-```
-
-**List all users:**
-```bash
-npm run list-users
-```
-
-Output:
-```
-👥 All Users:
-════════════════════════════════════════════════════════════════════════════════
-
-1. admin
-   ID:      454d555b-0591-4e53-a309-9c0bd11a36bf
-   Role:    👑 Admin
-   Created: 11/21/2025, 2:11:00 PM
-   Updated: 11/21/2025, 2:11:00 PM
-
-2. viewer1
-   ID:      d8af7b99-2d31-4d6d-b4ed-f0795318104a
-   Role:    👤 Viewer
-   Created: 11/22/2025, 8:36:14 AM
-   Updated: 11/22/2025, 8:36:14 AM
-
-════════════════════════════════════════════════════════════════════════════════
-Total: 2 user(s)
-```
-
-### User Roles
-
-- **Admin**: Full access to admin dashboard, can upload/edit/delete images, generate videos
-- **Viewer**: Can only view slideshow and use remote control
-
-### Documentation
-
-For detailed user management guide, see:
-- 📚 [User Management Guide](docs/USER_MANAGEMENT.md) - Complete documentation
-- 🚀 [Quick Add User](docs/QUICK_ADD_USER.md) - Quick reference
 
 ---
 
