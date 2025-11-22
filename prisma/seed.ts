@@ -1,77 +1,18 @@
 import { PrismaClient } from '@prisma/client';
-import * as readline from 'readline';
+import * as readlineSync from 'readline-sync';
 const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
 
-// Create readline interface for user input
-function createReadlineInterface() {
-    return readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-    });
+// Helper functions using readline-sync for interactive prompts
+function askQuestion(query: string, defaultValue?: string): string {
+    const answer = readlineSync.question(query);
+    return answer.trim() || defaultValue || '';
 }
 
-// Prompt user for input
-function question(rl: readline.Interface, query: string): Promise<string> {
-    return new Promise((resolve) => {
-        rl.question(query, (answer) => {
-            resolve(answer.trim());
-        });
-    });
-}
-
-// Prompt for password (hidden input)
-function questionPassword(rl: readline.Interface, query: string): Promise<string> {
-    return new Promise((resolve) => {
-        const stdin = process.stdin;
-        const stdout = process.stdout;
-
-        stdout.write(query);
-
-        // Hide input
-        if ((stdin as any).setRawMode) {
-            (stdin as any).setRawMode(true);
-        }
-
-        let password = '';
-
-        const onData = (char: Buffer) => {
-            const str = char.toString('utf8');
-
-            switch (str) {
-                case '\n':
-                case '\r':
-                case '\u0004': // Ctrl-D
-                    if ((stdin as any).setRawMode) {
-                        (stdin as any).setRawMode(false);
-                    }
-                    stdin.removeListener('data', onData);
-                    stdout.write('\n');
-                    resolve(password);
-                    break;
-                case '\u0003': // Ctrl-C
-                    if ((stdin as any).setRawMode) {
-                        (stdin as any).setRawMode(false);
-                    }
-                    process.exit(0);
-                    break;
-                case '\u007f': // Backspace
-                case '\b':
-                    if (password.length > 0) {
-                        password = password.slice(0, -1);
-                        stdout.write('\b \b');
-                    }
-                    break;
-                default:
-                    password += str;
-                    stdout.write('*');
-                    break;
-            }
-        };
-
-        stdin.on('data', onData);
-    });
+function askPassword(query: string, defaultValue?: string): string {
+    const password = readlineSync.question(query, { hideEchoBack: true });
+    return password || defaultValue || '';
 }
 
 async function main() {
@@ -94,61 +35,42 @@ async function main() {
 
     console.log('📝 No admin user found. Let\'s create one!\n');
 
-    const rl = createReadlineInterface();
-
     try {
         // Get username
-        let username = await question(rl, '👤 Enter admin username (default: admin): ');
-        if (!username) {
-            username = 'admin';
-        }
-
+        let username = askQuestion('👤 Enter admin username (default: admin): ', 'admin');
         // Validate username
         if (username.length < 2) {
             console.log('❌ Username must be at least 3 characters long');
-            rl.close();
             process.exit(1);
         }
-
         // Check if username already exists
         const existingUser = await prisma.profile.findUnique({
             where: { username },
         });
-
         if (existingUser) {
             console.log(`❌ Username '${username}' already exists`);
-            rl.close();
             process.exit(1);
         }
-
         // Get password
-        let password = await questionPassword(rl, '🔒 Enter admin password (default: admin): ');
+        let password = askPassword('🔒 Enter admin password (default: admin): ', 'admin');
         if (!password) {
             password = 'admin';
             console.log('⚠️  Using default password: admin');
         }
-
         // Validate password
         if (password.length < 4) {
             console.log('❌ Password must be at least 4 characters long');
-            rl.close();
             process.exit(1);
         }
-
         // Confirm password
-        const confirmPassword = await questionPassword(rl, '🔒 Confirm password: ');
-
+        const confirmPassword = askPassword('🔒 Confirm password: ');
         if (password !== confirmPassword) {
             console.log('❌ Passwords do not match');
-            rl.close();
             process.exit(1);
         }
-
         console.log('\n⏳ Creating admin user...');
-
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
-
         // Create admin user
         const newUser = await prisma.profile.create({
             data: {
@@ -157,7 +79,6 @@ async function main() {
                 role: 'admin',
             },
         });
-
         console.log('\n✅ Admin user created successfully!');
         console.log('═══════════════════════════════════════════════════════════');
         console.log(`   Username: ${newUser.username}`);
@@ -166,12 +87,9 @@ async function main() {
         console.log('═══════════════════════════════════════════════════════════');
         console.log('\n💡 You can now login with these credentials');
         console.log('💡 Use "npm run add-user" to create additional users\n');
-
     } catch (error) {
         console.error('\n❌ Error during seeding:', error);
         throw error;
-    } finally {
-        rl.close();
     }
 }
 

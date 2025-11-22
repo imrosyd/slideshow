@@ -276,13 +276,15 @@ HOST=0.0.0.0
 npx prisma db push
 
 # Create superadmin user interactively (NO sudo!)
-# You will be prompted to enter username and password
+# The seed script now prompts for admin username and password (defaults: admin / admin).
+# Press Enter to accept defaults or provide custom credentials.
 npx prisma db seed
 
 # Example interactive session:
 # 👤 Enter admin username (default: admin): myusername
 # 🔒 Enter admin password (default: admin): ********
 # 🔒 Confirm password: ********
+```
 
 # Build application
 npm run build
