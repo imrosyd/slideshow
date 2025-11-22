@@ -685,15 +685,28 @@ export default function Home() {
   }, [isPaused, slideshowPause]);
 
   const handleClosePreview = useCallback(() => {
-    console.log('!!!!!! handleClosePreview was called! Stack trace:', new Error().stack);
+    console.log('🔄 handleClosePreview called - closing image overlay');
     setIsOverlayVisible(false);
     setSelectedImage(null); // Remove immediately for faster response
 
-    // Resume slideshow immediately without delay
+    // Resume slideshow and video playback
     if (!wasPaused) {
-      slideshowPlay(); // Resume if it was playing before - video will continue from where it paused
+      console.log('▶️ Resuming slideshow and video playback');
+      slideshowPlay(); // Resume slideshow state
+
+      // Explicitly resume video playback
+      const video = videoRef.current;
+      if (video && currentSlide?.videoUrl) {
+        // Use a small timeout to ensure state has updated
+        setTimeout(() => {
+          video.play().catch(e => {
+            console.error('❌ Failed to resume video playback:', e);
+          });
+          console.log('✅ Video playback resumed from position:', video.currentTime);
+        }, 50);
+      }
     }
-  }, [wasPaused, slideshowPlay]);
+  }, [wasPaused, slideshowPlay, videoRef, currentSlide]);
 
   // Mouse movement handler for gallery show/hide
   useEffect(() => {
