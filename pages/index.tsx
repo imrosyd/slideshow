@@ -550,15 +550,21 @@ export default function Home() {
       const checkPayload: { exists: boolean; videoUrl?: string | undefined } = await checkRes.json();
 
       if (checkPayload.exists && checkPayload.videoUrl) {
+        const videoHash = (checkPayload as any).videoHash;
+        let finalVideoUrl = checkPayload.videoUrl;
+        if (finalVideoUrl && videoHash) {
+          finalVideoUrl = `${finalVideoUrl}?v=${videoHash}`;
+        }
+
         // Use the dashboard video as the single slide
         const durationSeconds = DEFAULT_SLIDE_DURATION_SECONDS;
         const dashboardSlide: Slide = {
           name: 'dashboard.mp4',
-          url: checkPayload.videoUrl,
+          url: finalVideoUrl!,
           durationSeconds,
           isVideo: true,
-          videoUrl: checkPayload.videoUrl,
-          videoHash: (checkPayload as any).videoHash ?? null,
+          videoUrl: finalVideoUrl,
+          videoHash: videoHash ?? null,
           videoDurationSeconds: undefined,
         };
 
@@ -1505,7 +1511,9 @@ export default function Home() {
           {slides.length > 0 && currentSlide && currentSlide.videoUrl ? (
             <video
               ref={videoRef}
-              src={`${currentSlide.videoUrl}?v=${videoVersion}`}
+              src={currentSlide.videoUrl?.includes('?')
+                ? `${currentSlide.videoUrl}&t=${videoVersion}`
+                : `${currentSlide.videoUrl}?t=${videoVersion}`}
               autoPlay
               muted
               playsInline
