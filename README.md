@@ -1,6 +1,6 @@
 # 📺 Slideshow Display System
 
-[![Version](https://img.shields.io/badge/version-3.2.1-blue.svg)](https://github.com/imrosyd/slideshow/releases)
+[![Version](https://img.shields.io/badge/version-3.3.0-blue.svg)](https://github.com/imrosyd/slideshow/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
@@ -12,7 +12,7 @@
 
 🌐 **Language:** 🇺🇸 English · [🇮🇩 Indonesian](README.id.md)
 
-**Last Updated:** November 21, 2025 · **Status:** ✅ Production Ready
+**Last Updated:** December 14, 2025 · **Status:** ✅ Production Ready
 
 [![GitHub Release](https://img.shields.io/github/v/release/imrosyd/slideshow)](https://github.com/imrosyd/slideshow/releases)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/imrosyd/slideshow)
@@ -78,9 +78,17 @@ Slideshow is a Next.js 14 + TypeScript application for managing always-on TV con
 
 **Maintenance Tools**
 - Force refresh displays remotely
+- Reload main page remotely
 - Cleanup corrupt videos
 - Database consistency checks
 - Storage statistics
+
+**Screen Schedules (Black Screen)**
+- Multiple schedules like alarms
+- Set different schedules for weekdays/weekends
+- Per-schedule enable/disable toggle
+- 24-hour time format
+- Prevents TV standby during off-hours
 
 ### 📺 Display Player (`/`)
 
@@ -107,9 +115,11 @@ Slideshow is a Next.js 14 + TypeScript application for managing always-on TV con
 ### 📱 Remote Control (`/remote`)
 
 - Touch-optimized mobile interface
+- 4-digit device code pairing
 - Play/Pause, Next/Previous controls
+- Reload main page remotely
+- Show/hide images on display
 - Real-time sync with display
-- Authentication required
 
 ---
 
@@ -831,7 +841,15 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 ### Latest Releases
 
-#### v3.2.0 (2025-11-21) - Current
+#### v3.3.0 (2025-12-14) - Current
+**Screen Schedules & Remote Improvements**
+- ✅ **Multiple Black Screen Schedules**: Like alarms, set different schedules for different days
+- ✅ **4-Digit Device Codes**: Simplified pairing (was 8 digits)
+- ✅ **Reload Page Button**: Force reload main display from admin/remote
+- ✅ **Improved Remote UI**: Icon buttons, better layout
+- ✅ **Schedule Day Selection**: Enable schedules for specific days of the week
+
+#### v3.2.0 (2025-11-21)
 **Superadmin & Maintenance**
 - ✅ **Superadmin Auto-Creation**: `npx prisma db seed` to create default admin
 - ✅ **Nginx Config**: Default configuration included
