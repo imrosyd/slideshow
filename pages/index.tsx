@@ -402,6 +402,10 @@ export default function Home() {
   const previousVideoHashRef = useRef<string | null>(null);
   const previousIndexRef = useRef<number>(-1); // Initialize with -1 to detect first change
 
+  // Black screen schedule state
+  const [isBlackScreenActive, setIsBlackScreenActive] = useState(false);
+  const [blackVideoUrl, setBlackVideoUrl] = useState<string | null>(null);
+
   const normalizeVideoUrl = (u: string | undefined | null) => {
     if (!u) return '';
     try {
@@ -436,15 +440,20 @@ export default function Home() {
     preloadTriggerPercent: 0.5,
   });
 
+  // Determine effective video URL (black screen takes priority)
+  const effectiveVideoUrl = isBlackScreenActive && blackVideoUrl
+    ? blackVideoUrl
+    : (currentSlide?.videoUrl || null);
+
   // Video player with webOS optimization
   const {
     videoRef,
     play,
   } = useVideoPlayer({
-    videoUrl: currentSlide?.videoUrl || null,
+    videoUrl: effectiveVideoUrl,
     isPaused,
-    onEnded: onSlideshowEnded,
-    onTimeUpdate: onPreloadTimeUpdate,
+    onEnded: isBlackScreenActive ? undefined : onSlideshowEnded, // Don't trigger slide change when in black screen mode
+    onTimeUpdate: isBlackScreenActive ? undefined : onPreloadTimeUpdate,
   });
 
   // Ensure single video loops seamlessly
@@ -646,6 +655,36 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  // Black screen schedule check - check every 30 seconds
+  useEffect(() => {
+    const checkBlackScreen = async () => {
+      try {
+        const response = await fetch('/api/check-blackscreen');
+        if (response.ok) {
+          const data = await response.json();
+          const wasActive = isBlackScreenActive;
+          setIsBlackScreenActive(data.active);
+          setBlackVideoUrl(data.blackVideoUrl || '/black.mp4');
+
+          // Log state changes
+          if (data.active !== wasActive) {
+            console.log(`🌙 Black screen mode: ${data.active ? 'ACTIVATED' : 'DEACTIVATED'}`);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check black screen schedule:', error);
+      }
+    };
+
+    // Check immediately on mount
+    checkBlackScreen();
+
+    // Check every 30 seconds
+    const interval = setInterval(checkBlackScreen, 30000);
+
+    return () => clearInterval(interval);
+  }, [isBlackScreenActive]);
+
   const handleImageClick = useCallback((image: { name: string; url: string }) => {
     setSelectedImage(image);
     setIsOverlayVisible(true);
@@ -700,16 +739,23 @@ export default function Home() {
       console.log('▶️ Resuming slideshow and video playback');
       slideshowPlay(); // Resume slideshow state
 
-      // Explicitly resume video playback
+      // Explicitly resume video playback with retry for webOS devices
       const video = videoRef.current;
       if (video && currentSlide?.videoUrl) {
-        // Use a small timeout to ensure state has updated
-        setTimeout(() => {
-          video.play().catch(e => {
-            console.error('❌ Failed to resume video playback:', e);
+        const tryResumeVideo = (attempt: number) => {
+          video.play().then(() => {
+            console.log(`✅ Video playback resumed from position: ${video.currentTime} (attempt ${attempt})`);
+          }).catch(e => {
+            console.error(`❌ Failed to resume video playback (attempt ${attempt}):`, e);
+            // Retry once more after a longer delay for slow devices
+            if (attempt < 2) {
+              setTimeout(() => tryResumeVideo(attempt + 1), 300);
+            }
           });
-          console.log('✅ Video playback resumed from position:', video.currentTime);
-        }, 50);
+        };
+
+        // Use a timeout to ensure React state has updated
+        setTimeout(() => tryResumeVideo(1), 100);
       }
     }
   }, [wasPaused, slideshowPlay, videoRef, currentSlide]);
@@ -1002,6 +1048,53 @@ export default function Home() {
   useEffect(() => {
     console.log(`⬆️ [Index] Heartbeat sending activeImage status for ${deviceId}: ${isOverlayVisible ? selectedImage?.name || 'none' : 'none'}. isOverlayVisible: ${isOverlayVisible}`);
   }, [deviceId, isOverlayVisible, selectedImage]);
+
+  // BLACK SCREEN MODE - Priority render (before loading/error/no slides checks)
+  // This ensures black video plays during scheduled times regardless of dashboard status
+  if (isBlackScreenActive && blackVideoUrl) {
+    return (
+      <>
+        <Head>
+          <title>Slideshow</title>
+          <style>{`
+            html, body {
+              margin: 0;
+              padding: 0;
+              overflow: hidden;
+              background: #000;
+            }
+          `}</style>
+        </Head>
+        <main style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: '#000',
+          overflow: 'hidden',
+        }}>
+          <video
+            ref={videoRef}
+            src={blackVideoUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              backgroundColor: '#000',
+            }}
+          />
+        </main>
+      </>
+    );
+  }
 
   // Loading state
   if (loading) {

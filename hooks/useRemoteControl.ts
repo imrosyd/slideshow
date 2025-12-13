@@ -10,8 +10,8 @@ interface UseRemoteControlProps {
   goToSlide: (index: number) => void;
   togglePause: () => void;
   fetchSlides: (isAutoRefresh?: boolean) => Promise<any>;
-  adminImages?: Array<{name: string; url: string}>;
-  handleImageClick?: (image: {name: string; url: string}) => void;
+  adminImages?: Array<{ name: string; url: string }>;
+  handleImageClick?: (image: { name: string; url: string }) => void;
 }
 
 /**
@@ -30,17 +30,17 @@ export function useRemoteControl({
   adminImages,
   handleImageClick,
 }: UseRemoteControlProps) {
-  
+
   // Listen for remote control commands
   useEffect(() => {
     console.log('🔌 Setting up remote control listener');
-    
+
     const remoteChannel = supabase
       .channel('remote-control')
       .on('broadcast', { event: 'remote-command' }, (payload: any) => {
         console.log('📱 Remote command received:', payload);
         const { command, data } = payload.payload || {};
-        
+
         switch (command) {
           case 'previous':
             goToPrevious();
@@ -83,6 +83,11 @@ export function useRemoteControl({
             const event = new KeyboardEvent('keydown', { key: 'Escape' });
             window.dispatchEvent(event);
             break;
+          case 'reload-page':
+            // Full page reload to pick up new video/changes
+            console.log('🔄 Remote reload-page command received - reloading page...');
+            window.location.reload();
+            break;
         }
       })
       .on('broadcast', { event: 'request-status' }, () => {
@@ -110,11 +115,11 @@ export function useRemoteControl({
   // Broadcast status updates when state changes
   useEffect(() => {
     if (slides.length === 0) return; // Don't broadcast if no slides
-    
+
     console.log('📡 Broadcasting status update');
-    
+
     const remoteChannel = supabase.channel('remote-control-status');
-    
+
     remoteChannel.send({
       type: 'broadcast',
       event: 'slideshow-status',
@@ -132,14 +137,14 @@ export function useRemoteControl({
       supabase.removeChannel(remoteChannel);
     };
   }, [slides.length, currentIndex, isPaused]);
-  
+
   // Periodic status broadcast (every 5 seconds) to ensure remote stays connected
   useEffect(() => {
     if (slides.length === 0) return;
-    
+
     const interval = setInterval(() => {
       console.log('⏰ Periodic status broadcast');
-      
+
       const channel = supabase.channel('remote-control-heartbeat');
       channel.send({
         type: 'broadcast',
@@ -156,7 +161,7 @@ export function useRemoteControl({
         supabase.removeChannel(channel);
       });
     }, 5000); // Every 5 seconds
-    
+
     return () => clearInterval(interval);
   }, [slides.length, currentIndex, isPaused]);
 }

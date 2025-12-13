@@ -22,7 +22,7 @@ const AdminContent = () => {
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  
+
   const [renameDialog, setRenameDialog] = useState<{ filename: string } | null>(null);
   const [renameInput, setRenameInput] = useState("");
   const [cleanupConfirm, setCleanupConfirm] = useState(false);
@@ -32,26 +32,63 @@ const AdminContent = () => {
   const [mergeProgress, setMergeProgress] = useState<string>("");
   const [isMerging, setIsMerging] = useState(false);
   const [isCleaningCorrupt, setIsCleaningCorrupt] = useState(false);
-  
+
+  // Black screen schedules state (multiple schedules like alarms)
+  interface BlackScreenSchedule {
+    id: string;
+    name: string;
+    enabled: boolean;
+    startTime: string;
+    endTime: string;
+    days: number[];
+  }
+  const [blackscreenSchedules, setBlackscreenSchedules] = useState<BlackScreenSchedule[]>([]);
+  const [isSavingBlackscreen, setIsSavingBlackscreen] = useState(false);
+
   const { pushToast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    
+
     const sessionToken = sessionStorage.getItem("admin-auth-token");
     setAuthToken(sessionToken);
-    
+
     const previousSelect = document.body.style.userSelect;
     const previousTouch = document.body.style.touchAction;
     document.body.style.userSelect = "auto";
     document.body.style.touchAction = "auto";
-    
+
     return () => {
       document.body.style.userSelect = previousSelect;
       document.body.style.touchAction = previousTouch;
     };
   }, [pushToast, router]);
+
+  // Load black screen schedules on mount
+  useEffect(() => {
+    const loadBlackscreenSettings = async () => {
+      try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.blackscreen_schedules) {
+            try {
+              const schedules = JSON.parse(data.blackscreen_schedules);
+              if (Array.isArray(schedules)) {
+                setBlackscreenSchedules(schedules);
+              }
+            } catch {
+              console.error('Failed to parse blackscreen schedules');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load blackscreen settings:', error);
+      }
+    };
+    loadBlackscreenSettings();
+  }, []);
 
   const {
     images,
@@ -78,7 +115,7 @@ const AdminContent = () => {
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [isForceRefreshing, setIsForceRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   const [savingImageFor, setSavingImageFor] = useState<string | null>(null);
   const [renamingImage, setRenamingImage] = useState<string | null>(null);
 
@@ -110,14 +147,14 @@ const AdminContent = () => {
     async (files: File[]) => {
       const result = await uploadImages(files);
       if (result.success) {
-        pushToast({ 
-          variant: "success", 
-          description: `Successfully uploaded ${files.length} file${files.length > 1 ? "s" : ""}` 
+        pushToast({
+          variant: "success",
+          description: `Successfully uploaded ${files.length} file${files.length > 1 ? "s" : ""}`
         });
       } else {
-        pushToast({ 
-          variant: "error", 
-          description: "Some uploads failed. Check the status panel." 
+        pushToast({
+          variant: "error",
+          description: "Some uploads failed. Check the status panel."
         });
       }
     },
@@ -126,30 +163,30 @@ const AdminContent = () => {
 
   const handlePdfUpload = useCallback(
     async (file: File) => {
-      pushToast({ 
-        variant: "info", 
-        description: `Converting PDF "${file.name}" to images...` 
+      pushToast({
+        variant: "info",
+        description: `Converting PDF "${file.name}" to images...`
       });
-      
+
       try {
         const result = await convertPdfToImages(file);
         if (result.success && result.images && result.images.length > 0) {
-          pushToast({ 
-            variant: "success", 
-            description: `Successfully converted PDF to ${result.images.length} image${result.images.length > 1 ? "s" : ""}` 
+          pushToast({
+            variant: "success",
+            description: `Successfully converted PDF to ${result.images.length} image${result.images.length > 1 ? "s" : ""}`
           });
           await refresh(); // Refresh images after successful conversion
         } else {
-          pushToast({ 
-            variant: "error", 
-            description: "Failed to convert PDF - no images generated" 
+          pushToast({
+            variant: "error",
+            description: "Failed to convert PDF - no images generated"
           });
         }
       } catch (error) {
         console.error("PDF conversion error:", error);
-        pushToast({ 
-          variant: "error", 
-          description: error instanceof Error ? error.message : "An error occurred while converting PDF" 
+        pushToast({
+          variant: "error",
+          description: error instanceof Error ? error.message : "An error occurred while converting PDF"
         });
       }
     },
@@ -162,14 +199,14 @@ const AdminContent = () => {
       try {
         const success = await deleteImage([filename]);
         if (success) {
-          pushToast({ 
-            variant: "success", 
-            description: `Successfully deleted "${filename}"` 
+          pushToast({
+            variant: "success",
+            description: `Successfully deleted "${filename}"`
           });
         } else {
-          pushToast({ 
-            variant: "error", 
-            description: `Failed to delete "${filename}"` 
+          pushToast({
+            variant: "error",
+            description: `Failed to delete "${filename}"`
           });
         }
         return success;
@@ -186,14 +223,14 @@ const AdminContent = () => {
       try {
         const success = await deleteImage(filenames);
         if (success) {
-          pushToast({ 
-            variant: "success", 
-            description: `Successfully deleted ${filenames.length} image${filenames.length > 1 ? "s" : ""}` 
+          pushToast({
+            variant: "success",
+            description: `Successfully deleted ${filenames.length} image${filenames.length > 1 ? "s" : ""}`
           });
         } else {
-          pushToast({ 
-            variant: "error", 
-            description: `Failed to delete images` 
+          pushToast({
+            variant: "error",
+            description: `Failed to delete images`
           });
         }
         return success;
@@ -210,17 +247,17 @@ const AdminContent = () => {
     try {
       sessionStorage.removeItem("admin-auth-token");
       setAuthToken(null);
-      
-      pushToast({ 
-        variant: "success", 
-        description: "Successfully signed out" 
+
+      pushToast({
+        variant: "success",
+        description: "Successfully signed out"
       });
       await router.replace("/login");
     } catch (error) {
       console.error("Failed to logout:", error);
-      pushToast({ 
-        variant: "error", 
-        description: "Failed to sign out" 
+      pushToast({
+        variant: "error",
+        description: "Failed to sign out"
       });
     } finally {
       setIsLoggingOut(false);
@@ -231,7 +268,7 @@ const AdminContent = () => {
     async (filename: string) => {
       try {
         setSavingImageFor(filename);
-        
+
         const imageToSave = images.find(img => img.name === filename);
         if (!imageToSave) {
           throw new Error("Image not found");
@@ -256,12 +293,12 @@ const AdminContent = () => {
         }
 
         resetMetadataDraft(filename);
-        
+
         pushToast({
           variant: "success",
           description: `Successfully saved changes for "${filename}"`,
         });
-        
+
         await refresh();
       } catch (error) {
         console.error("Save individual error:", error);
@@ -291,16 +328,16 @@ const AdminContent = () => {
   const handleRenameConfirm = useCallback(
     async () => {
       if (!renameDialog) return;
-      
+
       const { filename } = renameDialog;
       const extensionIndex = filename.lastIndexOf(".");
       const extension = extensionIndex >= 0 ? filename.slice(extensionIndex) : "";
 
       const trimmedBase = renameInput.trim();
       if (!trimmedBase) {
-        pushToast({ 
-          variant: "error", 
-          description: "Filename cannot be empty" 
+        pushToast({
+          variant: "error",
+          description: "Filename cannot be empty"
         });
         return;
       }
@@ -311,9 +348,9 @@ const AdminContent = () => {
       }
 
       if (nextName.includes("/") || nextName.includes("\\")) {
-        pushToast({ 
-          variant: "error", 
-          description: "Filename cannot contain path separators" 
+        pushToast({
+          variant: "error",
+          description: "Filename cannot contain path separators"
         });
         return;
       }
@@ -321,9 +358,9 @@ const AdminContent = () => {
       try {
         setRenamingImage(filename);
         await renameImage(filename, nextName);
-        pushToast({ 
-          variant: "success", 
-          description: `Successfully renamed to "${nextName}"` 
+        pushToast({
+          variant: "success",
+          description: `Successfully renamed to "${nextName}"`
         });
         setRenameDialog(null);
         setRenameInput("");
@@ -368,7 +405,7 @@ const AdminContent = () => {
 
   const handleDeleteVideoConfirm = useCallback(async () => {
     if (!deleteVideoConfirm) return;
-    
+
     try {
       await deleteVideo(deleteVideoConfirm);
       pushToast({
@@ -376,7 +413,7 @@ const AdminContent = () => {
         description: `Video deleted for ${deleteVideoConfirm}`,
       });
       setDeleteVideoConfirm(null);
-      
+
       await refresh();
     } catch (error) {
       pushToast({
@@ -389,11 +426,11 @@ const AdminContent = () => {
   const handleCleanupCorruptVideos = useCallback(async () => {
     if (isCleaningCorrupt) return;
     setIsCleaningCorrupt(true);
-    
+
     try {
-      pushToast({ 
-        variant: "info", 
-        description: "Checking for corrupt videos and orphaned files..." 
+      pushToast({
+        variant: "info",
+        description: "Checking for corrupt videos and orphaned files..."
       });
 
       const response = await fetch("/api/admin/cleanup-corrupt-videos", {
@@ -407,42 +444,42 @@ const AdminContent = () => {
       }
 
       const result = await response.json();
-      
+
       let message = "";
       let totalCleaned = 0;
-      
+
       if (result.orphanedFiles && result.orphanedFiles > 0) {
         message += `Removed ${result.orphanedFiles} orphaned file(s) from storage. `;
         totalCleaned += result.orphanedFiles;
       }
-      
+
       if (result.orphanedDbEntries && result.orphanedDbEntries > 0) {
         message += `Removed ${result.orphanedDbEntries} orphaned database entry(ies). `;
         totalCleaned += result.orphanedDbEntries;
       }
-      
+
       if (result.deleted > 0) {
         message += `Cleaned up ${result.deleted} corrupt video(s). `;
         totalCleaned += result.deleted;
       }
-      
+
       if (totalCleaned === 0) {
         message = `No issues found. All ${result.kept} video(s) are valid.`;
       } else {
         message += `${result.kept} valid video(s) kept.`;
       }
-      
-      pushToast({ 
-        variant: "success", 
+
+      pushToast({
+        variant: "success",
         description: message.trim()
       });
-      
+
       await refresh();
     } catch (error) {
       console.error("Cleanup corrupt videos error:", error);
-      pushToast({ 
-        variant: "error", 
-        description: error instanceof Error ? error.message : "Failed to cleanup corrupt videos" 
+      pushToast({
+        variant: "error",
+        description: error instanceof Error ? error.message : "Failed to cleanup corrupt videos"
       });
     } finally {
       setIsCleaningCorrupt(false);
@@ -453,38 +490,86 @@ const AdminContent = () => {
     if (isForceRefreshing) return;
     setIsForceRefreshing(true);
     try {
-      const response = await fetch("/api/admin/force-refresh", { 
+      const response = await fetch("/api/admin/force-refresh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
       });
-      
+
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      
+
       const data = await response.json();
-      pushToast({ 
-        variant: "success", 
-        description: "Slideshow refresh signal sent successfully" 
+      pushToast({
+        variant: "success",
+        description: "Slideshow refresh signal sent successfully"
       });
       console.log('Force refresh triggered:', data);
     } catch (error) {
       console.error("Failed to force refresh:", error);
-      pushToast({ 
-        variant: "error", 
-        description: "Failed to send refresh signal" 
+      pushToast({
+        variant: "error",
+        description: "Failed to send refresh signal"
       });
     } finally {
       setIsForceRefreshing(false);
     }
   }, [isForceRefreshing, pushToast, authToken]);
 
+  const [isReloadingMainPage, setIsReloadingMainPage] = useState(false);
+
+  const handleReloadMainPage = useCallback(async () => {
+    if (isReloadingMainPage) return;
+    setIsReloadingMainPage(true);
+    try {
+      const { supabase } = await import('../lib/supabase-mock');
+      const channel = supabase.channel('remote-control');
+      await channel.send({
+        type: 'broadcast',
+        event: 'remote-command',
+        payload: { command: 'reload-page' }
+      });
+      supabase.removeChannel(channel);
+      pushToast({ variant: "success", description: "Reload signal sent to main page" });
+    } catch (error) {
+      console.error("Failed to send reload signal:", error);
+      pushToast({ variant: "error", description: "Failed to send reload signal" });
+    } finally {
+      setIsReloadingMainPage(false);
+    }
+  }, [isReloadingMainPage, pushToast]);
+
+  const handleSaveBlackscreen = useCallback(async () => {
+    if (isSavingBlackscreen) return;
+    setIsSavingBlackscreen(true);
+    try {
+      const response = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({
+          key: 'blackscreen_schedules',
+          value: JSON.stringify(blackscreenSchedules),
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to save schedules');
+      pushToast({ variant: 'success', description: 'Black screen schedules saved' });
+    } catch (error) {
+      console.error('Failed to save blackscreen settings:', error);
+      pushToast({ variant: 'error', description: 'Failed to save schedules' });
+    } finally {
+      setIsSavingBlackscreen(false);
+    }
+  }, [isSavingBlackscreen, blackscreenSchedules, authToken, pushToast]);
+
   const handleMergeVideo = useCallback(async () => {
     const visibleImages = images.filter(img => !img.hidden && !img.isVideo && img.durationSeconds !== 0);
-    
+
     if (visibleImages.length < 1) {
       pushToast({ variant: "error", description: "Need at least 1 image with non-zero duration to merge" });
       setMergeVideoDialog(false);
@@ -496,7 +581,7 @@ const AdminContent = () => {
 
     try {
       setMergeProgress("Downloading images from storage...");
-      
+
       const response = await fetch("/api/admin/merge-video", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
@@ -515,22 +600,22 @@ const AdminContent = () => {
 
       setMergeProgress("Creating merged video...");
       const data = await response.json();
-      
+
       setMergeProgress("Upload complete! Refreshing...");
-      
-      pushToast({ 
-        variant: "success", 
-        description: `Dashboard video created successfully!` 
+
+      pushToast({
+        variant: "success",
+        description: `Dashboard video created successfully!`
       });
-      
+
       await refresh();
-      
+
       setMergeVideoDialog(false);
     } catch (error) {
       console.error("Merge video error:", error);
-      pushToast({ 
-        variant: "error", 
-        description: error instanceof Error ? error.message : "Failed to merge video" 
+      pushToast({
+        variant: "error",
+        description: error instanceof Error ? error.message : "Failed to merge video"
       });
       setMergeVideoDialog(false);
     } finally {
@@ -594,9 +679,9 @@ const AdminContent = () => {
     <div className="relative w-full min-h-screen bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white touch-auto select-text">
       <div className="pointer-events-none fixed -top-32 -right-24 h-96 w-96 rounded-full bg-sky-500/20 blur-3xl"></div>
       <div className="pointer-events-none fixed -bottom-36 -left-20 h-[500px] w-[500px] rounded-full bg-violet-500/15 blur-3xl"></div>
-      
+
       <div className="relative z-10 mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-8 lg:px-8">
-        
+
         <header className="flex flex-col gap-6 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-col gap-3">
@@ -605,7 +690,7 @@ const AdminContent = () => {
                 Upload images, customize durations, and manage your slideshow presentation
               </p>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -618,7 +703,7 @@ const AdminContent = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => setMergeVideoDialog(true)}
@@ -630,7 +715,7 @@ const AdminContent = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                 </svg>
               </button>
-              
+
               <button
                 type="button"
                 onClick={handleForceRefresh}
@@ -646,6 +731,23 @@ const AdminContent = () => {
                   </svg>
                 )}
               </button>
+
+              <button
+                type="button"
+                onClick={handleReloadMainPage}
+                disabled={isReloadingMainPage}
+                className="inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-200 transition hover:border-amber-400/50 hover:bg-amber-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Reload main page"
+              >
+                {isReloadingMainPage ? (
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-amber-200 border-t-transparent"></span>
+                ) : (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+              </button>
+
               <button
                 type="button"
                 onClick={handleLogout}
@@ -675,14 +777,14 @@ const AdminContent = () => {
         </header>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          
+
           <aside className="flex flex-col gap-6 lg:col-span-4 xl:col-span-3">
-            
+
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-lg">
               <h2 className="mb-4 text-lg font-semibold text-white">Upload Images or PDF</h2>
-              <UploadBox 
-                isUploading={isUploading} 
-                uploadTasks={uploadTasks} 
+              <UploadBox
+                isUploading={isUploading}
+                uploadTasks={uploadTasks}
                 onFilesSelected={handleUpload}
                 onPdfSelected={handlePdfUpload}
               />
@@ -747,7 +849,7 @@ const AdminContent = () => {
                             </p>
                           </div>
 
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-row gap-1">
                             <button
                               onClick={() => window.open(img.videoUrl, '_blank')}
                               className="rounded px-2 py-1 text-xs text-purple-200 transition hover:bg-purple-400/20"
@@ -759,15 +861,158 @@ const AdminContent = () => {
                             </button>
                             <button
                               onClick={() => setDeleteVideoConfirm(img.name)}
-                              className="rounded px-2 py-1 text-xs text-red-300 transition hover:bg-red-500/20"
+                              className="rounded p-1 text-red-300 transition hover:bg-red-500/20"
                               title="Delete video"
                             >
-                              Delete
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
                             </button>
                           </div>
                         </div>
                       </div>
                     ))
+                )}
+              </div>
+            </div>
+
+            {/* Black Screen Schedule Section */}
+            <div className="rounded-2xl border border-slate-400/20 bg-gradient-to-br from-slate-500/10 to-slate-600/10 p-6 shadow-glass backdrop-blur-lg">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-200">Screen Schedules</h3>
+                  <p className="mt-1 text-xs text-white/50"></p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newSchedule: BlackScreenSchedule = {
+                      id: Date.now().toString(),
+                      name: `Schedule ${blackscreenSchedules.length + 1}`,
+                      enabled: true,
+                      startTime: '22:00',
+                      endTime: '06:00',
+                      days: [0, 1, 2, 3, 4, 5, 6],
+                    };
+                    setBlackscreenSchedules([...blackscreenSchedules, newSchedule]);
+                  }}
+                  className="rounded-lg border border-emerald-400/30 bg-emerald-500/20 px-3 py-1.5 text-xs font-medium text-emerald-200 transition hover:border-emerald-400/50 hover:bg-emerald-500/30"
+                >
+                  + Add
+                </button>
+              </div>
+              <div className="space-y-3">
+                {blackscreenSchedules.length === 0 ? (
+                  <p className="text-xs text-white/40 italic py-4 text-center">No schedules. Click &quot;+ Add&quot; to create one.</p>
+                ) : (
+                  blackscreenSchedules.map((schedule, idx) => (
+                    <div
+                      key={schedule.id}
+                      className={`rounded-lg border p-3 transition ${schedule.enabled ? 'border-emerald-400/30 bg-emerald-500/5' : 'border-white/10 bg-white/5 opacity-60'}`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <input
+                          type="text"
+                          value={schedule.name}
+                          onChange={(e) => {
+                            const updated = [...blackscreenSchedules];
+                            updated[idx] = { ...schedule, name: e.target.value };
+                            setBlackscreenSchedules(updated);
+                          }}
+                          className="bg-transparent text-xs font-medium text-white/80 border-none outline-none w-24"
+                          placeholder="Name"
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...blackscreenSchedules];
+                              updated[idx] = { ...schedule, enabled: !schedule.enabled };
+                              setBlackscreenSchedules(updated);
+                            }}
+                            className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${schedule.enabled ? 'bg-emerald-500' : 'bg-white/20'}`}
+                          >
+                            <span className={`absolute h-4 w-4 rounded-full bg-white transition-transform ${schedule.enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBlackscreenSchedules(blackscreenSchedules.filter(s => s.id !== schedule.id))}
+                            className="text-red-400/70 hover:text-red-400 transition"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={schedule.startTime}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9:]/g, '');
+                            const updated = [...blackscreenSchedules];
+                            updated[idx] = { ...schedule, startTime: val.length === 2 && !val.includes(':') ? val + ':' : val };
+                            setBlackscreenSchedules(updated);
+                          }}
+                          maxLength={5}
+                          placeholder="HH:MM"
+                          className="w-16 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-white text-center font-mono focus:border-slate-400/50 focus:outline-none"
+                        />
+                        <span className="text-xs text-white/40">→</span>
+                        <input
+                          type="text"
+                          value={schedule.endTime}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9:]/g, '');
+                            const updated = [...blackscreenSchedules];
+                            updated[idx] = { ...schedule, endTime: val.length === 2 && !val.includes(':') ? val + ':' : val };
+                            setBlackscreenSchedules(updated);
+                          }}
+                          maxLength={5}
+                          placeholder="HH:MM"
+                          className="w-16 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-white text-center font-mono focus:border-slate-400/50 focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((dayLabel, dayIdx) => {
+                          const isSelected = schedule.days.includes(dayIdx);
+                          return (
+                            <button
+                              key={`${schedule.id}-${dayIdx}`}
+                              type="button"
+                              onClick={() => {
+                                const updated = [...blackscreenSchedules];
+                                if (isSelected && schedule.days.length > 1) {
+                                  updated[idx] = { ...schedule, days: schedule.days.filter(d => d !== dayIdx) };
+                                } else if (!isSelected) {
+                                  updated[idx] = { ...schedule, days: [...schedule.days, dayIdx].sort() };
+                                }
+                                setBlackscreenSchedules(updated);
+                              }}
+                              className={`w-6 h-6 text-xs rounded transition ${isSelected ? 'bg-emerald-500/40 text-emerald-200' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
+                            >
+                              {dayLabel}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
+                <button
+                  type="button"
+                  onClick={handleSaveBlackscreen}
+                  disabled={isSavingBlackscreen}
+                  className="w-full rounded-lg border border-slate-400/30 bg-slate-500/20 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-400/50 hover:bg-slate-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSavingBlackscreen ? 'Saving...' : 'Save Schedules'}
+                </button>
+                {blackscreenSchedules.filter(s => s.enabled).length > 0 && (
+                  <div className="flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-2">
+                    <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                    <span className="text-xs text-emerald-200">{blackscreenSchedules.filter(s => s.enabled).length} active schedule(s)</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -853,7 +1098,7 @@ const AdminContent = () => {
                           transform: draggedIndex === originalIndex ? 'scale(0.95)' : 'scale(1)',
                         }}
                       >
-                        
+
 
                         <ImageCard
                           image={image}
@@ -862,9 +1107,9 @@ const AdminContent = () => {
                           onSave={handleSaveIndividual}
                           onDelete={(filename: string) => setConfirmTarget(filename)}
                           onPreview={openFullscreen}
-                          
+
                           onDeleteVideo={(filename: string) => setDeleteVideoConfirm(filename)}
-                          
+
                           isSaving={savingImageFor === image.name}
                           onRename={handleRenameImage}
                           isRenaming={renamingImage === image.name}
@@ -985,7 +1230,7 @@ const AdminContent = () => {
       />
 
       {fullscreenImage && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm"
           onClick={closeFullscreen}
         >

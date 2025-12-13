@@ -32,6 +32,12 @@ export default async function handler(
         video_gop: '48',
         video_width: '1920',
         video_height: '1080',
+        // Black screen schedule defaults
+        blackscreen_enabled: 'false',
+        blackscreen_start_time: '22:00',
+        blackscreen_end_time: '06:00',
+        blackscreen_days: '0,1,2,3,4,5,6', // All days by default (0=Sun, 6=Sat)
+        blackscreen_schedules: '[]', // JSON array of schedules
       };
 
       data?.forEach((row) => {
@@ -49,6 +55,9 @@ export default async function handler(
         } else if (row.key.startsWith('video_')) {
           // Pass through video encoding settings as-is (snake_case)
           settings[row.key] = value;
+        } else if (row.key.startsWith('blackscreen_')) {
+          // Pass through black screen schedule settings
+          settings[row.key] = value;
         }
       });
 
@@ -64,14 +73,14 @@ export default async function handler(
     // Update settings in database
     try {
       const body = req.body as Record<string, any>;
-      
+
       if (!body || typeof body !== "object") {
         return res.status(400).json({ error: "Invalid payload" });
       }
 
       // Map camelCase to snake_case and upsert
       const updates: Array<{ key: string; value: string }> = [];
-      
+
       if (body.transitionEffect) {
         updates.push({ key: 'transition_effect', value: body.transitionEffect });
       }
