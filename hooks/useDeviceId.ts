@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 const generateNumericId = (): string => {
-  // Generate a random 8-digit number
-  // Min: 10000000, Max: 99999999
-  const min = 10000000;
-  const max = 99999999;
+  // Generate a random 4-digit number
+  // Min: 1000, Max: 9999
+  const min = 1000;
+  const max = 9999;
   return Math.floor(Math.random() * (max - min + 1) + min).toString();
 };
 
@@ -16,16 +16,16 @@ const getDeviceId = (): string => {
   let deviceId = localStorage.getItem('deviceId');
 
   if (deviceId) {
-    // If an ID exists, check if it's numeric and 8 digits
-    const isNumeric = /^\d{8}$/.test(deviceId);
+    // If an ID exists, check if it's numeric and 4 digits
+    const isNumeric = /^\d{4}$/.test(deviceId);
 
     if (!isNumeric) {
-      // If not numeric (old format), generate new one
+      // If not 4-digit numeric (old format), generate new one
       deviceId = generateNumericId();
       localStorage.setItem('deviceId', deviceId);
     }
   } else {
-    // If no ID exists, generate a new 8-digit numeric one.
+    // If no ID exists, generate a new 4-digit numeric one.
     deviceId = generateNumericId();
     localStorage.setItem('deviceId', deviceId);
   }

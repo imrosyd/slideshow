@@ -82,7 +82,7 @@ export default function RemoteControl() {
     setDeviceInput(value);
     setVerificationError(null);
 
-    if (value.length === 8) {
+    if (value.length === 4) {
       setIsVerifying(true);
       setSelectedDevice(null); // Don't select yet
 
@@ -212,14 +212,14 @@ export default function RemoteControl() {
                 type="tel"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                maxLength={8}
+                maxLength={4}
                 value={deviceInput}
                 onChange={(e) => {
                   // Only allow numeric input
                   const val = e.target.value.replace(/[^0-9]/g, '');
                   handleDeviceInputChange({ ...e, target: { ...e.target, value: val } });
                 }}
-                placeholder="Enter 8-digit device code"
+                placeholder="Enter 4-digit device code"
                 className={`w-full rounded-xl border bg-white/5 px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-1 ${verificationError
                   ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
                   : 'border-white/10 focus:border-sky-400 focus:ring-sky-400'
