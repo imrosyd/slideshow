@@ -41,7 +41,52 @@ const AdminContent = () => {
     startTime: string;
     endTime: string;
     days: number[];
+    timezone: string;
   }
+
+  // GMT offset timezone options with region examples
+  const TIMEZONE_OPTIONS = [
+    { value: 'GMT-12', label: 'GMT-12 (Baker Island)' },
+    { value: 'GMT-11', label: 'GMT-11 (American Samoa)' },
+    { value: 'GMT-10', label: 'GMT-10 (Hawaii)' },
+    { value: 'GMT-9', label: 'GMT-9 (Alaska)' },
+    { value: 'GMT-8', label: 'GMT-8 (Los Angeles, Vancouver)' },
+    { value: 'GMT-7', label: 'GMT-7 (Denver, Phoenix)' },
+    { value: 'GMT-6', label: 'GMT-6 (Chicago, Mexico City)' },
+    { value: 'GMT-5', label: 'GMT-5 (New York, Toronto)' },
+    { value: 'GMT-4', label: 'GMT-4 (Santiago, Caracas)' },
+    { value: 'GMT-3', label: 'GMT-3 (São Paulo, Buenos Aires)' },
+    { value: 'GMT-2', label: 'GMT-2 (South Georgia)' },
+    { value: 'GMT-1', label: 'GMT-1 (Azores, Cape Verde)' },
+    { value: 'GMT+0', label: 'GMT+0 (London, Lisbon)' },
+    { value: 'GMT+1', label: 'GMT+1 (Paris, Berlin, Rome)' },
+    { value: 'GMT+2', label: 'GMT+2 (Cairo, Athens, Johannesburg)' },
+    { value: 'GMT+3', label: 'GMT+3 (Moscow, Riyadh, Nairobi)' },
+    { value: 'GMT+4', label: 'GMT+4 (Dubai, Baku)' },
+    { value: 'GMT+5', label: 'GMT+5 (Karachi, Tashkent)' },
+    { value: 'GMT+5:30', label: 'GMT+5:30 (Mumbai, New Delhi)' },
+    { value: 'GMT+6', label: 'GMT+6 (Dhaka, Almaty)' },
+    { value: 'GMT+7', label: 'GMT+7 (Jakarta, Bangkok, Hanoi)' },
+    { value: 'GMT+8', label: 'GMT+8 (Singapore, Hong Kong, Perth)' },
+    { value: 'GMT+9', label: 'GMT+9 (Tokyo, Seoul)' },
+    { value: 'GMT+10', label: 'GMT+10 (Sydney, Melbourne)' },
+    { value: 'GMT+11', label: 'GMT+11 (Solomon Islands)' },
+    { value: 'GMT+12', label: 'GMT+12 (Auckland, Fiji)' },
+    { value: 'GMT+13', label: 'GMT+13 (Tonga, Samoa)' },
+    { value: 'GMT+14', label: 'GMT+14 (Line Islands)' },
+  ];
+
+  // Helper to get browser's GMT offset
+  const getBrowserGMTOffset = (): string => {
+    const offset = new Date().getTimezoneOffset();
+    const hours = Math.floor(Math.abs(offset) / 60);
+    const mins = Math.abs(offset) % 60;
+    const sign = offset <= 0 ? '+' : '-';
+    if (mins === 0) {
+      return `GMT${sign}${hours}`;
+    }
+    return `GMT${sign}${hours}:${String(mins).padStart(2, '0')}`;
+  };
   const [blackscreenSchedules, setBlackscreenSchedules] = useState<BlackScreenSchedule[]>([]);
   const [isSavingBlackscreen, setIsSavingBlackscreen] = useState(false);
 
@@ -893,6 +938,7 @@ const AdminContent = () => {
                       startTime: '22:00',
                       endTime: '06:00',
                       days: [0, 1, 2, 3, 4, 5, 6],
+                      timezone: getBrowserGMTOffset(),
                     };
                     setBlackscreenSchedules([...blackscreenSchedules, newSchedule]);
                   }}
@@ -973,6 +1019,24 @@ const AdminContent = () => {
                           placeholder="HH:MM"
                           className="w-16 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-white text-center font-mono focus:border-slate-400/50 focus:outline-none"
                         />
+                      </div>
+                      {/* Timezone selector */}
+                      <div className="mb-2">
+                        <select
+                          value={schedule.timezone || 'GMT+0'}
+                          onChange={(e) => {
+                            const updated = [...blackscreenSchedules];
+                            updated[idx] = { ...schedule, timezone: e.target.value };
+                            setBlackscreenSchedules(updated);
+                          }}
+                          className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white focus:border-slate-400/50 focus:outline-none"
+                        >
+                          {TIMEZONE_OPTIONS.map((tz) => (
+                            <option key={tz.value} value={tz.value} className="bg-slate-800">
+                              {tz.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((dayLabel, dayIdx) => {
