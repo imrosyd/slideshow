@@ -296,6 +296,7 @@ npx prisma db seed
 # 🔒 Confirm password: ********
 ```
 
+```bash
 # Build application
 npm run build
 
