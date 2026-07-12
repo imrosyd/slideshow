@@ -19,7 +19,7 @@ export default async function handler(
   }
 
   // Optional auth check if required
-  if (!isAuthorizedAdminRequest(req)) {
+  if (!(await isAuthorizedAdminRequest(req))) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 

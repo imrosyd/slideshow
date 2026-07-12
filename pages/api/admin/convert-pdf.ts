@@ -26,7 +26,7 @@ export default async function handler(
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  if (!isAuthorizedAdminRequest(req)) {
+  if (!(await isAuthorizedAdminRequest(req))) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
 
