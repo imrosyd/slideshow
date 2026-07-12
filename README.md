@@ -275,11 +275,19 @@ STORAGE_PUBLIC_URL=/api/storage
 # Admin
 ADMIN_PASSWORD=your_secure_password
 
+# Token signing secret — REQUIRED, no default.
+# Generate with: openssl rand -hex 32
+JWT_SECRET=paste_the_generated_hex_here
+
 # App
 NODE_ENV=production
 PORT=3000
 HOST=0.0.0.0
 ```
+
+> **`JWT_SECRET` is mandatory.** Login tokens are signed with it. The app has no
+> built-in fallback on purpose: a default secret is public knowledge, and anyone
+> holding it can sign a token with `role: "admin"` and skip the password entirely.
 
 ```bash
 # Setup database schema (NO sudo!)

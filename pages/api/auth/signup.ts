@@ -10,9 +10,17 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // This endpoint is unauthenticated by design (it bootstraps the first admin),
+  // so it must never invent a password. Falling back to "password" here handed
+  // anyone who could reach the server a working admin login.
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) {
+    console.error('[Signup] ADMIN_PASSWORD is not set; refusing to create an admin user.');
+    return res.status(500).json({ error: 'Server misconfigured: ADMIN_PASSWORD is not set' });
+  }
+
   try {
     const adminUsername = process.env.USERNAME || 'admin';
-    const adminPassword = process.env.ADMIN_PASSWORD || 'password';
 
     const existingAdmin = await (db as any).getProfileByUsername(adminUsername);
     if (existingAdmin) {

@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { db } from '../../../lib/db';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { getJwtSecret } from '../../../lib/jwt-secret';
 
 export default async function handler(
   req: NextApiRequest,
@@ -9,6 +10,14 @@ export default async function handler(
 ) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  let jwtSecret: string;
+  try {
+    jwtSecret = getJwtSecret();
+  } catch (error) {
+    console.error('[Login]', error instanceof Error ? error.message : error);
+    return res.status(500).json({ error: 'Server misconfigured: JWT_SECRET is not set' });
   }
 
   try {
@@ -30,7 +39,7 @@ export default async function handler(
 
     const token = jwt.sign(
       { userId: profile.id, username: profile.username, role: profile.role },
-      process.env.JWT_SECRET || 'your-default-secret',
+      jwtSecret,
       { expiresIn: '1h' }
     );
 
