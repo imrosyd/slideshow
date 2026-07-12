@@ -55,7 +55,7 @@ export default async function handler(
     return res.status(405).json({ error: `Metode ${req.method} tidak diizinkan.` });
   }
 
-  if (!isAuthorizedAdminRequest(req)) {
+  if (!(await isAuthorizedAdminRequest(req))) {
     return res.status(401).json({ error: "Akses ditolak." });
   }
 

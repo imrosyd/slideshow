@@ -12,7 +12,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<Data>
 ) {
-  if (req.method === "POST" && !isAuthorizedAdminRequest(req)) {
+  if (req.method === "POST" && !(await isAuthorizedAdminRequest(req))) {
     return res.status(401).json({ error: "Akses ditolak." });
   }
 

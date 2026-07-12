@@ -22,7 +22,7 @@ type UpsertRecord = {
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (!isAuthorizedAdminRequest(req)) {
+  if (!(await isAuthorizedAdminRequest(req))) {
     return res.status(401).json({ error: "Akses ditolak." });
   }
 

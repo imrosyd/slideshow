@@ -235,7 +235,7 @@ export default async function handler(
     return res.status(500).json({ error: "Konfigurasi server salah: ADMIN_PASSWORD tidak diatur." });
   }
 
-  if (!isAuthorizedAdminRequest(req)) {
+  if (!(await isAuthorizedAdminRequest(req))) {
     return res.status(401).json({ error: "Akses ditolak." });
   }
 

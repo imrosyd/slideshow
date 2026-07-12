@@ -30,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // PUT - Update setting
   if (req.method === "PUT") {
-    if (!isAuthorizedAdminRequest(req)) {
+    if (!(await isAuthorizedAdminRequest(req))) {
       return res.status(401).json({ error: "Akses ditolak." });
     }
 
