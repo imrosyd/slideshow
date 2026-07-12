@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { spawn } from "child_process";
 import path from "path";
 import fs from "fs/promises";
 import os from "os";
@@ -7,8 +6,7 @@ import { db } from "../../../lib/db";
 import { storage } from "../../../lib/storage-adapter";
 import { broadcast } from "../../../lib/websocket";
 import computeFileHash from '../../../lib/file-hash';
-// @ts-ignore
-import ffmpegPath from "@ffmpeg-installer/ffmpeg";
+import { runFfmpeg } from "../../../lib/ffmpeg-runner";
 
 type ImageInput = {
   filename: string;
@@ -77,39 +75,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const outputPath = path.join(tempDir, "output.mp4");
 
-    await new Promise<void>((resolve, reject) => {
-      const args = [
-        "-f", "concat",
-        "-safe", "0",
-        "-i", concatFilePath,
-        "-vf", `scale=${defaultEnc.width}:${defaultEnc.height}:force_original_aspect_ratio=decrease,pad=${defaultEnc.width}:${defaultEnc.height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p`,
-        "-c:v", "libx264",
-        "-r", defaultEnc.fps.toString(),
-        "-g", defaultEnc.gop.toString(),
-        "-profile:v", defaultEnc.profile,
-        "-level", defaultEnc.level,
-        "-preset", defaultEnc.preset,
-        "-crf", defaultEnc.crf.toString(),
-        "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",
-        "-tune", "stillimage",
-        "-y",
-        outputPath
-      ];
-
-      const ffmpeg = spawn(ffmpegPath.path, args);
-      let stderr = "";
-      ffmpeg.stderr.on("data", (data) => { stderr += data.toString(); });
-      ffmpeg.on("close", (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          console.error(`[Merge Video] FFmpeg error:\n${stderr}`);
-          reject(new Error(`FFmpeg exited with code ${code}`));
-        }
-      });
-      ffmpeg.on("error", (err) => reject(err));
-    });
+    await runFfmpeg([
+      "-f", "concat",
+      "-safe", "0",
+      "-i", concatFilePath,
+      "-vf", `scale=${defaultEnc.width}:${defaultEnc.height}:force_original_aspect_ratio=decrease,pad=${defaultEnc.width}:${defaultEnc.height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p`,
+      "-c:v", "libx264",
+      "-r", defaultEnc.fps.toString(),
+      "-g", defaultEnc.gop.toString(),
+      "-profile:v", defaultEnc.profile,
+      "-level", defaultEnc.level,
+      "-preset", defaultEnc.preset,
+      "-crf", defaultEnc.crf.toString(),
+      "-pix_fmt", "yuv420p",
+      "-movflags", "+faststart",
+      "-tune", "stillimage",
+      "-y",
+      outputPath
+    ], { label: "Merge Video" });
 
     await storage.deleteVideo(videoFilename);
     const videoBuffer = await fs.readFile(outputPath);
@@ -135,11 +118,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const totalDuration = images.reduce((sum, img) => sum + img.durationSeconds, 0);
     const placeholderPath = path.join(tempDir, 'placeholder.jpg');
-    await new Promise<void>((resolve, reject) => {
-      const ffmpeg = spawn(ffmpegPath.path, ['-f', 'lavfi', '-i', 'color=c=black:s=1920x1080:d=1', '-frames:v', '1', '-y', placeholderPath]);
-      ffmpeg.on('close', (code) => code === 0 ? resolve() : reject(new Error(`FFmpeg placeholder failed with code ${code}`)));
-      ffmpeg.on('error', reject);
-    });
+    await runFfmpeg(
+      ['-f', 'lavfi', '-i', 'color=c=black:s=1920x1080:d=1', '-frames:v', '1', '-y', placeholderPath],
+      { label: 'Merge Video placeholder' },
+    );
 
     await storage.deleteImage(placeholderImageName);
     const placeholderBuffer = await fs.readFile(placeholderPath);
@@ -188,8 +170,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn('[Merge Video] Failed to broadcast video update:', broadcastError);
     }
 
-    await fs.rm(tempDir, { recursive: true, force: true });
-
     return res.status(200).json({
       success: true,
       filename: "dashboard.mp4",
@@ -201,11 +181,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   } catch (error) {
     console.error("[Merge Video] Error:", error);
-    try {
-      await fs.rm(tempDir, { recursive: true, force: true });
-    } catch {}
     return res.status(500).json({
       error: error instanceof Error ? error.message : "Failed to merge video"
+    });
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch((err) => {
+      console.warn('[Merge Video] failed to remove temp dir', tempDir, err);
     });
   }
 }

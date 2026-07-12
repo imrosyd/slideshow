@@ -1,15 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { db } from '../../../lib/db';
 import { storage } from '../../../lib/storage-adapter';
 import computeFileHash from '../../../lib/file-hash';
-
-const execAsync = promisify(exec);
-const ffmpegPath = ffmpegInstaller.path;
+import { runFfmpeg } from '../../../lib/ffmpeg-runner';
 
 interface VideoImageData {
   filename: string;
@@ -64,10 +59,12 @@ export default async function handler(
     return res.status(400).json({ error: 'No images to process' });
   }
 
+  const tempDir = path.join('/tmp', 'slideshow-video-gen-' + Date.now());
+
   try {
     const settings = await db.getSettings();
     const settingsMap = new Map(settings.map(s => [s.key, s.value]));
-    
+
     const defaultEnc = {
       fps: parseInt(settingsMap.get('video_fps') || '24', 10),
       gop: parseInt(settingsMap.get('video_gop') || '48', 10),
@@ -79,7 +76,6 @@ export default async function handler(
       height: parseInt(settingsMap.get('video_height') || '1080', 10),
     };
 
-    const tempDir = path.join('/tmp', 'slideshow-video-gen-' + Date.now());
     await fs.mkdir(tempDir, { recursive: true });
 
     const imagePaths: string[] = [];
@@ -92,20 +88,25 @@ export default async function handler(
     }
 
     const tempVideoPath = path.join(tempDir, `video-${Date.now()}.mp4`);
-    let ffmpegCmd = `"${ffmpegPath}"`;
+    const inputArgs: string[] = [];
     let totalDurationEffective = 0;
 
     for (let i = 0; i < imagePaths.length; i++) {
       const imgFilename = imagesToProcess[i];
       const imageDurationRaw = imageDurations.get(imgFilename) || 0;
       const imageDuration = Math.max(1, Math.floor(imageDurationRaw));
-      ffmpegCmd += ` -loop 1 -framerate ${defaultEnc.fps} -t ${imageDuration} -i "${imagePaths[i]}"`;
+      inputArgs.push(
+        '-loop', '1',
+        '-framerate', String(defaultEnc.fps),
+        '-t', String(imageDuration),
+        '-i', imagePaths[i],
+      );
       totalDurationEffective += imageDuration;
     }
-    
+
     const inputCount = imagePaths.length;
     let filterComplex = '';
-    
+
     for (let i = 0; i < inputCount; i++) {
       filterComplex += `[${i}:v]scale=${defaultEnc.width}:${defaultEnc.height}:force_original_aspect_ratio=decrease:eval=frame,pad=${defaultEnc.width}:${defaultEnc.height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p[v${i}];`;
     }
@@ -114,9 +115,22 @@ export default async function handler(
       ? `[v0]null[out]`
       : Array.from({ length: inputCount }, (_, i) => `[v${i}]`).join('') + `concat=n=${inputCount}:v=1:a=0,format=yuv420p[out]`;
 
-    ffmpegCmd += ` -filter_complex "${filterComplex}" -map "[out]" -c:v libx264 -r ${defaultEnc.fps} -g ${defaultEnc.gop} -profile:v ${defaultEnc.profile} -level ${defaultEnc.level} -preset ${defaultEnc.preset} -crf ${defaultEnc.crf} -pix_fmt yuv420p -movflags +faststart -tune stillimage "${tempVideoPath}" 2>&1`;
-
-    await execAsync(ffmpegCmd, { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
+    await runFfmpeg([
+      ...inputArgs,
+      '-filter_complex', filterComplex,
+      '-map', '[out]',
+      '-c:v', 'libx264',
+      '-r', String(defaultEnc.fps),
+      '-g', String(defaultEnc.gop),
+      '-profile:v', defaultEnc.profile,
+      '-level', defaultEnc.level,
+      '-preset', defaultEnc.preset,
+      '-crf', String(defaultEnc.crf),
+      '-pix_fmt', 'yuv420p',
+      '-movflags', '+faststart',
+      '-tune', 'stillimage',
+      '-y', tempVideoPath,
+    ], { label: 'Video Gen' });
 
     const firstImageName = imagesToProcess[0];
     const videoFileName = firstImageName.replace(/\.[^/.]+$/, '.mp4');
@@ -149,8 +163,6 @@ export default async function handler(
       });
     }
 
-    await fs.rm(tempDir, { recursive: true, force: true });
-
     return res.status(200).json({
       success: true,
       videoUrl,
@@ -164,6 +176,10 @@ export default async function handler(
     return res.status(500).json({
       error: 'Video generation failed',
       details: error instanceof Error ? error.message : String(error),
+    });
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch((err) => {
+      console.warn('[Video Gen] failed to remove temp dir', tempDir, err);
     });
   }
 }
