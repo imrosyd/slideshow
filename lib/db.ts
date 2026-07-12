@@ -90,7 +90,9 @@ export interface DatabaseAdapter {
 
   // Profiles
   getProfileByUsername(username: string): Promise<Profile | null>;
+  getProfileById(id: string): Promise<Profile | null>;
   createProfile(data: Omit<Profile, 'id' | 'created_at' | 'updated_at'>): Promise<Profile>;
+  updateProfile(id: string, data: Partial<Pick<Profile, 'username' | 'password'>>): Promise<Profile>;
   
   // Utility
   getAdapterType(): 'prisma';
@@ -426,6 +428,19 @@ class PrismaAdapter implements DatabaseAdapter {
 
   async createProfile(data: Omit<Profile, 'id' | 'created_at' | 'updated_at' | 'email'>): Promise<Profile> {
     return this.prisma.profile.create({
+      data,
+    });
+  }
+
+  async getProfileById(id: string): Promise<Profile | null> {
+    return this.prisma.profile.findUnique({
+      where: { id },
+    });
+  }
+
+  async updateProfile(id: string, data: Partial<Pick<Profile, 'username' | 'password'>>): Promise<Profile> {
+    return this.prisma.profile.update({
+      where: { id },
       data,
     });
   }
