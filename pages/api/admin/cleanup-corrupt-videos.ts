@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import https from "https";
 import { db } from "../../../lib/db";
 import { storage } from "../../../lib/storage-adapter";
 
@@ -15,26 +14,11 @@ type CleanupResult = {
   orphanedDbEntriesList?: string[];
 };
 
-function checkVideoUrl(url: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const request = https.get(url, (res) => {
-      if (res.statusCode === 200) {
-        resolve(true);
-      } else {
-        resolve(false);
-      }
-      res.resume();
-    });
-    
-    request.on('error', () => {
-      resolve(false);
-    });
-    
-    request.setTimeout(5000, () => {
-      request.destroy();
-      resolve(false);
-    });
-  });
+// Derive the stored video filename from a video_url like
+// "/storage/videos/dashboard.mp4?v=abc" -> "dashboard.mp4".
+function videoFilenameFromUrl(url: string | null | undefined, fallback: string): string {
+  if (!url) return fallback;
+  return url.split("/").pop()!.split("?")[0];
 }
 
 export default async function handler(
@@ -47,103 +31,68 @@ export default async function handler(
 
   try {
     console.log('[Cleanup] Starting corrupt video cleanup...');
-    
+
+    // Step 1: image files on disk with no DB row.
     const orphanedFiles: string[] = [];
     const imageFiles = await storage.listImages();
-    console.log(`[Cleanup] Found ${imageFiles.length} files in storage`);
-    
-    const dbEntries = await db.getImageDurations();
-    const dbFilenames = new Set(dbEntries.map(entry => entry.filename));
-    console.log(`[Cleanup] Found ${dbFilenames.size} entries in database`);
-    
+    const dbFilenames = new Set((await db.getImageDurations()).map(e => e.filename));
+
     for (const file of imageFiles) {
       if (!dbFilenames.has(file)) {
-        console.log(`[Cleanup] 🗑️ Orphaned file found: ${file}`);
         orphanedFiles.push(file);
         await storage.deleteImage(file);
         console.log(`[Cleanup] ✅ Deleted orphaned file: ${file}`);
       }
     }
+    console.log(`[Cleanup] Step 1: ${orphanedFiles.length} orphaned files removed`);
 
-    console.log(`[Cleanup] Step 1 complete: ${orphanedFiles.length} orphaned files removed`);
-    
+    // Step 2: non-video DB rows whose image file is gone.
     const orphanedDbEntries: string[] = [];
     const allDbEntries = await db.getImageDurations();
-    console.log(`[Cleanup] Found ${allDbEntries.length} entries in database`);
-    
-    const storageFiles = await storage.listImages();
-    const storageFilenames = new Set(storageFiles);
-    console.log(`[Cleanup] Found ${storageFilenames.size} files in storage`);
-    
+    const storageFilenames = new Set(await storage.listImages());
+
     for (const entry of allDbEntries) {
       if (entry.is_video) continue;
-      
       if (!storageFilenames.has(entry.filename) && entry.filename !== '.emptyFolderPlaceholder') {
-        console.log(`[Cleanup] 🗑️ Orphaned DB entry found: ${entry.filename}`);
         orphanedDbEntries.push(entry.filename);
         await db.deleteImageDuration(entry.filename);
         console.log(`[Cleanup] ✅ Deleted orphaned DB entry: ${entry.filename}`);
       }
     }
+    console.log(`[Cleanup] Step 2: ${orphanedDbEntries.length} orphaned DB entries removed`);
 
-    console.log(`[Cleanup] Step 2 complete: ${orphanedDbEntries.length} orphaned DB entries removed`);
-    
-    console.log('[Cleanup] Step 3: Checking corrupt video entries...');
-    
-    const videos = await db.getImageDurations({ is_video: true, hidden: true });
+    // Step 3: video DB rows whose backing file is gone.
+    // Check the file on disk, not over HTTP: video_url is a site-relative path
+    // (e.g. "/storage/videos/dashboard.mp4"), which https.get cannot resolve.
+    // Cover every is_video row — merged entries like dashboard.mp4 are hidden=false,
+    // so a hidden-only filter (the previous behaviour) skipped exactly the orphan
+    // left behind when all source images are deleted.
+    console.log('[Cleanup] Step 3: checking video rows against stored files...');
 
-    if (!videos || videos.length === 0) {
-      console.log('[Cleanup] No hidden video entries found');
-      return res.status(200).json({
-        checked: 0,
-        deleted: 0,
-        kept: 0,
-        deletedEntries: [],
-        keptEntries: [],
-        orphanedFiles: orphanedFiles.length,
-        orphanedFilesList: orphanedFiles,
-        orphanedDbEntries: orphanedDbEntries.length,
-        orphanedDbEntriesList: orphanedDbEntries,
-      });
-    }
-
-    console.log(`[Cleanup] Found ${videos.length} hidden video entries`);
+    const videoEntries = await db.getImageDurations({ is_video: true });
+    const storedVideos = new Set(await storage.listVideos());
 
     const toDelete: string[] = [];
     const toKeep: string[] = [];
 
-    for (const video of videos) {
-      const videoUrl = video.video_url;
-      if (!videoUrl) {
-        toDelete.push(video.filename);
-        continue;
-      }
-      console.log(`[Cleanup] Checking ${video.filename}: ${videoUrl}`);
-
-      const isAccessible = await checkVideoUrl(videoUrl);
-
-      if (isAccessible) {
-        console.log(`[Cleanup] ✅ ${video.filename} - accessible`);
+    for (const video of videoEntries) {
+      const videoName = videoFilenameFromUrl(video.video_url, video.filename);
+      if (storedVideos.has(videoName)) {
         toKeep.push(video.filename);
       } else {
-        console.log(`[Cleanup] ❌ ${video.filename} - NOT accessible`);
+        console.log(`[Cleanup] ❌ ${video.filename}: video file "${videoName}" missing from storage`);
         toDelete.push(video.filename);
       }
     }
 
-    console.log(`[Cleanup] Summary: ${toKeep.length} to keep, ${toDelete.length} to delete`);
-
-    if (toDelete.length > 0) {
-      console.log('[Cleanup] Deleting corrupt entries...');
-      
-      for (const filename of toDelete) {
-        await db.deleteImageDuration(filename);
-        console.log(`[Cleanup] ✅ Deleted ${filename}`);
-      }
+    for (const filename of toDelete) {
+      await db.deleteImageDuration(filename);
+      console.log(`[Cleanup] ✅ Removed orphaned video entry: ${filename}`);
     }
+    console.log(`[Cleanup] Step 3: ${toKeep.length} kept, ${toDelete.length} removed`);
 
     const result: CleanupResult = {
-      checked: videos.length,
+      checked: videoEntries.length,
       deleted: toDelete.length,
       kept: toKeep.length,
       deletedEntries: toDelete,
@@ -155,12 +104,9 @@ export default async function handler(
     };
 
     console.log('[Cleanup] Cleanup complete:', result);
-    
     return res.status(200).json(result);
   } catch (error: any) {
     console.error('[Cleanup] Error:', error);
-    return res.status(500).json({ 
-      error: error.message || "Cleanup failed" 
-    });
+    return res.status(500).json({ error: error.message || "Cleanup failed" });
   }
 }
