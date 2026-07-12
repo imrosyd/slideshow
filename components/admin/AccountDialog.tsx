@@ -34,6 +34,7 @@ export const AccountDialog: React.FC<AccountDialogProps> = ({
   };
 
   const close = () => {
+    if (isSubmitting) return;
     reset();
     onClose();
   };
@@ -85,22 +86,26 @@ export const AccountDialog: React.FC<AccountDialogProps> = ({
     }
   };
 
+  const labelClass = 'block text-sm font-medium mb-1.5 text-white/70';
   const inputClass =
-    'w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50';
+    'w-full rounded-xl border border-white/15 bg-slate-800/60 px-4 py-2.5 text-sm text-white placeholder:text-white/30 transition focus:border-sky-400/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30 disabled:cursor-not-allowed disabled:opacity-50';
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-        <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">🔑 Account</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Change the admin username and/or password
-          {currentUsername ? ` (signed in as "${currentUsername}")` : ''}.
-        </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={close} />
+      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80 p-8 shadow-glass backdrop-blur-2xl">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-2xl font-semibold tracking-tight text-white/95">Account</h2>
+          <p className="text-sm leading-relaxed text-white/70">
+            Change the admin username and/or password
+            {currentUsername ? ` (signed in as "${currentUsername}")` : ''}.
+          </p>
+        </div>
 
-        <div className="space-y-4">
+        <div className="mt-6 space-y-4">
           <div>
-            <label className="block text-sm font-semibold mb-1.5 text-gray-700">
-              Current password <span className="text-red-500">*</span>
+            <label className={labelClass}>
+              Current password <span className="text-rose-300/80">*</span>
             </label>
             <input
               type="password"
@@ -113,9 +118,9 @@ export const AccountDialog: React.FC<AccountDialogProps> = ({
             />
           </div>
 
-          <div className="border-t border-gray-100 pt-4">
-            <label className="block text-sm font-semibold mb-1.5 text-gray-700">
-              New username <span className="text-gray-400 font-normal">(optional)</span>
+          <div className="border-t border-white/10 pt-4">
+            <label className={labelClass}>
+              New username <span className="font-normal text-white/40">(optional)</span>
             </label>
             <input
               type="text"
@@ -129,8 +134,8 @@ export const AccountDialog: React.FC<AccountDialogProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-1.5 text-gray-700">
-              New password <span className="text-gray-400 font-normal">(optional)</span>
+            <label className={labelClass}>
+              New password <span className="font-normal text-white/40">(optional)</span>
             </label>
             <input
               type="password"
@@ -145,9 +150,7 @@ export const AccountDialog: React.FC<AccountDialogProps> = ({
 
           {newPassword && (
             <div>
-              <label className="block text-sm font-semibold mb-1.5 text-gray-700">
-                Confirm new password
-              </label>
+              <label className={labelClass}>Confirm new password</label>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -162,25 +165,25 @@ export const AccountDialog: React.FC<AccountDialogProps> = ({
         </div>
 
         {error && (
-          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-700">
-              <span className="font-semibold">❌ Error:</span> {error}
-            </p>
+          <div className="mt-5 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3">
+            <p className="text-sm text-rose-200">{error}</p>
           </div>
         )}
 
-        <div className="flex gap-3 mt-8">
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           <button
+            type="button"
             onClick={close}
             disabled={isSubmitting}
-            className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 font-medium transition-colors"
+            className="inline-flex items-center justify-center rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 font-medium transition-all flex items-center justify-center gap-2"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/30 transition hover:shadow-sky-500/40 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? (
               <>
