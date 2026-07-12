@@ -3,5 +3,22 @@
   "rules": {
     "@next/next/no-img-element": "off",
     "react-hooks/exhaustive-deps": "warn"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["**/*.ts", "**/*.tsx"],
+      "parser": "@typescript-eslint/parser",
+      "parserOptions": {
+        "project": "./tsconfig.json"
+      },
+      "plugins": ["@typescript-eslint"],
+      "rules": {
+        "@typescript-eslint/no-misused-promises": [
+          "error",
+          { "checksConditionals": true, "checksVoidReturn": false }
+        ],
+        "@typescript-eslint/no-floating-promises": "warn"
+      }
+    }
+  ]
 }
