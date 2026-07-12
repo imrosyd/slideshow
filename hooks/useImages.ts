@@ -75,7 +75,7 @@ export const useImages = (authToken: string | null) => {
     setFetchState("loading");
     try {
       const headers: Record<string, string> = authToken
-        ? { Authorization: `Token ${authToken}` }
+        ? { Authorization: `Bearer ${authToken}` }
         : {};
 
       const response = await fetch("/api/admin/images", {
@@ -204,7 +204,7 @@ export const useImages = (authToken: string | null) => {
             const xhr = new XMLHttpRequest();
             xhr.open("POST", "/api/upload");
             if (authToken) {
-              xhr.setRequestHeader("Authorization", `Token ${authToken}`);
+              xhr.setRequestHeader("Authorization", `Bearer ${authToken}`);
             }
 
             xhr.upload.onprogress = (event) => {
@@ -260,7 +260,7 @@ export const useImages = (authToken: string | null) => {
           "Content-Type": "application/json",
         };
         if (authToken) {
-          headers.Authorization = `Token ${authToken}`;
+          headers.Authorization = `Bearer ${authToken}`;
         } else {
           console.error("[useImages] No auth token available for deletion");
           throw new Error("Authentication required for deletion");
@@ -360,7 +360,7 @@ export const useImages = (authToken: string | null) => {
         "Content-Type": "application/json",
       };
       if (authToken) {
-        headers.Authorization = `Token ${authToken}`;
+        headers.Authorization = `Bearer ${authToken}`;
       }
 
       const response = await fetch("/api/admin/metadata", {
@@ -420,7 +420,7 @@ export const useImages = (authToken: string | null) => {
         "Content-Type": "application/json",
       };
       if (authToken) {
-        headers.Authorization = `Token ${authToken}`;
+        headers.Authorization = `Bearer ${authToken}`;
       }
 
       const response = await fetch("/api/admin/rename-image", {
@@ -465,7 +465,7 @@ export const useImages = (authToken: string | null) => {
           "Content-Type": "application/json",
         };
         if (authToken) {
-          headers.Authorization = `Token ${authToken}`;
+          headers.Authorization = `Bearer ${authToken}`;
         }
 
         const payload = {
@@ -547,7 +547,7 @@ export const useImages = (authToken: string | null) => {
           "Content-Type": "application/json",
         };
         if (authToken) {
-          headers.Authorization = `Token ${authToken}`;
+          headers.Authorization = `Bearer ${authToken}`;
         }
 
         const response = await fetch("/api/admin/generate-video", {
@@ -612,7 +612,7 @@ export const useImages = (authToken: string | null) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
           },
           body: JSON.stringify({
             filename,
@@ -800,7 +800,7 @@ export const useImages = (authToken: string | null) => {
           "Content-Type": "application/json",
         };
         if (authToken) {
-          headers.Authorization = `Token ${authToken}`;
+          headers.Authorization = `Bearer ${authToken}`;
         }
 
         const response = await fetch("/api/admin/metadata", {
