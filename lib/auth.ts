@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import jwt from 'jsonwebtoken';
+import { getJwtSecret } from './jwt-secret';
 
 export async function verifyAuth(
   req: NextApiRequest,
@@ -14,7 +15,7 @@ export async function verifyAuth(
   const token = authHeader.replace("Bearer ", "");
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-default-secret') as { userId: string, email: string, role: string };
+    const decoded = jwt.verify(token, getJwtSecret()) as { userId: string, email: string, role: string };
     return {
       authenticated: true,
       userId: decoded.userId,
