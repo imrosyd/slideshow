@@ -14,6 +14,7 @@ const ImageCard = dynamicImport(async () => (await import("../components/admin/I
 const ConfirmModal = dynamicImport(async () => (await import("../components/admin/ConfirmModal")).ConfirmModal as any, { ssr: false }) as any;
 const MergeVideoDialog = dynamicImport(async () => (await import("../components/admin/MergeVideoDialog")).MergeVideoDialog as any, { ssr: false }) as any;
 const BulkEditDialog = dynamicImport(async () => (await import("../components/admin/BulkEditDialog")).BulkEditDialog as any, { ssr: false }) as any;
+const AccountDialog = dynamicImport(async () => (await import("../components/admin/AccountDialog")).AccountDialog as any, { ssr: false }) as any;
 import { useImages } from "../hooks/useImages";
 import { useToast } from "../hooks/useToast";
 
@@ -22,6 +23,7 @@ const AdminContent = () => {
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
 
   const [renameDialog, setRenameDialog] = useState<{ filename: string } | null>(null);
   const [renameInput, setRenameInput] = useState("");
@@ -795,6 +797,17 @@ const AdminContent = () => {
 
               <button
                 type="button"
+                onClick={() => setAccountOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-sky-400/30 bg-sky-500/10 px-4 py-2.5 text-sm font-medium text-sky-200 transition hover:border-sky-400/50 hover:bg-sky-500/20 active:scale-95"
+                title="Change username or password"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a3 3 0 11-6 0 3 3 0 016 0zM5 20a7 7 0 0114 0H5z" />
+                </svg>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleLogout}
                 disabled={isLoggingOut}
                 className="inline-flex items-center gap-2 rounded-lg border border-rose-400/30 bg-rose-500/10 px-4 py-2.5 text-sm font-medium text-rose-200 transition hover:border-rose-400/50 hover:bg-rose-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
@@ -1291,6 +1304,13 @@ const AdminContent = () => {
         onSaveAll={saveMultipleMetadata}
         onDeleteImages={handleBulkDelete}
         isSaving={isSavingMetadata}
+      />
+
+      <AccountDialog
+        isOpen={accountOpen}
+        onClose={() => setAccountOpen(false)}
+        authToken={authToken}
+        onSuccess={(message: string) => pushToast({ variant: "success", description: message })}
       />
 
       {fullscreenImage && (
