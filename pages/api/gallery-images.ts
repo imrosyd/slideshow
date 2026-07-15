@@ -108,6 +108,18 @@ export default async function handler(
         
         return true;
       })
+      // Preserve the same slide order configured in the admin dashboard (order_index),
+      // so the public gallery matches the order baked into the generated video.
+      .sort((a, b) => {
+        const orderA = a.metadata?.order_index ?? 999999;
+        const orderB = b.metadata?.order_index ?? 999999;
+
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+
+        return a.name.localeCompare(b.name);
+      })
       .map(({ name, url }) => ({ name, url }));
 
     console.log(`[Gallery Images] Returning ${imageData.length} images for gallery.`);
