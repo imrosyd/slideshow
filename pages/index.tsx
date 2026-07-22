@@ -16,6 +16,10 @@ const FAST_REFRESH_INTERVAL_MS = 2_000; // Fast refresh after video updates
 const LANGUAGE_SWAP_INTERVAL_MS = 5_000;
 const DEFAULT_SLIDE_DURATION_SECONDS = 10;
 const LANGUAGE_SEQUENCE: Language[] = ["en", "id", "ko"];
+// If a /remote session opens an image preview and then disconnects abruptly
+// (tab closed, network drop, logout) without ever sending "hide-image", this
+// is how long the display waits before auto-resuming the normal rotation.
+const OVERLAY_WATCHDOG_MS = 2 * 60_000;
 
 const SUPABASE_ORIGIN = (() => {
   try {
@@ -459,8 +463,9 @@ export default function Home() {
   // Ensure single video loops seamlessly
   useSingleVideoLoop(videoRef);
 
-  // Keep webOS TV awake
-  useKeepAwake(!isPaused);
+  // Keep webOS TV awake for as long as the app is running, independent of
+  // slideshow/preview pause state (a stuck isPaused must never cause standby)
+  useKeepAwake();
 
   // Check orientation on mount and when it changes
   useEffect(() => {
@@ -687,10 +692,17 @@ export default function Home() {
 
   const handleImageClick = useCallback((image: { name: string; url: string }) => {
     setSelectedImage(image);
+    // Only capture the pre-preview pause state and pause the slideshow the
+    // first time an overlay opens. Browsing multiple images from /remote
+    // fires this repeatedly while the overlay is already open; re-capturing
+    // isPaused on every click would record the already-paused state as
+    // wasPaused, so closing the preview would never resume the slideshow.
+    if (!isOverlayVisible) {
+      setWasPaused(isPaused); // Remember current pause state
+      slideshowPause(); // Pause slideshow when preview opens
+    }
     setIsOverlayVisible(true);
-    setWasPaused(isPaused); // Remember current pause state
-    slideshowPause(); // Pause slideshow when preview opens
-  }, [isPaused, slideshowPause]);
+  }, [isPaused, isOverlayVisible, slideshowPause]);
 
 
 
@@ -759,6 +771,21 @@ export default function Home() {
       }
     }
   }, [wasPaused, slideshowPlay, videoRef, currentSlide]);
+
+  // Safety net: if the remote session that opened this preview disconnects
+  // without sending "hide-image" (tab closed, network drop, logout), the
+  // slideshow would otherwise stay paused on this image forever. Auto-close
+  // after a bounded timeout so the display always keeps running.
+  useEffect(() => {
+    if (!isOverlayVisible) return;
+
+    const watchdog = setTimeout(() => {
+      console.warn('⏱️ Image overlay left open too long with no hide-image — auto-resuming slideshow');
+      handleClosePreview();
+    }, OVERLAY_WATCHDOG_MS);
+
+    return () => clearTimeout(watchdog);
+  }, [isOverlayVisible, handleClosePreview]);
 
   // Mouse movement handler for gallery show/hide
   useEffect(() => {

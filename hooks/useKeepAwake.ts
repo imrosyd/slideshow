@@ -1,15 +1,15 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Keep webOS TV awake during video playback
- * Dispatches mouse events to prevent screen timeout
+ * Keep webOS TV awake for as long as this app is mounted.
+ * Runs unconditionally (not gated on app-level pause/preview state) so a
+ * stuck `isPaused`/overlay flag elsewhere can never cause the TV to standby.
+ * Dispatches mouse events to prevent screen timeout.
  */
-export function useKeepAwake(isPlaying: boolean) {
+export function useKeepAwake() {
   const lastKeepAwakeRef = useRef(0);
 
   useEffect(() => {
-    if (!isPlaying) return;
-
     const triggerKeepAwake = () => {
       if (typeof document === 'undefined') return;
       document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
@@ -28,5 +28,5 @@ export function useKeepAwake(isPlaying: boolean) {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [isPlaying]);
+  }, []);
 }
