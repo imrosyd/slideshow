@@ -4,7 +4,7 @@ import * as path from 'path';
 import { db } from '../../../lib/db';
 import { storage } from '../../../lib/storage-adapter';
 import computeFileHash from '../../../lib/file-hash';
-import { runFfmpeg } from '../../../lib/ffmpeg-runner';
+import { runFfmpeg, mapPresetToNvenc } from '../../../lib/ffmpeg-runner';
 
 interface VideoImageData {
   filename: string;
@@ -119,16 +119,16 @@ export default async function handler(
       ...inputArgs,
       '-filter_complex', filterComplex,
       '-map', '[out]',
-      '-c:v', 'libx264',
+      '-c:v', 'h264_nvenc',
       '-r', String(defaultEnc.fps),
       '-g', String(defaultEnc.gop),
       '-profile:v', defaultEnc.profile,
       '-level', defaultEnc.level,
-      '-preset', defaultEnc.preset,
-      '-crf', String(defaultEnc.crf),
+      '-preset', mapPresetToNvenc(defaultEnc.preset),
+      '-rc', 'vbr',
+      '-cq', String(defaultEnc.crf),
       '-pix_fmt', 'yuv420p',
       '-movflags', '+faststart',
-      '-tune', 'stillimage',
       '-y', tempVideoPath,
     ], { label: 'Video Gen' });
 

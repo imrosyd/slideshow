@@ -6,7 +6,7 @@ import { db } from "../../../lib/db";
 import { storage } from "../../../lib/storage-adapter";
 import { broadcast } from "../../../lib/websocket";
 import computeFileHash from '../../../lib/file-hash';
-import { runFfmpeg } from "../../../lib/ffmpeg-runner";
+import { runFfmpeg, mapPresetToNvenc } from "../../../lib/ffmpeg-runner";
 
 type ImageInput = {
   filename: string;
@@ -80,16 +80,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       "-safe", "0",
       "-i", concatFilePath,
       "-vf", `scale=${defaultEnc.width}:${defaultEnc.height}:force_original_aspect_ratio=decrease,pad=${defaultEnc.width}:${defaultEnc.height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p`,
-      "-c:v", "libx264",
+      "-c:v", "h264_nvenc",
       "-r", defaultEnc.fps.toString(),
       "-g", defaultEnc.gop.toString(),
       "-profile:v", defaultEnc.profile,
       "-level", defaultEnc.level,
-      "-preset", defaultEnc.preset,
-      "-crf", defaultEnc.crf.toString(),
+      "-preset", mapPresetToNvenc(defaultEnc.preset),
+      "-rc", "vbr",
+      "-cq", defaultEnc.crf.toString(),
       "-pix_fmt", "yuv420p",
       "-movflags", "+faststart",
-      "-tune", "stillimage",
       "-y",
       outputPath
     ], { label: "Merge Video" });
