@@ -217,6 +217,11 @@ export const useImages = (authToken: string | null) => {
               if (xhr.status >= 200 && xhr.status < 300) {
                 updateTask(task.id, { progress: 100, status: "success" });
                 resolve(true);
+              } else if (xhr.status === 401) {
+                sessionStorage.removeItem("admin-auth-token");
+                const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+                window.location.href = `/login?redirect=${redirect}`;
+                resolve(false);
               } else {
                 const error =
                   xhr.responseText ||
