@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import Head from "next/head";
 import { supabase } from "../lib/supabase-mock";
+import useWebSocket from "../hooks/useWebSocket";
 import { useSlideshow } from "../hooks/useSlideshow";
 import { useVideoPlayer } from "../hooks/useVideoPlayer";
 import { useVideoPreload } from "../hooks/useVideoPreload";
@@ -864,61 +865,66 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Additional listener specifically for video updates
-  useEffect(() => {
-    // Use a unique channel ID to avoid conflicts
-    const channelName = `video-updates-${Date.now()}`;
-    const channel = supabase
-      .channel(channelName)
-      .on("broadcast", { event: 'video-updated' }, (payload: any) => {
-        // Handle different video actions
-        if (payload.action === 'deleted') {
-          fetchSlides(true).then(() => {
-          }).catch((err: any) => {
-            console.error("❌ Failed to refresh slides after video deletion:", err);
-          });
-        } else {
-          // Handle video creation/replacement
-          // Clear any existing fast refresh timer
-          if (fastRefreshTimer) {
-            clearInterval(fastRefreshTimer);
-            setFastRefreshTimer(null);
-          }
+  // Real-time updates pushed from the server over the WebSocket connection
+  // (see lib/websocket.ts broadcast() calls). This is what lets the TV pick
+  // up new videos/images live, without a manual page reload.
+  const handleRealtimeMessage = useCallback((message: any) => {
+    if (!message || typeof message !== 'object') return;
 
-          // Initial refresh
-          fetchSlides(true).then(() => {
-            // Set up fast refresh for the next 20 seconds (every 2 seconds)
-            const timer = setInterval(() => {
-              fetchSlides(true);
-            }, FAST_REFRESH_INTERVAL_MS);
+    if (message.event === 'video-updated') {
+      const payload = message.payload || {};
+      if (payload.action === 'deleted') {
+        fetchSlides(true).catch((err: any) => {
+          console.error("❌ Failed to refresh slides after video deletion:", err);
+        });
+      } else {
+        // Handle video creation/replacement
+        // Clear any existing fast refresh timer
+        setFastRefreshTimer((prev) => {
+          if (prev) clearInterval(prev);
+          return null;
+        });
 
-            setFastRefreshTimer(timer);
+        // Initial refresh
+        fetchSlides(true).then(() => {
+          // Set up fast refresh for the next 20 seconds (every 2 seconds)
+          const timer = setInterval(() => {
+            fetchSlides(true);
+          }, FAST_REFRESH_INTERVAL_MS);
 
-            // Stop fast refresh after 20 seconds
-            setTimeout(() => {
-              if (timer) {
+          setFastRefreshTimer(timer);
+
+          // Stop fast refresh after 20 seconds
+          setTimeout(() => {
+            setFastRefreshTimer((current) => {
+              if (current === timer) {
                 clearInterval(timer);
-                setFastRefreshTimer(null);
+                return null;
               }
-            }, 20_000);
-          }).catch((err: any) => {
-            console.error("❌ Failed to refresh slides after video update:", err);
-          });
-        }
-      })
-      .subscribe((status: any) => {
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-
-      // Clean up fast refresh timer
-      if (fastRefreshTimer) {
-        clearInterval(fastRefreshTimer);
-        setFastRefreshTimer(null);
+              return current;
+            });
+          }, 20_000);
+        }).catch((err: any) => {
+          console.error("❌ Failed to refresh slides after video update:", err);
+        });
       }
+    } else if (message.event === 'image-updated') {
+      fetchAdminImages().catch((err: any) => {
+        console.error("❌ Failed to refresh gallery after image update:", err);
+      });
+    }
+  }, [fetchSlides, fetchAdminImages]);
+
+  useWebSocket(handleRealtimeMessage);
+
+  useEffect(() => {
+    return () => {
+      setFastRefreshTimer((current) => {
+        if (current) clearInterval(current);
+        return null;
+      });
     };
-  }, [fastRefreshTimer, currentSlide?.name, fetchSlides]); // Include missing dependencies
+  }, []);
 
   // Overlay mode state management
   useEffect(() => {
@@ -967,25 +973,6 @@ export default function Home() {
       }
     }
   }, [currentIndex, currentSlide, isPaused, play, videoRef]);
-
-  // Additional listener for image metadata updates
-  useEffect(() => {
-    const channelName = `image-updates-${Date.now()}`;
-    const channel = supabase
-      .channel(channelName)
-      .on("broadcast", { event: 'image-updated' }, (payload) => {
-        // When images are added, deleted, or metadata changes, refresh the gallery
-        fetchAdminImages().catch(err => {
-          console.error("❌ Failed to refresh gallery after image update:", err);
-        });
-      })
-      .subscribe((status) => {
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchAdminImages]);
 
   // Dashboard status checker - ensures main page mirrors admin page
   useEffect(() => {

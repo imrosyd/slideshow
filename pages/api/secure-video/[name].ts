@@ -18,9 +18,19 @@ export default async function handler(
 
   try {
     const videoPath = (storage as any).getVideoPath(name);
-    const fileBuffer = await fs.readFile(videoPath);
+    const stat = await fs.stat(videoPath);
+    const etag = `"${name}-${stat.mtimeMs}-${stat.size}"`;
 
-    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.setHeader('Cache-Control', 'private, no-cache, must-revalidate');
+    res.setHeader('ETag', etag);
+    res.setHeader('Last-Modified', stat.mtime.toUTCString());
+
+    const ifNoneMatch = req.headers['if-none-match'];
+    if (ifNoneMatch === etag) {
+      return res.status(304).end();
+    }
+
+    const fileBuffer = await fs.readFile(videoPath);
     res.setHeader('Content-Type', 'video/mp4');
     res.send(fileBuffer);
 

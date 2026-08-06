@@ -14,16 +14,22 @@ export default async function handler(
 
   try {
     const videoPath = (storage as any).getVideoPath(name);
-    const fileBuffer = await fs.readFile(videoPath);
+    const stat = await fs.stat(videoPath);
+    // Content-derived ETag: the fixed filename (e.g. dashboard.mp4) gets
+    // overwritten in place, so the tag must change with mtime/size or a
+    // browser/CDN cache would keep serving the old video forever.
+    const etag = `"${name}-${stat.mtimeMs}-${stat.size}"`;
 
-    res.setHeader('Cache-Control', 'public, max-age=604800, s-maxage=2592000, immutable');
-    res.setHeader('ETag', `"${name}-v1"`);
-    
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    res.setHeader('ETag', etag);
+    res.setHeader('Last-Modified', stat.mtime.toUTCString());
+
     const ifNoneMatch = req.headers['if-none-match'];
-    if (ifNoneMatch === `"${name}-v1"`) {
+    if (ifNoneMatch === etag) {
       return res.status(304).end();
     }
 
+    const fileBuffer = await fs.readFile(videoPath);
     res.setHeader('Content-Type', 'video/mp4');
     res.send(fileBuffer);
 

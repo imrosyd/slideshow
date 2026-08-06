@@ -34,11 +34,22 @@ export default async function handler(
 
   try {
     const stat = fs.statSync(filepath);
+    // Content-derived ETag: fixed filenames (e.g. dashboard.mp4) get
+    // overwritten in place, so the cache must revalidate against mtime/size
+    // instead of being marked immutable, or old bytes get served forever.
+    const etag = `"${sanitizedFilename}-${stat.mtimeMs}-${stat.size}"`;
 
     // Set basic headers
     res.setHeader('Content-Type', 'video/mp4');
     res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    res.setHeader('ETag', etag);
+    res.setHeader('Last-Modified', stat.mtime.toUTCString());
+
+    const ifNoneMatch = req.headers['if-none-match'];
+    if (ifNoneMatch === etag) {
+      return res.status(304).end();
+    }
 
     // Handle range requests (required for video scrubbing)
     const range = req.headers.range;
