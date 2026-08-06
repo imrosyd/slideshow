@@ -554,11 +554,16 @@ export default function Home() {
       });
 
       if (!checkRes.ok) {
-        // If check fails, treat as missing dashboard to be safe
-        console.warn('[fetchSlides] /api/check-dashboard returned error, treating as no dashboard');
-        setSlides([]);
-        setError(null);
-        setLoading(true);
+        // A transient failure (e.g. the network just came back after an
+        // outage) should not interrupt whatever is currently playing on the
+        // TV. Only fall back to the "no dashboard" placeholder on the
+        // initial load, when there is nothing on screen to protect.
+        console.warn('[fetchSlides] /api/check-dashboard returned error, keeping current slide');
+        if (!isAutoRefresh) {
+          setSlides([]);
+          setError(null);
+          setLoading(true);
+        }
         return null;
       }
 
