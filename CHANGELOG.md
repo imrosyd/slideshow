@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.1] - 2026-08-07
+
+### 🐛 Fixes & Hardening
+
+#### Fixed
+- **Live TV updates**: display page now listens to the real WebSocket server instead of a local-only broadcast shim, so the TV refreshes content as soon as the server pushes an update
+- **Stale cached video**: fixed-filename video routes (`dashboard.mp4`) now use `must-revalidate` with a content-derived ETag/Last-Modified instead of a year-long immutable cache, so reloads always fetch the current file
+- **Transient refresh failures**: a failed auto-refresh no longer drops the currently playing video/slide and shows a standby placeholder — only the initial load falls back to the placeholder
+- **Expired session handling**: expired JWTs now redirect the user to `/login` instead of failing silently with a generic 401
+- **webOS TV standby**: fixed TV going to standby after a `/remote` image-preview session
+- **Public gallery ordering**: gallery images are now sorted by `order_index`
+- **Mixed-content WebSocket crash**: fixed an uncaught `SecurityError` on HTTPS caused by comparing `window.location.protocol` against `'https'` instead of `'https:'`
+- **Orphaned video cleanup**: cleanup now removes orphaned merged-video database rows and verifies files still exist on disk
+- **Video generation reliability**: stopped leaking temp directories during FFmpeg processing, deprioritized FFmpeg CPU usage, and surfaced real errors instead of swallowing them
+- **Admin auth**: admin guard is now properly awaited so it actually blocks unauthenticated requests; `useImages` now sends the `Bearer` auth scheme so admin actions authenticate correctly
+
+#### Added
+- **GPU video encoding**: slideshow video generation can now use NVENC GPU encoding
+- **Change credentials from admin UI**: username/password can now be changed directly from the admin page
+- **Type-aware ESLint rules**: catch async-guard bugs (missing `await` on auth checks) at lint time
+
+#### Security
+- **JWT_SECRET required**: the app now requires `JWT_SECRET` to be set and drops the hardcoded fallback secret
+
+#### Changed
+- **Admin UI**: `AccountDialog` restyled to match the app theme, emoji removed
+
+---
+
 ## [3.4.0] - 2025-11-22
 
 ### ⚡ Video Caching & Performance
