@@ -4,7 +4,17 @@ exports.broadcast = exports.initWebSocketServer = void 0;
 const ws_1 = require("ws");
 let wss;
 const initWebSocketServer = (server) => {
-    wss = new ws_1.WebSocketServer({ server });
+    wss = new ws_1.WebSocketServer({ noServer: true });
+    server.on('upgrade', (request, socket, head) => {
+        const pathname = request.url;
+        // Ignore Next.js HMR requests
+        if (pathname === null || pathname === void 0 ? void 0 : pathname.includes('/_next/webpack-hmr')) {
+            return;
+        }
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request);
+        });
+    });
     wss.on('connection', (ws) => {
         console.log('Client connected');
         ws.on('close', () => console.log('Client disconnected'));
