@@ -7,8 +7,12 @@ const initWebSocketServer = (server) => {
     wss = new ws_1.WebSocketServer({ noServer: true });
     server.on('upgrade', (request, socket, head) => {
         const pathname = request.url;
-        // Ignore Next.js HMR requests
-        if (pathname === null || pathname === void 0 ? void 0 : pathname.includes('/_next/webpack-hmr')) {
+        // Only handle our dedicated WS path. Next.js registers its own
+        // 'upgrade' listener on this same server; for paths that match a real
+        // Next.js route it destroys the socket right after our handshake,
+        // causing an immediate connect/disconnect loop on the client. Using a
+        // path Next.js doesn't own avoids that collision entirely.
+        if (pathname !== '/ws') {
             return;
         }
         wss.handleUpgrade(request, socket, head, (ws) => {
